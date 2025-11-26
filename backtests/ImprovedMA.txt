@@ -1,0 +1,68 @@
+Test ImprovedMA EUR/USD, Zorro 2.700
+
+Simulated account   AssetsFix 
+Bar period          24 hours (avg 2025 min)
+Total allocated     2006 bars
+Test period         2020-01-02..2025-01-01 (1300 bars)
+Lookback period     100 bars (28 weeks)
+Montecarlo cycles   200
+Backtest mode       Bars
+Avg bar             73.8 pips range
+Spread              1.5 pips (roll -0.10/-0.11)
+Lot size            1000.00
+
+Gross win/loss      170$-109$, +608.3p, lr 54.29$
+Average profit      12.17$/year, 1.01$/month, 0.0468$/day
+Max drawdown        -41.26$ 40.4% (MAE -73.05$)
+Total down time     63% (TAE 31%)
+Max down time       102 weeks from Jun 2021
+Max open margin     12.10$
+Max open risk       23.62$
+Trade volume        14420$ (2884$/year)
+Transaction costs   -1.95$ spr, -0.75$ slp, -6.02$ rol
+Capital required    44.06$ (to cover drawdown)
+
+Number of trades    13 (3/year)
+Percent winning     30.8%
+Max win/loss        82.56$ / -19.57$
+Avg trade profit    4.68$ 46.8p (+424.3p / -121.0p)
+Avg trade slippage  -0.0580$ -0.6p (+0.8p / -1.2p)
+Avg trade bars      33 (+69 / -17)
+Max trade bars      91 (25 weeks)
+Time in market      34%
+Max open trades     1
+Max loss streak     3 (uncorrelated 8)
+
+Annual return       28%
+Profit factor       1.56 (PRR 0.58)
+Reward/Risk ratio   1.5
+Sharpe ratio        0.27 (Sortino 0.29)
+Kelly criterion     0.27
+Annualized StdDev   101.06% 
+R2 coefficient      0.000
+Ulcer index         28.7%
+Scholz tax          16 EUR
+
+Year Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec Total%
+2020         -44   0  50  29 129  27 -48   0  40  58  +242
+2021 -25 -29   0 -17  44 -57   0   0 -23   0   0   0  -100
+2022 -31   0   0   0   0   0   0   0   0   0  66  78  +114
+2023  41 -58   0  34 -74   0  28 -35   0   0  50  38   +25
+2024 -63   0 -26   0   2 -25 -13 -10   0   0   0   0  -100
+
+Montecarlo Level   AR  DDMax  Capital
+ 10% Confidence    39%    25      31$
+ 20% Confidence    34%    30      36$
+ 30% Confidence    32%    33      38$
+ 40% Confidence    30%    36      40$
+ 50% Confidence    28%    41      44$
+ 60% Confidence    26%    46      47$
+ 70% Confidence    24%    50      51$
+ 80% Confidence    22%    55      55$
+ 90% Confidence    19%    69      66$
+ 95% Confidence    16%    80      74$
+100% Confidence    11%   128     111$
+
+Portfolio analysis  Perf  ProF  Win/Loss   Wgt%
+
+EUR/USD:L           .071  1.56    4/9     100.0  

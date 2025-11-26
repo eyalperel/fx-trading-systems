@@ -1,0 +1,50 @@
+# Trading Data - too large for Git
+data/
+*.t6
+*.t1
+*.t8
+*.his
+*.fxt
+*.hst
+
+# Zorro temporary files
+History/
+Log/
+Results/
+*.prj
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv
+*.egg-info/
+dist/
+build/
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Large result files
+*.zip
+*.rar
+*.7z
+
+# Sensitive info
+config/credentials.ini
+**/api_keys.txt

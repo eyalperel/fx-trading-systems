@@ -1,0 +1,103 @@
+filename,title,author,magazine,vol_issue,publication_date,pages,keywords,scanned_yes_no,notes,code_flag
+Measuring Market Cycles.pdf,Measuring Market Cycles.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+The Reverse EMA Indicator.pdf,The Reverse EMA Indicator.pdf,,Stocks & Commodities,,,,ema;moving-average,no,,no
+The Deviation-Scaled Moving Average.pdf,The Deviation-Scaled Moving Average.pdf,,Stocks & Commodities,,,,,no,,no
+Recursive Median Filters.pdf,Recursive Median Filters.pdf,,Stocks & Commodities,,,,filter;median;oscillator;rsi,no,,no
+RocketRSI—A Solid Propellant For Your Rocket Science Trading.pdf,RocketRSI—A Solid Propellant For Your Rocket Science Trading.pdf,,Stocks & Commodities,,,,oscillator;rsi,no,,no
+Probability—Probably A Good Thing To Know.pdf,Probability—Probably A Good Thing To Know.pdf,,Stocks & Commodities,,,,,no,,no
+Creating More Robust Trading Strategies With The FM Demodulator.pdf,Creating More Robust Trading Strategies With The FM Demodulator.pdf,,Stocks & Commodities,,,,,no,,no
+A Technical Description Of Market Data For Traders.pdf,A Technical Description Of Market Data For Traders.pdf,,Stocks & Commodities,,,,,no,,no
+"The MAD Indicator, Enhanced.pdf","The MAD Indicator, Enhanced.pdf",,Stocks & Commodities,,,,,no,,no
+Cycle_Trend Analytics And The MAD Indicator.pdf,Cycle_Trend Analytics And The MAD Indicator.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Windowing.pdf,Windowing.pdf,,Stocks & Commodities,,,,,no,,no
+Inverse Fisher Transform Redux.pdf,Inverse Fisher Transform Redux.pdf,,Stocks & Commodities,,,,confirmation;fisher;oscillator;transform,no,,no
+(Yet Another) Improved RSI.pdf,(Yet Another) Improved RSI.pdf,,Stocks & Commodities,,,,oscillator;rsi,no,,no
+Pairs Rotation With Ehlers Loops part 2.pdf,Pairs Rotation With Ehlers Loops part 2.pdf,,Stocks & Commodities,,,,pairs;portfolio,no,,no
+Ehlers Loops Part 1.pdf,Ehlers Loops Part 1.pdf,,Stocks & Commodities,,,,,no,,no
+Recurring Phase Of Cycle Analysis.pdf,Recurring Phase Of Cycle Analysis.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Just Ignore Them.pdf,Just Ignore Them.pdf,,Stocks & Commodities,,,,,no,,no
+Every Little Bit Helps.pdf,Every Little Bit Helps.pdf,,Stocks & Commodities,,,,,no,,no
+The Ultimate Smoother.pdf,The Ultimate Smoother.pdf,,Stocks & Commodities,,,,baseline;filter;smoother,no,,no
+What Is The Real Meaning Of The EMA Alpha.pdf,What Is The Real Meaning Of The EMA Alpha.pdf,,Stocks & Commodities,,,,ema;moving-average,no,,no
+Ultimate Channels And Ultimate Bands.pdf,Ultimate Channels And Ultimate Bands.pdf,,Stocks & Commodities,,,,bands;channels;range,no,,no
+Ultimate Strength Index (USI).pdf,Ultimate Strength Index (USI).pdf,,Stocks & Commodities,,,,,no,,no
+The Ultimate Oscillator.pdf,The Ultimate Oscillator.pdf,,Stocks & Commodities,,,,oscillator,no,,no
+Plotting With Strategies.pdf,Plotting With Strategies.pdf,,Stocks & Commodities,,,,code;implementation;plotting,no,,yes
+Back To Basics.pdf,Back To Basics.pdf,,Stocks & Commodities,,,,,no,,no
+Drunkard's Walk Theory And Measurement By Autocorrelation.pdf,Drunkard's Walk Theory And Measurement By Autocorrelation.pdf,,Stocks & Commodities,,,,,no,,no
+Linear Predictive Filters And Instantaneous Frequency.pdf,Linear Predictive Filters And Instantaneous Frequency.pdf,,Stocks & Commodities,,,,,no,,no
+Laguerre Filters.pdf,Laguerre Filters.pdf,,Stocks & Commodities,,,,detrending;filter;lag;laguerre,no,,no
+Making A Better Oscillator.pdf,Making A Better Oscillator.pdf,,Stocks & Commodities,,,,oscillator,no,,no
+Removing Moving Average Lag.pdf,Removing Moving Average Lag.pdf,,Stocks & Commodities,,,,detrending;lag,no,,no
+The Continuation Index.pdf,The Continuation Index.pdf,,Stocks & Commodities,,,,,no,,no
+The Super Passband Filter.pdf,The Super Passband Filter.pdf,,Stocks & Commodities,,,,bandpass;baseline;filter,no,,no
+Squelch Those Whipsaws.pdf,Squelch Those Whipsaws.pdf,,Stocks & Commodities,,,,noise;squelch;whipsaw,no,,no
+Nonlinear Ehlers Filters.pdf,Nonlinear Ehlers Filters.pdf,,Stocks & Commodities,,,,,no,,no
+A Peek Into The Future.pdf,A Peek Into The Future.pdf,,Stocks & Commodities,,,,,no,,no
+Fourier Series Model Of The Market.pdf,Fourier Series Model Of The Market.pdf,,Stocks & Commodities,,,,,no,,no
+Noise Elimination Technology.pdf,Noise Elimination Technology.pdf,,Stocks & Commodities,,,,noise;squelch;whipsaw,no,,no
+Reflex_A_New Zero-Lag Indicator.pdf,Reflex_A_New Zero-Lag Indicator.pdf,,Stocks & Commodities,,,,detrending;lag,no,,no
+Truncated Indicators.pdf,Truncated Indicators.pdf,,Stocks & Commodities,,,,,no,,no
+Correlation As A Cycle Indicator.pdf,Correlation As A Cycle Indicator.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Correlation As A Trend Indicator.pdf,Correlation As A Trend Indicator.pdf,,Stocks & Commodities,,,,trend,no,,no
+The DMH_An Improved Directional Movement Indicator.pdf,The DMH_An Improved Directional Movement Indicator.pdf,,Stocks & Commodities,,,,,no,,no
+Fourier Transform For Traders.pdf,Fourier Transform For Traders.pdf,,Stocks & Commodities,,,,,no,,no
+Trading In Your IRA.pdf,Trading In Your IRA.pdf,,Stocks & Commodities,,,,,no,,no
+Measuring Cycle Periods.pdf,Measuring Cycle Periods.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Corona Charts.pdf,Corona Charts.pdf,,Stocks & Commodities,,,,,no,,no
+The Quotient Transform.pdf,The Quotient Transform.pdf,,Stocks & Commodities,,,,,no,,no
+Predictive And Successful Indicators.pdf,Predictive And Successful Indicators.pdf,,Stocks & Commodities,,,,,no,,no
+Whiter Is Brighter.pdf,Whiter Is Brighter.pdf,,Stocks & Commodities,,,,,no,,no
+Schrödinger’s Cat.pdf,Schrödinger’s Cat.pdf,,Stocks & Commodities,,,,,no,,no
+Decyclers.pdf,Decyclers.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Aliasing.pdf,Aliasing.pdf,,Stocks & Commodities,,,,,no,,no
+The RSI Smoothed.pdf,The RSI Smoothed.pdf,,Stocks & Commodities,,,,oscillator;rsi,no,,no
+"Moving Average Computations, Made Easier.pdf","Moving Average Computations, Made Easier.pdf",,Stocks & Commodities,,,,,no,,no
+The Inverse Fisher Transform.pdf,The Inverse Fisher Transform.pdf,,Stocks & Commodities,,,,confirmation;fisher;oscillator;transform,no,,no
+What’s The Difference.pdf,What’s The Difference.pdf,,Stocks & Commodities,,,,,no,,no
+Fractal Adaptive Moving Averages.pdf,Fractal Adaptive Moving Averages.pdf,,Stocks & Commodities,,,,,no,,no
+FRAMA EASYLANGUAGE code.pdf,FRAMA EASYLANGUAGE code.pdf,,Stocks & Commodities,,,,adaptive;code;easylanguage;filter;frama,no,,yes
+Modeling The Market = Building Trading Strategies.pdf,Modeling The Market = Building Trading Strategies.pdf,,Stocks & Commodities,,,,,no,,no
+Swiss Army Knife EASYLANGUAGE code.pdf,Swiss Army Knife EASYLANGUAGE code.pdf,,Stocks & Commodities,,,,code;easylanguage,no,,yes
+Swiss Army Knife Indicator.pdf,Swiss Army Knife Indicator.pdf,,Stocks & Commodities,,,,,no,,no
+When To Trade With Cycles.pdf,When To Trade With Cycles.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Hilbert Indicators Tell You When To Trade.pdf,Hilbert Indicators Tell You When To Trade.pdf,,Stocks & Commodities,,,,hilbert;instantaneous;phase;phasor,no,,no
+Adaptive Trends And Oscillators.pdf,Adaptive Trends And Oscillators.pdf,,Stocks & Commodities,,,,,no,,no
+Zero-Lag Data Smoothers.pdf,Zero-Lag Data Smoothers.pdf,,Stocks & Commodities,,,,detrending;lag,no,,no
+The Center Of Gravity Oscillator.pdf,The Center Of Gravity Oscillator.pdf,,Stocks & Commodities,,,,cog;oscillator,no,,no
+Using The Fisher Transform.PDF,Using The Fisher Transform.PDF,,Stocks & Commodities,,,,confirmation;fisher;oscillator;transform,no,,no
+Optimum Detrending.pdf,Optimum Detrending.pdf,,Stocks & Commodities,,,,baseline;detrending;optimization,no,,no
+Cycle Analysis And Intraday Trading.pdf,Cycle Analysis And Intraday Trading.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Creating Indicators With Physics.pdf,Creating Indicators With Physics.pdf,,Stocks & Commodities,,,,,no,,no
+The Bandpass Indicator.PDF,The Bandpass Indicator.PDF,,Stocks & Commodities,,,,bandpass;filter,no,,no
+Optimum Predictive Filters.pdf,Optimum Predictive Filters.pdf,,Stocks & Commodities,,,,detrending;optimization,no,,no
+Stay In Phase.pdf,Stay In Phase.pdf,,Stocks & Commodities,,,,,no,,no
+Cycle Measurements.pdf,Cycle Measurements.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Do cycles exist in the market.pdf,Do cycles exist in the market.pdf,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Phasor Displays.pdf,Phasor Displays.pdf,,Stocks & Commodities,,,,,no,,no
+Optimal Detrending.pdf,Optimal Detrending.pdf,,Stocks & Commodities,,,,baseline;detrending;optimization,no,,no
+Leading indicators with momentum.pdf,Leading indicators with momentum.pdf,,Stocks & Commodities,,,,,no,,no
+Profit mapping.pdf,Profit mapping.pdf,,Stocks & Commodities,,,,,no,,no
+Trading threshold.pdf,Trading threshold.pdf,,Stocks & Commodities,,,,,no,,no
+Early Trend Identification.pdf,Early Trend Identification.pdf,,Stocks & Commodities,,,,trend,no,,no
+Using A Constant False Alarm Rate In Trading.pdf,Using A Constant False Alarm Rate In Trading.pdf,,Stocks & Commodities,,,,,no,,no
+Computing Cyclic Entries.pdf,Computing Cyclic Entries.pdf,,Stocks & Commodities,,,,,no,,no
+The MACD Indicator Revisited.pdf,The MACD Indicator Revisited.pdf,,Stocks & Commodities,,,,confirmation;macd,no,,no
+Setting stops — a new approach.pdf,Setting stops — a new approach.pdf,,Stocks & Commodities,,,,,no,,no
+Moving averages and smoothing filters.pdf,Moving averages and smoothing filters.pdf,,Stocks & Commodities,,,,,no,,no
+Cyclic personalities.pdf,Cyclic personalities.pdf,,Stocks & Commodities,,,,,no,,no
+Moving averages Part 1.pdf,Moving averages Part 1.pdf,,Stocks & Commodities,,,,,no,,no
+Moving Averages Part 2 Ehlers Leading Indicator (ELI).pdf,Moving Averages Part 2 Ehlers Leading Indicator (ELI).pdf,,Stocks & Commodities,,,,,no,,no
+How to use Maximum Entropy.pdf,How to use Maximum Entropy.pdf,,Stocks & Commodities,,,,,no,,no
+A complete computer trading program Part 3.pdf,A complete computer trading program Part 3.pdf,,Stocks & Commodities,,,,code;implementation;program,no,,yes
+A complete computer trading program Part 1.pdf,A complete computer trading program Part 1.pdf,,Stocks & Commodities,,,,code;implementation;program,no,,yes
+A complete computer trading program Part 4.pdf,A complete computer trading program Part 4.pdf,,Stocks & Commodities,,,,code;implementation;program,no,,yes
+MESA Adaptive Moving Averages.pdf,MESA Adaptive Moving Averages.pdf,,Stocks & Commodities,,,,cycle;mesa;period-estimation,no,,no
+The Instantaneous Trendline.pdf,The Instantaneous Trendline.pdf,,Stocks & Commodities,,,,trendline,no,,no
+Relative Vigor Index (RVI).pdf,Relative Vigor Index (RVI).pdf,,Stocks & Commodities,,,,,no,,no
+A comparison of the Fourier and Maximum.pdf,A comparison of the Fourier and Maximum.pdf,,Stocks & Commodities,,,,,no,,no
+Optimizing directional movement with cycles.PDF,Optimizing directional movement with cycles.PDF,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+Optimizing RSI with cycles.PDF,Optimizing RSI with cycles.PDF,,Stocks & Commodities,,,,cycle;mesa;oscillator;period;rsi,no,,no
+Trading channels.PDF,Trading channels.PDF,,Stocks & Commodities,,,,bands;channels;range,no,,no
+Understanding cycles.PDF,Understanding cycles.PDF,,Stocks & Commodities,,,,cycle;mesa;period,no,,no
+A complete computer trading program Part 2.pdf,A complete computer trading program Part 2.pdf,,Stocks & Commodities,,,,code;implementation;program,no,,yes

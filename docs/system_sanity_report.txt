@@ -1,0 +1,7 @@
+python: 3.13.5
+numpy: 2.3.3
+pandas: 2.3.2
+matplotlib: 3.10.6
+sample: [0, 1, 2, 3, 4]
+file: (Yet Another) Improved RSI.pdf
+snippet: This is neither a solicitation to buy or sell any type of financial instruments, nor intended as investment recommendations. All investment trading involves multiple substantial risks of monetary loss. DonÆt  trade with money you canÆt afford to lose. Trading is not suitable for everyone. Past performance, whether indicated by actual or hypothetical results or testimonials are no guarantee of future performance  or success. NO REPRESENTATION IS BEING MADE THAT ANY ACCOUNT WILL OR IS LIKELY TO ACHIEVE PROFITS OR LOSSES SIMILAR TO THOSE SHOWN. IN FAC T, THERE ARE FREQUENTLY SHARP DIFFERENCES  BETWEEN HYPOTHETICAL PERFORMANCE RESULTS OR TESTIMONIALS AND THE ACTUAL RESULTS SUBSEQUENTLY ACHIEVED BY ANY PARTICULAR TRADING PROGRAM. Furthermore, all internal and external  computer and software sys
