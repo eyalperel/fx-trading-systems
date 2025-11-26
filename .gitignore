@@ -48,3 +48,6 @@ desktop.ini
 # Sensitive info
 config/credentials.ini
 **/api_keys.txt
+# Ehlers Articles - too large for Git
+research/articles/*.pdf
+research/articles/**/*.pdf
