@@ -8,7 +8,7 @@
 ### 1. ANNUAL RETURN
 **Formula:** `(Ending Capital - Starting Capital) / Starting Capital × 100`
 
-**Your Result:** 28%
+**My Result:** 28%
 
 **What it means:**
 - Starting with $10,000
@@ -22,7 +22,7 @@
 ### 2. MAXIMUM DRAWDOWN (DD)
 **Formula:** Largest peak-to-trough decline
 
-**Your Result:** 40.4% (-$41.26 on test capital)
+**My Result:** 40.4% (-$41.26 on test capital)
 
 **What it means:**
 - Start with $10,000
@@ -38,17 +38,17 @@
 ### 3. SHARPE RATIO
 **Formula:** `(Return - Risk-Free Rate) / Standard Deviation`
 
-**Your Result:** 0.27 (LOW!)
+**My Result:** 0.27 (LOW!)
 
 **Interpretation:**
 - < 0 = Losing money
-- 0 - 0.5 = Poor risk-adjusted returns ← **YOU ARE HERE**
+- 0 - 0.5 = Poor risk-adjusted returns ← **WE ARE HERE**
 - 0.5 - 1.0 = Acceptable
 - 1.0 - 2.0 = Good
 - > 2.0 = Excellent (rare in FX)
 
-**What it means for you:**
-Your 28% return comes with 101% volatility (wild swings). You're taking huge risk for modest returns.
+**What it means for us:**
+Our 28% return comes with 101% volatility (wild swings). We are taking huge risk for modest returns.
 
 **NNFX Target:** Sharpe > 1.0 for live trading
 
@@ -59,9 +59,9 @@ Your 28% return comes with 101% volatility (wild swings). You're taking huge ris
 ### 4. PROFIT FACTOR (PF)
 **Formula:** `Gross Wins / Gross Losses`
 
-**Your Result:** 1.56
+**My Result:** 1.56
 
-**Calculation from your data:**
+**Calculation from our data:**
 - Gross Wins: $170
 - Gross Losses: $109
 - PF = 170 / 109 = 1.56
@@ -69,12 +69,12 @@ Your 28% return comes with 101% volatility (wild swings). You're taking huge ris
 **Interpretation:**
 - PF < 1.0 = Losing system
 - PF = 1.0 - 1.5 = Barely profitable
-- PF = 1.5 - 2.0 = Acceptable ← **YOU ARE HERE**
+- PF = 1.5 - 2.0 = Acceptable ← **We ARE HERE**
 - PF > 2.0 = Strong system
 
 **What it means:** For every $1 you lose, you make $1.56. After costs, barely above break-even.
 
-**NNFX Target:** PF > 1.5 (you just barely made it!)
+**NNFX Target:** PF > 1.5 (just barely made it!)
 
 ---
 
