@@ -2,7 +2,7 @@
 // Purpose: Verify SuperSmoother 2-pole, 3-pole, and Ultimate Smoother
 //          run without errors, produce reasonable output,
 //          and export to CSV for Python analysis
-// Run on:  EUR/USD D1
+// Run on:  BTC/USD H4
 
 #include <default.c>
 #include "../../indicators/ehlers/SuperSmoother2Pole.c"
@@ -11,10 +11,10 @@
 
 void run() {
     // --- Setup ---
-    BarPeriod = 1440;       // D1 bars (1440 minutes)
-    StartDate = 20150101;
+    BarPeriod = 240;        // H4 bars (240 minutes)
+    StartDate = 20200101;
     EndDate   = 20240101;
-    LookBack  = 300;        // warmup bars — comfortably above 2x Period
+    LookBack  = 300;        // warmup bars
 
     // --- Price series ---
     vars Close = series(priceClose(), 300);
@@ -29,5 +29,5 @@ void run() {
 
     // --- Export for Python validation ---
     string line = strf("%d,%f,%f,%f,%f\n", Bar, priceClose(), ss2, ss3, us);
-    file_append("Data/SuperSmoother_EURUSD_D1.csv", line);
+    file_append("Data/SuperSmoother_BTCUSD_H4.csv", line);
 }
