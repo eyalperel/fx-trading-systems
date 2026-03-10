@@ -1,11 +1,13 @@
 // Test_SuperSmoother.c
-// Purpose: Verify SuperSmoother 2-pole and 3-pole run without errors,
-//          produce reasonable output, and export to CSV for Python analysis
+// Purpose: Verify SuperSmoother 2-pole, 3-pole, and Ultimate Smoother
+//          run without errors, produce reasonable output,
+//          and export to CSV for Python analysis
 // Run on:  EUR/USD D1
 
 #include <default.c>
 #include "../../indicators/ehlers/SuperSmoother2Pole.c"
 #include "../../indicators/ehlers/SuperSmoother3Pole.c"
+#include "../../indicators/ehlers/UltimateSmoother.c"
 
 void run() {
     // --- Setup ---
@@ -20,11 +22,12 @@ void run() {
     // --- Indicators ---
     var ss2 = SuperSmoother2Pole(Close, 20);
     var ss3 = SuperSmoother3Pole(Close, 20);
+    var us  = UltimateSmoother(Close, 20);
 
     // --- Skip warmup bars ---
     if(is(LOOKBACK)) return;
 
     // --- Export for Python validation ---
-    string line = strf("%d,%f,%f,%f\n", Bar, priceClose(), ss2, ss3);
+    string line = strf("%d,%f,%f,%f,%f\n", Bar, priceClose(), ss2, ss3, us);
     file_append("Data/SuperSmoother_EURUSD_D1.csv", line);
 }
