@@ -16,6 +16,11 @@ void run()
     Asset     = "EUR/USD";
     BarPeriod = 1440; // D1 in minutes
 
+    //StartDate = 20200101;
+    //EndDate   = 20241231;
+    //Asset     = "BTC/USD";
+    //BarPeriod = 240; // H4 in minutes
+
     // --- Lookback ---
     if(is(LOOKBACK)) return;
 
