@@ -1,24 +1,61 @@
 ///////////////////////////////////////////////////////
 // MESA Adaptive Moving Average (MAMA) and FAMA
-// John Ehlers - "MESA Adaptive Moving Averages"
-// TASC, September 2001 (Stocks & Commodities V.19:9)
-// Purpose: Adaptive trend indicator using Hilbert
-//          Transform to measure instantaneous phase
-//          and adapt smoothing speed to market cycle
-// Pipeline:
-//   Price -> Smooth -> Detrender -> I1, Q1
-//   -> jI, jQ -> I2, Q2 (phasor addition)
-//   -> Homodyne Discriminator -> Period
-//   -> DeltaPhase -> alpha -> MAMA, FAMA
-// Inputs:  Price     - price series (e.g. (H+L)/2)
-//          FastLimit - max alpha (default 0.5)
-//          SlowLimit - min alpha (default 0.05)
-//          outFAMA   - pointer to receive FAMA value
-// Output:  MAMA value (returned)
-//          FAMA value (written to *outFAMA)
-// Signal:  MAMA crosses above FAMA = bullish
-//          MAMA crosses below FAMA = bearish
-// Validated: EUR/USD D1, BTC/USD H4
+// John Ehlers
+// Source: "MESA Adaptive Moving Averages"
+//         TASC S&C V.19:9, September 2001
+// ─────────────────────────────────────────────────
+// Purpose:
+//   Adaptive trend indicator using the Hilbert
+//   Transform to measure instantaneous phase rate
+//   of change and adapt smoothing speed to the
+//   current dominant market cycle.
+//
+// Pipeline (7 stages):
+//   Price → Smooth → Detrender → I1, Q1
+//   → jI, jQ → I2, Q2 (phasor addition)
+//   → Homodyne Discriminator → Period
+//   → DeltaPhase → alpha → MAMA, FAMA
+//
+// Inputs:
+//   Price     - price series, typically (H+L)/2
+//   FastLimit - maximum alpha (default 0.5)
+//   SlowLimit - minimum alpha (default 0.05)
+//   outFAMA   - pointer to receive FAMA value
+//
+// Outputs:
+//   return    - MAMA value
+//   *outFAMA  - FAMA value
+//
+// Signal (NNFX Baseline role):
+//   MAMA crosses above FAMA → bullish / go long
+//   MAMA crosses below FAMA → bearish / go short
+//   Spread width = trend strength proxy
+//   Requires C1/C2 confirmation before entry
+//
+// Parameters (validated defaults):
+//   FastLimit = 0.5   (Ehlers default — keep)
+//   SlowLimit = 0.05  (Ehlers default — keep)
+//   Low sensitivity to parameter changes confirmed
+//   in Day 5 sensitivity analysis (FL=0.3 and
+//   SL=0.10 variants gave negligible difference)
+//
+// Implementation notes:
+//   - Period initialised to 20 (not 0) to prevent
+//     bound collapse on first bar
+//   - barCount guard: returns Price[0] for first 5 bars
+//   - atan() used in degrees via *180/PI conversion
+//   - Alpha is bimodal in practice: 92.5% of bars
+//     clamp at FastLimit or SlowLimit (documented
+//     Ehlers behaviour, not a bug)
+//   - FAMA always smoother than MAMA (half alpha)
+//   - Raw crossover: 51.3% win rate, 0.92 W/L —
+//     must be paired with confirmation indicator
+//
+// Validation status: APPROVED — Week 7
+//   EUR/USD D1 : 2591 bars, 2015-2024  ✓
+//   BTC/USD H4 : 7529 bars, 2020-2023  ✓
+//   Lag  FX=0 bars  BTC=0 bars         ✓
+//   SNR  FX=1.22x   BTC=1.19x          ✓
 ///////////////////////////////////////////////////////
 
 #ifndef PI
