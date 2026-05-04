@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////
 // High-Pass Filter - John Ehlers 2-Pole IIR
-// From: "Optimal Detrending" - TASC
+// // From: "Decyclers" - TASC (S&C V.33:09)
 // Purpose: Remove trend component, isolate cycles
 //          Output oscillates around zero
 //          Use as input preprocessor for oscillators
@@ -19,8 +19,8 @@ var HighPassFilter(vars Price, int HPPeriod)
     // Alpha controls the cutoff frequency
     // Smaller HPPeriod = larger alpha = more aggressive trend removal
     // Formula derived from bilinear transform of continuous-time HP prototype
-    var alpha1 = (cos(360.0 / HPPeriod) + sin(360.0 / HPPeriod) - 1.0)
-                 / cos(360.0 / HPPeriod);
+    var alpha1 = (cos(0.707*360.0 / HPPeriod) + sin(0.707*360.0 / HPPeriod) - 1.0)
+             / cos(0.707*360.0 / HPPeriod);
     // Persistent storage - needs 3 bars of history
     // Initialize at Price[0] level to avoid startup transient
     var* HP = series(Price[0], 3);

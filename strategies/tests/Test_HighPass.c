@@ -11,10 +11,10 @@
 void run()
 {
     // --- Settings ---
-    StartDate = 20200101;
+    StartDate = 20150101;
     EndDate   = 20241231;
-    Asset     = "BTC/USD";
-    BarPeriod = 240; // H4 in minutes
+    Asset     = "EUR/USD";
+    BarPeriod = 1440;
 
     // --- Lookback ---
     if(is(LOOKBACK)) return;
@@ -29,7 +29,7 @@ void run()
 
     // --- Export to CSV ---
     // Columns: Bar, Close, HP
-    file_append("Data/HP_BTCUSD_H4.csv",
+    file_append("Data/HP_EURUSD_D1.csv",
         strf("%d,%.5f,%.5f\n",
             barCount,
             Price[0],
