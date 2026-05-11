@@ -18,10 +18,10 @@
 
 void run()
 {
-    StartDate = 20150101;
+    StartDate = 20200101;
     EndDate   = 20240101;
-    Asset     = "EUR/USD";
-    BarPeriod = 1440;
+    Asset     = "BTC/USD";
+    BarPeriod = 240;       // H4 = 240 minutes
 
     if(is(LOOKBACK)) return;
 
@@ -43,7 +43,7 @@ void run()
     barCount++;
     if(barCount <= WARMUP_BARS) return;
 
-    file_append("Data/CyberCycle_EURUSD_D1.csv",
+    file_append("Data/CyberCycle_BTCUSD_H4.csv",
                 strf("%d,%.5f,%.5f,%.5f\n",
                     barCount,
                     filtVal,
