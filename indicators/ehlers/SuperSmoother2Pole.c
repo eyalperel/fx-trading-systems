@@ -1,7 +1,7 @@
 var SuperSmoother2Pole(vars Price, int Period) {
     // --- Coefficients (Butterworth 2-pole design) ---
     var c1 = exp(-sqrt(2.0) * PI / Period);
-    var b1 = 2.0 * c1 * cos(sqrt(2.0) * 180.0 / Period);
+    var b1 = 2.0 * c1 * cos(sqrt(2.0) * PI / Period);
     var c2 = b1;
     var c3 = -c1 * c1;
     var c0 = (1.0 - b1 + c1 * c1) / 2.0;

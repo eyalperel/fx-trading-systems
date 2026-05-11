@@ -6,13 +6,13 @@
 //           Period — cutoff period in bars (recommended: FX 14-20, Crypto 8-14)
 // Output:   Smoothed price value with reduced lag vs SuperSmoother
 // Notes:    Needs ~2x Period bars warmup before output is reliable
-//           cos() uses degrees — Zorro convention
+//           cos() uses radians — standard C math library
 //           Zero-lag claim should be verified empirically via cross-correlation
 
 var UltimateSmoother(vars Price, int Period) {
     // --- Stage 1: SuperSmoother coefficients (2-pole Butterworth) ---
     var c1 = exp(-sqrt(2.0) * PI / Period);
-    var b1 = 2.0 * c1 * cos(sqrt(2.0) * 180.0 / Period);
+    var b1 = 2.0 * c1 * cos(sqrt(2.0) * PI / Period);
     var c2 = b1;
     var c3 = -c1 * c1;
     var c0 = (1.0 - b1 + c1 * c1) / 2.0;

@@ -7,13 +7,13 @@
 //           Period — cutoff period in bars (recommended: FX 14-20, Crypto 8-14)
 // Output:   Smoothed price value
 // Notes:    Needs ~2x Period bars warmup before output is reliable
-//           cos() uses degrees — Zorro convention
+//           cos() uses radians — standard C math library
 //           3-pole combines one real pole (a1) + one complex conjugate pair (b1)
 
 var SuperSmoother3Pole(vars Price, int Period) {
     // --- Coefficients (Butterworth 3-pole design) ---
     var a1 = exp(-PI / Period);
-    var b1 = 2.0 * a1 * cos(sqrt(3.0) * 180.0 / Period);
+    var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / Period);
 
     // Three feedback coefficients derived from pole combination
     var c1 = b1 + a1;           // SS[1]: complex pair + real pole
