@@ -1,0 +1,240 @@
+**Week 8 — Cyber Cycle Oscillator**
+
+Cyber Cycle Oscillator (CyberCycle.c)
+
+FX & Crypto Algorithmic Trading — Phase 2 Indicator Deep Dive
+
+| **Indicator** | **File** | **Status** | **NNFX Role** |
+| --- | --- | --- | --- |
+| Cyber Cycle | CyberCycle.c | VALIDATED ✅ (with conditions) | C1/C2 confirmation — cycle regime only |
+
+# 1. Core Theory (Days 1-2)
+
+## 1.1 The Two-Mode Market Model
+
+Ehlers' foundational premise: markets operate in exactly two modes — trend mode and cycle mode. Trend-following indicators (MAMA/FAMA) work in trend mode but generate false signals in cycle mode. Oscillators work in cycle mode but generate false signals in trend mode. The Cyber Cycle targets the cycle component of price — the oscillation around the trend that trend-followers ignore.
+
+## 1.2 What the Cyber Cycle Actually Is
+
+The Cyber Cycle is a 2nd-order IIR (Infinite Impulse Response) digital resonant filter. It is not a ratio, percentage, or comparison — it is a bandpass filter tuned to resonate at the dominant cycle frequency. The three terms of the formula serve distinct DSP roles:
+
+| **Term** | **Role** | **Effect** |
+| --- | --- | --- |
+| gain * (Filt[0] - 2*Filt[1] + Filt[2]) | Second difference of input | Discrete 2nd derivative — kills trend, emphasizes cycle |
+| + 2*pole * CycPrev1 | Resonance (spring term) | Positive feedback from 1 bar ago — creates persistent oscillation |
+| - pole*pole * CycPrev2 | Damping (stability term) | Negative feedback from 2 bars ago — prevents runaway |
+
+## 1.3 Parameter Semantics
+
+**alpha=0.07** is the single free parameter. It controls:
+- pole radius = 1 - alpha = 0.93 (close to unit circle = light damping = persistent oscillation)
+- Time constant ~1/alpha ~14 bars (targets 14-28 bar dominant cycle range typical of EUR/USD D1)
+- Output amplitude (strong effect — 47% variation across 0.04-0.20 range)
+- Signal frequency (weak effect — only 14% variation across same range)
+
+## 1.4 The Trigger Line
+
+Trigger = 2*Cycle[1] - Cycle[3] is a linear extrapolation — it estimates where the Cycle would be if it continued at its current rate. This makes it lead the Cycle by ~1-2 bars. Trigger crossing above Cycle = long signal. Trigger crossing below = short signal.
+
+## 1.5 Why RoofingFilter as Input
+
+Raw price contains trend (low frequency) + dominant cycle + noise (high frequency). Feeding raw price into any oscillator: trend causes drift/saturation, noise gets amplified by the second-difference term. RoofingFilter removes both — its output contains primarily the dominant cycle band. CyberCycle applied to RoofingFilter output operates on a pre-cleaned signal.
+
+# 2. Implementation Notes (Day 3)
+
+## 2.1 Zorro-Specific Issues Discovered This Week
+
+| **Issue** | **Wrong** | **Correct** |
+| --- | --- | --- |
+| Trig function units | sin/cos take degrees (assumed) | sin/cos take RADIANS — standard C math library |
+| series() overwrite pattern | Works reliably for IIR feedback | Unreliable in included files — use static vars instead |
+| Variable namespace | Locals are function-scoped | Flat namespace — all included files share same space |
+| RoofingFilter call | Called inside CyberCycle | Must be called once in test script, result passed as series |
+| Script structure | LookBack=200 + manual barCount | Use void run() + if(is(LOOKBACK)) return; pattern |
+
+## 2.2 Flat Namespace Collision
+
+SuperSmoother2Pole.c uses local variables: c1, c2, c3, c0, b1, Filt. CyberCycle's initial implementation used the same names. All locals collide in Zorro's shared namespace even when neither function is being called at the same time. Fix: prefix all CyberCycle locals with cc_ (cc_pole, cc_gain, cc_Input, cc_alpha, cc_out).
+
+## 2.3 Static Variables for IIR State
+
+The series()-then-overwrite pattern was attempted for IIR feedback state. Results were incorrect. The reliable pattern for self-referential IIR in included files is static variables:
+
+    static var CycPrev1 = 0;
+    static var CycPrev2 = 0;
+    Cyc = formula using CycPrev1, CycPrev2;
+    CycPrev2 = CycPrev1;
+    CycPrev1 = Cyc;
+
+## 2.4 Double-Call Bug
+
+CyberCycle originally called RoofingFilter internally. When the test script also called it for CSV export, RoofingFilter ran twice per bar — double-shifting its internal series and corrupting state. This was the first symptom leading to the trig bug discovery. Fix: CyberCycle takes vars cc_Input. Test script calls RoofingFilter once and passes the result.
+
+# 3. Critical Discovery: Trig Functions Use Radians
+
+## 3.1 Root Cause
+
+During Day 3 debugging, alpha_debug = -2.29027 instead of expected 0.0885. With alpha1 = -2.29, pole radius = 3.29 — outside unit circle, guaranteed unstable. Diagnosis: 0.707*360.0/48.0 = 5.3025. With degree-based trig: cos(5.3025 degrees) = 0.9957 → alpha1 = 0.0885 (correct). With radians: cos(5.3025 rad) ≈ 0.557 → alpha1 ≈ -2.29 (observed). Confirmed by Zorro documentation: sin/cos/tan take angle in radians.
+
+## 3.2 Why Test_RoofingFilter.c Was Unaffected
+
+Test_RoofingFilter.c called HighPassFilter twice per bar (once directly, once inside RoofingFilter). The double-shift accidentally created a different effective computation that produced plausible-looking output. Single-call scripts exposed the explosion. Bug was present since Week 5 and undetected until Week 8.
+
+## 3.3 Audit and Fixes
+
+| **File** | **Action** | **Change** |
+| --- | --- | --- |
+| HighPassFilter.c | FIXED | 0.707*360/N → 0.707*2*PI/N |
+| SuperSmoother2Pole.c | FIXED | 180/N → PI/N |
+| SuperSmoother3Pole.c | FIXED | 180/N → PI/N |
+| UltimateSmoother.c | FIXED | 180/N → PI/N |
+| DominantCycle.c | OK | 1.414*180/N*PI/180 — 180s cancel |
+| InstantTrendline.c | OK | Explicit *PI/180 conversion |
+| MAMA.c | OK | atan()*180/PI — deliberate conversion |
+| RoofingFilter.c | OK | No direct trig |
+| Decycler.c | OK | No direct trig |
+| CyberCycle.c | OK | No trig functions |
+
+All four fixed indicators re-validated: HighPassFilter ✅ SuperSmoother ✅ RoofingFilter ✅ Decycler ✅
+
+Standing rule added: Zorro Light-C sin/cos/tan take RADIANS (standard C). All Ehlers formulas must use radians.
+
+# 4. Validation Results (Days 4-5)
+
+## 4.1 EUR/USD D1 (2015-2024, 2236 bars after warmup)
+
+| **Metric** | **Result** | **Verdict** |
+| --- | --- | --- |
+| Bars loaded | 2236 | ✅ Clean |
+| Cycle mean | 0.00023 | ✅ Centered on zero |
+| Cycle std | 0.00624 | ✅ Stable oscillation |
+| Cycle range | -0.0289 to +0.0347 | ✅ Consistent amplitude |
+| Rolling amplitude | Stable ±0.007-0.010 throughout 9 years | ✅ No regime drift |
+| Signal frequency | 4.3 bars/signal (Trigger/Cycle crossovers) | ⚠️ High — needs MAMA gate |
+| Trend mode (2022 downtrend) | 4.9 bars/signal | ⚠️ Only 14% improvement |
+| AGC needed | No | ✅ Amplitude consistent |
+
+## 4.2 BTC/USD H4 (2020-2024, 5927 bars after warmup)
+
+| **Metric** | **Result** | **Verdict** |
+| --- | --- | --- |
+| Bars loaded | 5927 | ✅ Clean |
+| Cycle mean | +0.42 | ✅ Near-zero |
+| Cycle std | 653.67 | ⚠️ Large — BTC dollar volatility |
+| Cycle range | -4288 to +2804 | ⚠️ Wide range |
+| Rolling amplitude | Varies 10x across regimes | ❌ Requires normalization |
+| Signal frequency | 4.5 bars/signal | ⚠️ High |
+| AGC needed | YES | ❌ Mandatory before strategy use |
+
+## 4.3 Trend Mode Analysis
+
+The Cyber Cycle does NOT self-suppress in trend mode. Signal rate in 2022 EUR/USD downtrend (4.9 bars/signal) vs mixed period (4.3 bars/signal) shows only 14% improvement. External regime gate required (MAMA/FAMA spread width).
+
+# 5. Sensitivity Analysis (Day 5)
+
+| **Alpha** | **Cycle Std** | **Crossovers** | **Bars/Signal** |
+| --- | --- | --- | --- |
+| 0.04 | 0.007125 | 508 | 4.40 |
+| 0.05 | 0.006525 | 514 | 4.35 |
+| 0.06 | 0.006198 | 518 | 4.32 |
+| **0.07 (default)** | **0.005950** | **520** | **4.30** |
+| 0.08 | 0.005728 | 524 | 4.27 |
+| 0.10 | 0.005324 | 530 | 4.22 |
+| 0.12 | 0.004954 | 536 | 4.17 |
+| 0.15 | 0.004453 | 560 | 3.99 |
+| 0.20 | 0.003746 | 580 | 3.86 |
+
+**Decision: alpha=0.07 retained (Ehlers default).**
+
+Alpha controls amplitude strongly (47% variation). Weak effect on signal frequency (14% variation). Default 0.07 is on the steeper part of the amplitude decay curve — optimal balance. For BTC, fix AGC scale first; alpha tuning is secondary.
+
+# 6. NNFX Component Mapping
+
+| **Indicator** | **NNFX Role** | **Notes** |
+| --- | --- | --- |
+| CyberCycle | C1/C2 confirmation | Cycle regime only — must be gated by MAMA/FAMA trend filter |
+
+NNFX use pattern: MAMA above FAMA (bullish) + narrow MAMA/FAMA spread (cycle regime) + Trigger crosses above Cycle = long entry. Wide spread = strong trend = suppress Cyber Cycle signals.
+
+Zero-line crossings (Cycle crosses 0) may reduce micro-crossover noise vs Trigger/Cycle crossovers. Worth testing in strategy development phase.
+
+# 7. Key Findings & Insights
+
+## 7.1 Technical Findings
+
+- Cyber Cycle amplitude is scale-dependent without AGC. EUR/USD D1: ±0.006 std. BTC H4: ±654 std. 100,000x difference — purely from dollar volatility. AGC normalization mandatory for cross-asset use or BTC strategy use.
+
+- alpha controls amplitude (47% variation) far more than signal frequency (14% variation). When choosing alpha for a specific application, target amplitude first.
+
+- The series()-then-overwrite IIR pattern that works in standalone indicators is unreliable in included files. Static variables are the correct pattern for IIR state in Zorro included indicators.
+
+- Zorro's flat variable namespace requires unique prefix per indicator. Common names (c1, c2, Filt, alpha) conflict silently across included files.
+
+## 7.2 Cross-Asset Findings
+
+- Signal frequency is consistent across assets: EUR/USD D1 at 4.3 bars/signal, BTC H4 at 4.5 bars/signal. The oscillator cycles at similar rates regardless of underlying asset.
+
+- EUR/USD amplitude is stable across the full 9-year test window including 2022 downtrend. BTC amplitude varies by 10x between quiet (early 2020) and bull market (2021).
+
+- Both assets: cycle mean is essentially zero — the oscillator is correctly centered regardless of absolute price level.
+
+## 7.3 Conceptual Insights
+
+- A 14% difference in signal rate between trend mode and cycle mode (4.9 vs 4.3) confirms Ehlers' two-mode model empirically: an oscillator cannot detect its own irrelevance in trend mode without external regime information.
+
+- The double-call bug (incorrect implementation producing plausible output) demonstrates that visual inspection is insufficient for validation. Intermediate values must be computed and verified explicitly.
+
+- The formula has exactly one free parameter (alpha). Minimal degrees of freedom = minimal overfitting risk = maximum robustness.
+
+# 8. Files Committed This Week
+
+| **File** | **Path** | **Description** |
+| --- | --- | --- |
+| CyberCycle.c | indicators/ehlers/ | CyberCycle oscillator — library approved with conditions |
+| Test_CyberCycle.c | strategies/tests/ | EUR/USD D1 + BTC/USD H4 test scripts |
+| Week8_CyberCycle_Validation.ipynb | analysis/notebooks/ | Full validation notebook |
+| CyberCycle_EURUSD_D1.csv | C:/zorro/Data/ | 2236 bars, EUR/USD D1 2015-2024 |
+| CyberCycle_BTCUSD_H4.csv | C:/zorro/Data/ | 5927 bars, BTC/USD H4 2020-2024 |
+| HighPassFilter.c | indicators/ehlers/ | FIXED: 360/N → 2*PI/N (radians) |
+| SuperSmoother2Pole.c | indicators/ehlers/ | FIXED: 180/N → PI/N (radians) |
+| SuperSmoother3Pole.c | indicators/ehlers/ | FIXED: 180/N → PI/N (radians) |
+| UltimateSmoother.c | indicators/ehlers/ | FIXED: 180/N → PI/N (radians) |
+| FX_Roadmap_v2026.05.05.md | docs/roadmap/ | v4.1 — bi-weekly research update |
+| HP_EURUSD_D1.csv | C:/zorro/Data/ | Regenerated after trig fix |
+| SuperSmoother_Sensitivity_EURUSD.csv | C:/zorro/Data/ | Regenerated after trig fix |
+| RoofingFilter_EURUSD_D1.csv | C:/zorro/Data/ | Regenerated after trig fix |
+| Decycler_EURUSD_D1.csv | C:/zorro/Data/ | Regenerated after trig fix |
+
+# 9. Week 8 Retrospective
+
+## What went well
+
+- Theory-first approach: understanding the IIR resonator structure before coding meant the formula was clear from day 1. The debugging that followed was environmental (trig, namespace), not algorithmic.
+
+- Systematic debugging discipline: the incremental isolation approach (strip to minimum, add one thing at a time) found the root cause after many false hypotheses. Building incrementally rather than guessing was the right call.
+
+- Library audit was thorough and efficient: one grep command identified all trig usage. All four fixed indicators re-validated clean in under an hour.
+
+- Validation metrics appropriate for oscillators: amplitude statistics, zero-mean verification, signal frequency, trend mode comparison, amplitude envelope. These become the oscillator validation template for Weeks 9+.
+
+- Bi-weekly roadmap update (three changes approved) completed before Day 1 theory, keeping program management current.
+
+## What was harder than expected
+
+- The trig bug took significantly longer to diagnose than expected. Multiple false hypotheses (double-call, variable collision, script structure, caching) required before root cause found via alpha_debug diagnostic. Key lesson: compute and output intermediate values before trusting downstream computation.
+
+- The series()-then-overwrite IIR pattern failure was unexpected. Same pattern works in HighPassFilter — understanding why it fails in CyberCycle's specific context required careful analysis of Zorro's flat namespace behavior.
+
+- Test_RoofingFilter.c's "correct-looking" output was based on wrong coefficients — the double-call was masking the trig bug. This means Week 6 validation passed for the wrong reasons. All affected indicators are now properly fixed and re-validated from scratch.
+
+## Heading into Week 9
+
+- Week 9: FRAMA (Fractal Adaptive Moving Average) + Laguerre Filter + Deviation-Scaled MA. Adaptive trend indicators — comparison with MAMA/FAMA drives final Baseline selection for Phase 3.
+
+- The oscillator validation framework (amplitude stats, signal frequency, trend mode comparison, AGC check) is now the template for all future oscillator-type indicators.
+
+- AGC normalization for BTC is a recurring systemic issue. All oscillator-type indicators should check amplitude consistency explicitly — the 10x BTC amplitude variation will appear again.
+
+- The cc_ prefix pattern for Zorro flat namespace is now established. All new indicator files should check for variable name conflicts with existing library files before finalizing.
+
+**Week 8 Complete ✅ — CyberCycle Library Entry Approved (with conditions)**

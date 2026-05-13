@@ -3,25 +3,41 @@
 // Ehlers Cyber Cycle Oscillator
 // Source: "Cybernetic Analysis for Stocks and Futures" (Ehlers, 2004)
 //
-// Takes pre-filtered input (RoofingFilter output) — do NOT call RoofingFilter
-// inside this function. Caller computes Filt once and passes the series here.
-// This prevents double-shifting of RoofingFilter's internal series().
+// CONCEPT:
+//   2nd-order IIR resonant bandpass filter. Measures the dominant cycle
+//   component of price. Output oscillates around zero in cycle mode,
+//   flattens/drifts in trend mode. Does NOT self-suppress in trend mode —
+//   requires external trend gate (MAMA/FAMA) for NNFX use.
 //
-// Inputs:
-//   Filt   - vars (series pointer) - RoofingFilter output, min 3 bars history
-//   alpha  - var  - filter resonance parameter (default 0.07)
+// INPUTS:
+//   cc_Input - vars - RoofingFilter output series (min 4 bars history)
+//              DO NOT call RoofingFilter inside this function.
+//              Caller computes Filt once per bar and passes series here.
+//   cc_alpha - var  - resonance/damping parameter (default 0.07)
+//              Controls amplitude (strong effect), not signal frequency (weak).
+//              Smaller = larger oscillations. Larger = more damped.
 //
-// Returns:
-//   var - Cyber Cycle oscillator value for current bar
+// OUTPUT:
+//   var - Cyber Cycle value for current bar (oscillates around zero)
 //
-// Usage (in test script):
-//   var  filtVal = RoofingFilter(Price, 48, 10);
-//   var* Filt    = series(filtVal, 4);
-//   var  cycVal  = CyberCycle(Filt, 0.07);
-//   var* Cyc     = series(cycVal, 4);
+// TRIGGER LINE (compute in caller):
+//   var* Cyc     = series(CyberCycle(Filt, 0.07), 4);
 //   var  Trigger = 2.0*Cyc[1] - Cyc[3];
+//   BUY  when Trigger crosses above Cycle
+//   SELL when Trigger crosses below Cycle
 //
-// Warmup: ~100 bars minimum (RoofingFilter ~48 + CyberCycle IIR ~43)
+// VALIDATED: Week 8, May 2026
+//   EUR/USD D1 (2015-2024): centered on zero, amplitude stable ±0.007
+//   BTC/USD H4 (2020-2024): centered on zero, amplitude varies 10x
+//                            AGC normalization required for BTC use
+//   alpha=0.07 confirmed as optimal default for EUR/USD D1
+//
+// ZORRO IMPLEMENTATION NOTES:
+//   - IIR state uses static vars (not series) — avoids series() collision
+//   - All locals prefixed cc_ to avoid flat-namespace conflict with
+//     SuperSmoother2Pole (which also uses c1, c2, Filt as local names)
+//   - Warmup: ~100 bars (RF ~48 + CyberCycle IIR ~43)
+//   - Trig: none used. Zorro sin/cos take RADIANS (standard C).
 // =============================================================================
 
 var CyberCycle(vars cc_Input, var cc_alpha)
