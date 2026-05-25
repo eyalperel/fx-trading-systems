@@ -30,10 +30,10 @@
 
 void run() {
 
-    StartDate = 20150101;
+    StartDate = 20200101;
     EndDate   = 20241231;
-    BarPeriod = 1440;
-    Asset     = "EUR/USD";
+    BarPeriod = 240;            // H4 = 240 minutes
+    Asset     = "BTC/USD";
     LookBack  = 100;
 
     // Build price series
@@ -51,7 +51,7 @@ void run() {
 
     var med_price = (priceHigh() + priceLow()) / 2.0;
 
-    file_append("Data/FRAMA_Laguerre_DSMA_EURUSD_D1.csv",
+    file_append("Data/FRAMA_Laguerre_DSMA_BTCUSD_H4.csv",
         strf("%04d%02d%02d,%.6f,%.6f,%.6f,%.6f,%.6f\n",
             year(), month(), day(),
             med_price, frama_val, lag_val, dsma_val, rf_value));
