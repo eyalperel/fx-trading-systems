@@ -35,7 +35,7 @@
 void run() {
 
     // --- Script configuration ---
-    BarPeriod  = 1440;        // D1 — 1440 minutes per bar
+    BarPeriod  = 1440;         // D1 — 1440 minutes per bar
     LookBack   = 100;         // generous warmup: covers Fisher(10) + EO RMS(50) + SS(20)
     StartDate  = 20150101;
     EndDate    = 20241231;
