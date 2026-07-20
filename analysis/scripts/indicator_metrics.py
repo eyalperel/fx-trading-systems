@@ -64,6 +64,80 @@ def calculate_lag(price: pd.Series, indicator: pd.Series, max_lag: int = 50) -> 
     }
 
 
+def calculate_lag_oscillator(price: pd.Series, indicator: pd.Series, max_lag: int = 50) -> dict:
+    """
+    Measures lag/lead of an OSCILLATOR-type indicator (detrended, mean-reverting)
+    relative to price — as opposed to calculate_lag(), which is built for
+    trend-following smoothers that track price level directly.
+
+    Two corrections vs calculate_lag(), both needed for indicators like Reflex,
+    Cyber Cycle, or MESA Stochastic:
+
+    1. First-differences price before correlating. Week 5 finding: standard
+       cross-correlation fails on trending data because the shared trend
+       dominates and masks true lag. calculate_lag() only zero-centers
+       (subtracts the mean), which does not remove a trend. First-differencing
+       does. This matters here because price is non-stationary/trending while
+       an oscillator like Reflex is stationary — correlating them directly
+       compares two series with fundamentally different statistical character.
+
+    2. Searches negative lags as well as positive. calculate_lag() only
+       searches forward (indicator can only lag, never lead) — a correct
+       assumption for smoothers, but exactly the assumption an indicator like
+       Reflex is explicitly designed to violate (its whole claim is zero lag
+       or lead at cycle turning points). This function searches both
+       directions so a genuine lead isn't floored at zero.
+
+    Parameters
+    ----------
+    price     : raw price series (e.g. Close prices)
+    indicator : oscillator output series
+    max_lag   : bars to search in each direction (default 50)
+
+    Returns
+    -------
+    dict with:
+        'lag_bars'      : int   — negative = indicator LEADS price,
+                                   positive = indicator LAGS price,
+                                   0 = in-phase
+        'correlation'   : float — strength of match at that offset
+        'interpretation': str   — 'leads' / 'lags' / 'in-phase'
+    """
+    df = pd.DataFrame({'price': price, 'indicator': indicator}).dropna()
+
+    # First-difference price to remove trend (Week 5 finding)
+    p = df['price'].diff().values[1:]
+    ind = df['indicator'].values[1:]  # align length with differenced price
+
+    p = p - p.mean()
+    ind = ind - ind.mean()
+    n = len(p)
+
+    correlations = {}
+    for k in range(-max_lag, max_lag + 1):
+        if k == 0:
+            a, b = p, ind
+        elif k > 0:
+            # indicator LAGS price by k bars
+            a, b = p[:n - k], ind[k:]
+        else:
+            kk = -k
+            # indicator LEADS price by kk bars
+            a, b = p[kk:], ind[:n - kk]
+        if len(a) < 10:
+            continue
+        correlations[k] = np.corrcoef(a, b)[0, 1]
+
+    best_k = max(correlations, key=lambda k: correlations[k])
+    interpretation = 'leads' if best_k < 0 else ('lags' if best_k > 0 else 'in-phase')
+
+    return {
+        'lag_bars': best_k,
+        'correlation': round(correlations[best_k], 4),
+        'interpretation': interpretation
+    }
+
+
 def calculate_snr(price: pd.Series, indicator: pd.Series, period: int) -> dict:
     """
     Measures how much noise the indicator removes compared to raw price,
