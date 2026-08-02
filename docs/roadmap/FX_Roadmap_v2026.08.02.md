@@ -4,10 +4,33 @@
 
 ---
 
-**Program Version:** 4.1 - Bi-Weekly Research Update  
-**Last Updated:** May 5, 2026  
+**Program Version:** 4.2 - Bi-Weekly Research Update  
+**Last Updated:** August 2, 2026  
 **Based On:** 2024-2025 Research + Your Specific Constraints  
 **Asset Classes:** Foreign Exchange (70%) + Cryptocurrency (30%)
+
+---
+
+## 📋 CHANGELOG v4.1 → v4.2 (August 2, 2026)
+
+**Bi-Weekly Research Update — Week 11 checkpoint, no changes to active roadmap phase**
+
+Searched: ML trading strategies, algorithmic trading techniques, RL trading advances, time-series forecasting AI methods, systematic trading technology trends (August 2026 literature).
+
+| What Changed | Location | Rationale |
+|---|---|---|
+| Added foundation-model time-series forecasters (e.g. Chronos-Bolt) as a candidate to evaluate in Week 31 | Phase 4, Week 31 | Not implementable as an NNFX confirmation indicator now — architecturally replaces rather than slots into the C1/C2 framework. Already tested once in the parallel ML-Mastery project; that result should be pulled forward at Week 31 rather than re-derived. No new work performed this cycle. |
+| Added RL-for-trading frameworks beyond plain DQN (sentiment-aware curriculum learning, CE-PPO) as a candidate to evaluate in Week 31 | Phase 4, Week 31 | Same rationale — belongs in ML integration phase, not current indicator-library phase (Weeks 12-14) |
+
+**What was assessed and left unchanged / ignored:**
+- ❌ Quantum computing for trading — not implementable in Zorro/Python, no proven backtesting evidence
+- ❌ FPGA acceleration, MacroHFT, EarnHFT, HFT microstructure models — wrong timeframe, explicitly out of scope
+- ❌ LLM-agent-as-policy-backbone frameworks (FinRL-DeepSeek, agentic trading) — overly complex, unvalidatable in current toolchain
+- ❌ NLP/news-sentiment signals — plausible eventually, but requires a data feed not currently available
+- ❌ Blockchain/tokenization trends — not relevant to indicator or strategy development
+- ✅ "Simple beats complex" principle: no evidence this cycle contradicts it — current indicator-first approach (Weeks 5-14) remains the right sequencing
+
+**Current phase status:** Week 11 of 48 (Phase 2: Indicator Deep Dive). Reflex, MESA Stochastic implemented and validated; ELI implemented and documented as a FAIL. Strategy 1 (FAMA + Fisher C1 + Reflex C2) and Strategy 2 C1 (MESA Stochastic) locked. No roadmap structure changes this cycle — the two backlog additions above are notes for Week 31, not changes to the current Weeks 12-14 plan.
 
 ---
 
@@ -1455,7 +1478,7 @@ var NormalizedATR(int Period) {
 - Week 28: Meta-Labeling Implementation
 - Week 29: Advanced Regime Classification
 - Week 30: Feature Importance & Model Interpretability — **[May 2026 addition] use SHAP (SHapley Additive exPlanations) as the primary tool.** Python `shap` library is compatible with scikit-learn, LightGBM, and XGBoost — all already in the roadmap. SHAP quantifies each feature's marginal contribution to model output, enabling portfolio-quality documentation of *why* the regime classifier makes each decision. This is also a strong professional portfolio signal (see Pagliaro 2026, Electronics 15(6)).
-- Week 31: Integration with AI/ML Project
+- Week 31: Integration with AI/ML Project — **[Aug 2026 addition] candidates to evaluate:** foundation-model time-series forecasters (e.g. Chronos-Bolt; already tested once in the parallel ML-Mastery project — pull that result forward rather than re-testing from scratch) and RL-for-trading frameworks beyond plain DQN (sentiment-aware curriculum learning, CE-PPO). Neither slots into the NNFX C1/C2 confirmation architecture — both would sit alongside or replace it, so evaluate here, not in Phase 2.
 - Week 32: Production ML Pipeline
 - Week 33: Phase 4 Consolidation
 
