@@ -1,0 +1,7 @@
+,A_bootstrap,B_fgn,C_iaaft,D_stochvol
+dominant_period,0.078,0.112,0.506,0.07
+peak_prominence,0.116,0.162,0.236,0.124
+zero_cross_period,0.852,0.662,0.218,0.71
+period_stability,0.354,0.388,0.866,0.314
+acf_half_period,0.614,0.594,0.376,0.682
+rms_amplitude,0.538,0.926,0.406,0.31
