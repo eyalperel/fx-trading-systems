@@ -4,10 +4,38 @@
 
 ---
 
-**Program Version:** 4.2 - Bi-Weekly Research Update  
-**Last Updated:** August 2, 2026  
+**Program Version:** 4.3 - Cycle Premise Null Test Integration  
+**Last Updated:** August 3, 2026  
 **Based On:** 2024-2025 Research + Your Specific Constraints  
 **Asset Classes:** Foreign Exchange (70%) + Cryptocurrency (30%)
+
+---
+
+## 📋 CHANGELOG v4.2 → v4.3 (August 3, 2026)
+
+**Own-research integration — null-hypothesis test of the Ehlers cycle premise**
+
+Not a bi-weekly literature update. This cycle integrates an experiment run in-house testing the premise underlying the cycle-extraction indicators: `price = trend + cycle + noise`, recoverable by filtering.
+
+**Result:** Surrogate-data test of `RoofingFilter → CyberCycle` on EUR/USD D1 and BTC/USD H4 against four null models on six metrics. 48 tests, none significant, minimum p = 0.070. Real markets scored *lower* on spectral peak prominence than the noise nulls. A positive control established that a 20-bar cycle carrying >4.4% (FX) / >5.0% (crypto) of return variance would have been detected with 95% probability.
+
+Full documentation: `docs/research/Cycle_Premise_Null_Test.md` and `docs/research/Cycle_Premise_Conclusions_and_Impact.md`. Code: `analysis/null_tests/`. Commit `7903730`.
+
+| What Changed | Location | Rationale |
+|---|---|---|
+| Added surrogate/null testing to "What Actually Works"; added cycle extraction to "What Doesn't Work" | Executive Summary | Own empirical result on two assets, with detection-power calibration |
+| Added Principles 6-7 (null gate, mechanism-determines-bar) to Phase 2 Indicator Principles | Key Principles | Any indicator justified by cycle extraction must be distinguishable from matched surrogates, or enter the library classified as a filter |
+| Week 12 Day 5 revised: Correlation Cycle Indicator now implemented **and** null-tested rather than used to "measure cycle dominance" | Phase 2, Week 12 | Original plan measured a quantity found indistinguishable from noise. Same time cost; both outcomes now informative |
+| Week 17 Day 1 expanded: surrogate testing added to the validation framework alongside WFO and Monte Carlo | Phase 2.5, Week 17 | WFO asks whether parameters generalise across time; MC asks about path dependence. Neither asks whether the edge is distinguishable from noise |
+| Phase 4 regime detection anchored on **volatility** state rather than cycle state | Phase 4, Weeks 27/29 | DFA measured H(returns) ≈ 0.5 on both assets but H(\|returns\|) = 0.658 (FX) / 0.766 (crypto). The exploitable memory is in volatility |
+
+**What did NOT change:**
+- ✅ Strategy 1 (FAMA + Fisher C1 + Reflex C2) — unaffected, remains locked
+- ✅ Strategy 2 C1 (MESA Stochastic) — verified fixed-period, not dominant-cycle-adaptive; unaffected, remains locked
+- ✅ FAMA / FRAMA baselines, 16+ library entries, Week 11 status, ELI FAIL record — all stand
+- ✅ 48-week structure, phase boundaries, timelines — no weeks added
+
+**Reclassified, not removed:** CyberCycle, DominantCycle and adaptive-period methods are reclassified as filters with characterised frequency response rather than cycle detectors. **No indicator is removed from candidacy.** NNFX tests empirically, and an indicator can produce useful signals without its theoretical justification holding — a band-passed series still encodes momentum relative to a filtered baseline. What changes is the evidential bar: for cycle-justified indicators, a good backtest is more likely overfitting than edge, so demand surrogate confirmation before trusting it.
 
 ---
 
@@ -95,10 +123,14 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 - ✅ Meta-labeling (10-15% F1-score improvement)
 - ✅ ATR-based position sizing
 - ✅ Basic DSP filters (SuperSmoother, HighPass)
+- ✅ **Surrogate/null testing** — the missing null in standard backtesting. WFO and MC do not ask whether an edge is distinguishable from noise (own research, Aug 2026)
+- ✅ **Positive controls** — a null result without a detection-power calibration is unfalsifiable (own research, Aug 2026)
 
 **What Doesn't Work:**
 - ❌ Deep learning for FX price prediction
 - ❌ Complex Ehlers indicators without objective validation
+- ❌ **Cycle extraction as a premise** — no detectable cycle in EUR/USD D1 or BTC/USD H4 above ~4-5% of return variance; filters manufacture ~20-bar oscillations from pure Brownian motion (Slutsky 1937, Nelson-Kang 1981; own replication Aug 2026)
+- ❌ **Dominant-cycle-adaptive parameters** — the measured period is unstable and indistinguishable from noise on both assets
 - ❌ Over-optimization (kills 95% of systems)
 - ❌ Most ML models (conceptual parity wins)
 - ❌ Ignoring transaction costs
@@ -1000,10 +1032,13 @@ var EhlersKalman(vars Price, var Gain) {
 - Higher Gain needed for crypto? (faster price movements)
 - Document optimal Gain per asset class
 
-**Day 5 — Correlation Cycle Indicators (2 hours)**
-- If time: implement one of Ehlers' correlation-based indicators
-- These use autocorrelation to measure cycle dominance
-- Even a partial implementation + theory notes is valuable
+**Day 5 — Correlation Cycle Indicator + Null Test (2 hours)** *(revised v4.3)*
+- Implement one of Ehlers' correlation-based indicators (`Correlation_As_A_Cycle_Indicator.pdf`, already in project files)
+- **Do not use it to "measure cycle dominance."** The Aug 2026 null test found cycle dominance indistinguishable from noise on both EUR/USD D1 and BTC/USD H4
+- Instead: implement, then run the surrogate null test against it using the existing harness in `analysis/null_tests/`
+- This indicator measures cycle presence via autocorrelation rather than via band-pass filtering — a genuinely different mechanism, so it is a real second test rather than a repeat
+- **Both outcomes are informative:** rejection would be a significant positive result on a different indicator family; non-rejection is independent confirmation. Same time cost as the original plan
+- Document the outcome in `/docs/research/` alongside the existing null-test documents
 
 **Day 6 — Documentation + Commit (2 hours)**
 - Git commit: `feat: EhlersKalman validated + correlation cycle theory documented`
@@ -1265,6 +1300,11 @@ var NormalizedATR(int Period) {
 - Combine WFO, MC, and other tests
 - Create validation scorecard
 - Define pass/fail criteria
+- **[Aug 2026 addition] Add surrogate testing as the third pillar.** WFO asks whether parameters generalise across time. MC asks about path dependence and trade ordering. **Neither asks whether the edge is distinguishable from noise** — a strategy can pass both and still be indistinguishable from random entries on surrogate price paths
+- **Method:** run the strategy on 1,000 surrogate price series (bootstrap, fGn, IAAFT, stochastic-volatility — generators already built in `analysis/null_tests/src/surrogates.py`) and locate the real Sharpe ratio within the resulting null distribution. Rank-based two-sided p-value
+- **Include a positive control:** inject a known edge at varying strength to establish what Sharpe the test could detect. Without this, a null result is unfalsifiable
+- **Scorecard criterion:** real Sharpe outside the 95th percentile of the surrogate null, on at least the stochastic-volatility null (the strictest, since it reproduces volatility clustering)
+- This is the strategy-level analogue of the Week 12 indicator-level null gate. It generalises directly — the pipeline is the same, only the statistic changes from spectral prominence to Sharpe
 
 *Day 2: Transaction Cost Analysis (2 hours)*
 - Implement realistic spread costs
@@ -1471,6 +1511,9 @@ var NormalizedATR(int Period) {
 - ❌ Don't use ML for: Price prediction, complex deep learning
 - ✅ Do use ML for: Regime detection, meta-labeling, feature engineering
 - Key Insight: Simple regime filters beat ML prediction (Sharpe 1.2 vs 1.0)
+- **[Aug 2026 addition] Anchor regimes on VOLATILITY state, not cycle state.** DFA on both assets measured H(returns) ≈ 0.50 — no exploitable memory in returns — but H(|returns|) = 0.658 (EUR/USD D1) and 0.766 (BTC/USD H4). **The long memory is in volatility.** A volatility-regime classifier is grounded in measured structure; a cycle-state classifier is not, and the Aug 2026 null test found cycle state indistinguishable from noise on both assets
+- This narrows Weeks 27 and 29 usefully and aligns with the existing "simple beats complex" finding: a volatility-regime classifier is a far simpler object than a cycle-state classifier, and it has measured structure behind it
+- Practical consequence: Week 27's VIX-based approach is the right template. For crypto, substitute realised volatility or a GARCH-family conditional variance, since no direct VIX analogue exists
 
 **Weeks 26-33 follow the original detailed plan:**
 - Week 26: ML Foundations & Setup
@@ -1555,6 +1598,8 @@ var NormalizedATR(int Period) {
 3. **NNFX mapping first** — always ask "which slot does this fill?"
 4. **Cross-asset always** — FX behavior ≠ Crypto behavior, document differences
 5. **The library IS the product** — it's a standalone portfolio piece
+6. **Null gate for cycle-justified indicators (NEW in v4.3)** — if an indicator's rationale rests on extracting a cycle, its output on real data must be distinguishable from its output on matched surrogates. If it isn't, it still enters the library, but classified as a *filter with characterised frequency response*, not a cycle detector. Harness: `analysis/null_tests/`, ~2 min per asset.
+7. **Mechanism determines the evidential bar (NEW in v4.3)** — for indicators with a surviving mechanism (trend extraction, normalisation, momentum), a good backtest is corroboration. For cycle-justified ones, it's a coincidence until surrogate-confirmed.
 
 ### Development Principles
 1. **Document everything** (portfolio + debugging)
