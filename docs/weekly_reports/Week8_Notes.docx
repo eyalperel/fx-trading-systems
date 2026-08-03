@@ -238,3 +238,18 @@ Zero-line crossings (Cycle crosses 0) may reduce micro-crossover noise vs Trigge
 - The cc_ prefix pattern for Zorro flat namespace is now established. All new indicator files should check for variable name conflicts with existing library files before finalizing.
 
 **Week 8 Complete ✅ — CyberCycle Library Entry Approved (with conditions)**
+
+
+AMENDMENT — 3 August 2026 (added retrospectively)
+
+The Week 8 PASS for CyberCycle validated implementation correctness: formula fidelity, warmup behaviour, zero-centring, and cross-asset amplitude characteristics. That validation stands and was independently confirmed in August 2026, when a Python port reproduced the Zorro output to 5.01e-06 — exactly the %.5f CSV rounding floor.
+
+It did not validate that the output corresponds to a real market cycle. A surrogate-data null test run on 3 August 2026 found CyberCycle's output on EUR/USD D1 and BTC/USD H4 statistically indistinguishable from the same pipeline run on data containing no cycle by construction — 48 tests across 4 null models and 6 metrics, minimum p = 0.070. Real markets scored lower on spectral peak prominence than the noise nulls (8th percentile EUR/USD, 6.6th BTC).
+
+The zero-crossing period was 19.51 bars on EUR/USD D1, 19.81 on BTC/USD H4, and 20.40 on pure Brownian motion. The ~20-bar period is the filter chain's resonance, not a market property (Slutsky 1937; Nelson & Kang 1981).
+
+A positive control established that a cycle carrying more than 4.4% (FX) or 5.0% (crypto) of return variance would have been detected with 95% probability. A follow-up regime-conditional test found no volatility-associated cycling either, though with a weaker bound (~15.8% of return variance).
+
+Revised status: CyberCycle is retained in the library, reclassified as a filter with characterised frequency response rather than a cycle detector. It remains usable as a detrended momentum oscillator. Its measured period and phase should not be used to adapt parameters or project forward.
+
+Full documentation: docs/research/Cycle_Premise_Null_Test.md, Cycle_Premise_Regime_Addendum.md, Cycle_Premise_Conclusions_and_Impact.md

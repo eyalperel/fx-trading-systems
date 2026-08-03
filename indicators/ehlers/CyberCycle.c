@@ -1,11 +1,35 @@
 // =============================================================================
+// VALIDATION STATUS (updated Aug 2026): implementation is CORRECT and matches
+// Ehlers' published formula. Zorro output reproduced independently in Python to
+// 5.01e-06 (the %.5f CSV rounding floor).
+//
+// HOWEVER — this indicator does NOT measure a market cycle. A surrogate-data
+// null test on EUR/USD D1 and BTC/USD H4 (48 tests, 4 null models, 6 metrics)
+// found its output statistically indistinguishable from the same pipeline run
+// on data containing no cycle by construction. Minimum p = 0.070. Real markets
+// scored LOWER on spectral peak prominence than the noise nulls.
+//
+// Pure Brownian motion through this pipeline yields a ~20-bar oscillation. The
+// zero-crossing period is 19.51 (EUR/USD D1), 19.81 (BTC/USD H4) and 20.40
+// (random walk) — that is the filter chain's resonance, not a market property.
+// Slutsky (1937), Nelson & Kang (1981).
+//
+// CLASSIFICATION: filter with characterised frequency response, NOT a cycle
+// detector. Usable as a detrended momentum oscillator. Do NOT use its measured
+// period or phase to adapt parameters or project forward.
+//
+// See docs/research/Cycle_Premise_Null_Test.md
+// =============================================================================
+
+// =============================================================================
 // CyberCycle.c
 // Ehlers Cyber Cycle Oscillator
 // Source: "Cybernetic Analysis for Stocks and Futures" (Ehlers, 2004)
 //
 // CONCEPT:
-//   2nd-order IIR resonant bandpass filter. Measures the dominant cycle
-//   component of price. Output oscillates around zero in cycle mode,
+//   2nd-order IIR resonant bandpass filter. Ehlers PRESENTS this as measuring
+//   the dominant cycle component of price; the Aug 2026 null test found no
+//   such cycle on tested assets (see header above). Output oscillates in cycle mode,
 //   flattens/drifts in trend mode. Does NOT self-suppress in trend mode —
 //   requires external trend gate (MAMA/FAMA) for NNFX use.
 //
@@ -26,7 +50,9 @@
 //   BUY  when Trigger crosses above Cycle
 //   SELL when Trigger crosses below Cycle
 //
-// VALIDATED: Week 8, May 2026
+// VALIDATED (IMPLEMENTATION CORRECTNESS): Week 8, May 2026
+//   NOTE: this validated behaviour and formula fidelity, NOT that the output
+//   corresponds to a real market cycle. See null test, Aug 2026.
 //   EUR/USD D1 (2015-2024): centered on zero, amplitude stable ±0.007
 //   BTC/USD H4 (2020-2024): centered on zero, amplitude varies 10x
 //                            AGC normalization required for BTC use
