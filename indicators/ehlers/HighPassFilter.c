@@ -7,7 +7,14 @@
 // Inputs:  Price - price series (vars)
 //          HPPeriod - cutoff period (default 48)
 // Output:  De-trended price (oscillates around zero)
-// Notes:   Zorro uses degrees not radians for trig
+// Notes:   Trig args are RADIANS (standard C math library).
+//          Ehlers' published EasyLanguage uses DEGREES - all
+//          formulas converted: 360/P -> 2*PI/P. Corrected May 2026.
+//          alpha1 carries 0.707 (two-pole cascade compensation).
+//          Reference: HPPeriod=30 -> alpha1 = 0.138102
+//          Reusable on any input series - RMO uses this directly
+//          as its second stage. Callers must invoke unconditionally
+//          every bar: series() allocates by call order.
 //          Pair with SuperSmoother2Pole to form
 //          the Roofing Filter (band-pass)
 // Validated: EUR/USD D1, BTC/USD H4
