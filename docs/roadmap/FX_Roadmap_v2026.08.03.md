@@ -997,24 +997,46 @@ var FisherTransform(vars Price, int Period) {
 - Note: Ehlers simplifies the full Kalman — understand what simplifications were made
 - Document in `/docs/indicators/Kalman_Theory.md`
 
-**Day 2 — Implement Ehlers Kalman Filter (2 hours)**
+**Day 2 — Implement Alpha-Beta Filter (2 hours)** *(revised 2026-08-05 — see below)*
 
 ⏸️ **PAUSE POINT**
 
-```c
-// /zorro/indicators/ehlers/EhlersKalman.c
-// Simplified Kalman filter adapted for price series
+> **PROVENANCE CORRECTION (2026-08-05).** This indicator was previously labelled "Ehlers
+> Kalman Filter." No such article exists in the 102-article library — `Every Little Bit
+> Helps.pdf` was mis-mapped to this slot and is about averaging open+close to reduce
+> Nyquist noise. The filter below is an **α–β (g–h) filter** from radar tracking
+> literature: the steady-state limit of a Kalman filter under fixed noise covariances,
+> with the covariance propagation removed. Renamed accordingly. The claim "optimal
+> minimum-variance estimator" is **retracted** — a fixed-gain tracker is optimal only if
+> the gain matches the true noise ratio.
 
-var EhlersKalman(vars Price, var Gain) {
-    // Gain = Kalman gain, typically 0.6-0.9
-    var* Kf = series(Price[0], 2);
+```c
+// /zorro/indicators/AlphaBetaFilter.c
+// Constant-gain alpha-beta (g-h) position+velocity tracker.
+// NOT a Kalman filter: no covariance propagation, no adaptive gain.
+// alpha = sqrt(2*Gain) is the critical-damping relation beta = alpha^2/2. Legitimate.
+//
+// USABLE GAIN RANGE: [0.02, 0.20].  Above ~0.246 this filter AMPLIFIES noise.
+// Above 0.5, alpha = sqrt(2*Gain) > 1 and position overshoots measurement every bar.
+//
+// Measured (input sigma = 1.0):
+//   Gain 0.05 -> out sigma 0.542 | Gain 0.10 -> 0.688 | Gain 0.20 -> 0.908
+//   Gain 0.30 -> 1.100 (amplifies) | Gain 0.60 -> 1.792 | Gain 0.90 -> 3.451
+//
+// OUTPUT LEADS BY EXACTLY 1.000 BAR on a ramp, at all gains. The recursion omits the
+// prediction step and adds velocity post-hoc, double-counting it. This is a ONE-STEP-
+// AHEAD FORECAST, not a current-state estimate. It overshoots at turning points.
+// Do NOT document this as a smoother -- a plain EMA smooths harder at equal settings.
+
+var AlphaBetaFilter(vars Price, var Gain) {
+    var* Kf       = series(Price[0], 2);
     var* Velocity = series(0.0, 2);
-    
-    var dk = Price[0] - Kf[1];
+
+    var dk     = Price[0] - Kf[1];
     var Smooth = Kf[1] + dk * sqrt(Gain * 2);
     Velocity[0] = Velocity[1] + (Gain * dk);
-    Kf[0] = Smooth + Velocity[0];
-    
+    Kf[0]       = Smooth + Velocity[0];
+
     return Kf[0];
 }
 ```
@@ -1025,7 +1047,9 @@ var EhlersKalman(vars Price, var Gain) {
 
 - Run validation template on EUR/USD D1
 - Compare Kalman vs SuperSmoother: different noise characteristics?
-- Test Gain parameter sweep: 0.1, 0.3, 0.6, 0.9
+- Test Gain parameter sweep: **0.02, 0.05, 0.10, 0.20** *(revised 2026-08-05 — the old
+  0.1/0.3/0.6/0.9 sweep spans the noise-amplifying region above Gain 0.246 and is not
+  informative)*
 
 **Day 4 — Crypto Testing (2 hours)**
 - Run on BTC/USD H4
@@ -1044,9 +1068,13 @@ var EhlersKalman(vars Price, var Gain) {
 - Git commit: `feat: EhlersKalman validated + correlation cycle theory documented`
 - Week 12 retrospective
 
-**Week 12 Validation Gate:**
-- ✅ Kalman Filter: smoother than raw price, reasonable lag tradeoff
-- ✅ Gain parameter guidelines per asset class documented
+**Week 12 Validation Gate:** *(revised 2026-08-05)*
+- ✅ Alpha-Beta Filter: noise gain, 1-bar lead and overshoot characterised; role
+  documented honestly as predictive, not smoothing
+- ✅ Recursive Median Filter: outlier resistance confirmed vs plain EMA (2020-03 BTC)
+- ✅ **RMO: Strategy 2 C2 decision made against pre-registered criteria** — accepted or
+  rejected on record, threshold not revised after seeing data
+- ✅ Correlation Cycle: implemented + null-tested per Principle 6
 
 ---
 

@@ -375,43 +375,70 @@ rigorously. Compare against InstantTrendline already in library.
 ---
 
 ## Week 12 — Noise Reduction & Signal Quality
-**Articles:** `Every Little Bit Helps.pdf` + `Recursive Median Filters.pdf`
-+ `Correlation As A Cycle Indicator.pdf`  
-**Why:** These improve signal quality through fundamentally different mechanisms
-than smoothing. Kalman is optimal minimum-variance. Median handles outliers.
-Correlation Cycle measures cycle dominance rather than position.
+**Articles:** `Recursive Median Filters.pdf` + `Correlation As A Cycle Indicator.pdf`
+**Note (2026-08-05):** `Every Little Bit Helps.pdf` was previously listed here as the
+source for indicator #21. That article is about averaging open+close to reduce noise at
+Nyquist — it contains no Kalman or state-estimation content. **Indicator #21 has no
+Ehlers source article.** See "Provenance correction" below.
+**Why:** These improve signal quality through fundamentally different mechanisms than
+smoothing. Median handles outliers non-linearly. Correlation Cycle uses autocorrelation
+rather than band-pass filtering.
+
+### Provenance correction — indicator #21 (2026-08-05)
+
+The filter previously labelled "Ehlers Kalman Filter" is an **α–β (g–h) filter**, a
+constant-gain position+velocity tracker from radar tracking literature. It is the
+steady-state limit of a Kalman filter under fixed noise covariances, but the covariance
+propagation — the part that makes Kalman adaptive and optimal — is absent.
+
+- **Renamed** `EhlersKalman` → `AlphaBetaFilter`
+- **Claim retracted:** "optimal minimum-variance estimator." A fixed-gain tracker is
+  optimal only if the chosen gain matches the true process/measurement noise ratio.
+- **Citation:** α–β filter literature (Kalata tracking index; Benedict–Bordner), not Ehlers.
 
 ### Indicators
 | # | Indicator | NNFX Role Hypothesis |
 |---|---|---|
-| 21 | Ehlers Kalman Filter | Baseline / C1 — optimal noise reduction |
-| 22 | Recursive Median Filter | Noise reduction with outlier resistance |
-| 23 | Correlation Cycle Indicator | Cycle confirmation / market mode detection |
+| 21 | Alpha-Beta Filter (was "Ehlers Kalman") | Baseline / predictive — 1-bar lead, NOT a smoother |
+| 22 | Recursive Median Filter + RMO | RM: outlier-robust smoothing. **RMO: Strategy 2 C2 candidate** |
+| 23 | Correlation Cycle Indicator | Null-gate test subject (Principle 6) — see roadmap v4.3 |
 
 ### Theory Focus (Days 1-2)
-- Kalman: balances prediction vs measurement noise
-  - Ehlers simplifies full Kalman — understand what simplifications were made
+- α–β: position+velocity tracking; what the Kalman "simplification" actually discards
+  - Relation α = √(2β) is the critical-damping condition — legitimate, not a typo
   - How does it differ from SuperSmoother mathematically?
-- Recursive Median: non-linear — why does non-linearity help with outliers?
+- Recursive Median: non-linear — breakdown point, why linearity *is* outlier sensitivity
   - Flash crash resilience: critical for crypto
-- Correlation Cycle: autocorrelation measures how cyclic market currently is
-  - High correlation = cycle mode, low = trend or random mode
+- Correlation Cycle: autocorrelation as a mechanism distinct from band-pass filtering
 
 ### Implementation Notes (Day 3)
-- Kalman: Gain parameter (0.6-0.9 typical)
-- Recursive Median: non-linear — cannot use standard IIR structure
+- **α–β Gain: usable range [0.02, 0.20].** Above Gain ≈ 0.246 the filter *amplifies*
+  noise (output σ > input σ). Above Gain = 0.5, α = √(2·Gain) exceeds 1 and the position
+  update overshoots the measurement every bar. The previously documented "0.6–0.9
+  typical" is wrong — at 0.9 it amplifies noise 3.45× and overshoots a step by 124%.
+- **α–β leads by exactly 1.000 bar on a ramp**, at all gains. Structural: the recursion
+  omits the prediction step and adds velocity post-hoc, double-counting it. Output is a
+  one-step-ahead **forecast**, not a current-state estimate. Will overshoot at turning
+  points. Do not document as a smoother.
+- Recursive Median: non-linear — explicit 5-element sort, cannot use `series()` IIR pattern
+- RM `alpha1` has **no** 0.707 (single pole); RMO `alpha2` **requires** it (two poles)
 - Correlation Cycle: requires autocorrelation calculation
 
 ### Validation Focus (Days 4-5)
-- Kalman vs SuperSmoother: different noise characteristics?
-- Kalman Gain sweep: 0.1, 0.3, 0.6, 0.9 — optimal per asset class
+- **α–β Gain sweep: 0.02 / 0.05 / 0.10 / 0.20** (revised — old 0.1/0.3/0.6/0.9 spans the
+  noise-amplifying region and is not informative)
+- α–β vs EMA: at comparable settings a plain EMA smooths harder (σ 0.50 vs 0.69). The
+  α–β buys a 1-bar lead, not smoothness. Test whether that lead has value.
 - Recursive Median: flash crash test — 2020-03 BTC crash data specifically
-- Correlation Cycle: does reading align with visually obvious cycle/trend periods?
+- **RMO vs MESA Stochastic |ρ| — decides the Strategy 2 C2 slot.** Pre-registered
+  threshold ≤ 0.5; pre-registered prediction 0.4–0.65
+- RMO has **no AGC** — check amplitude stability on BTC/USD H4 (~10× regime variation)
 
 ### Validation Gate
-- ✅ Kalman: smoother than raw price, gain guidelines per asset class
-- ✅ Recursive Median: outlier resistance confirmed
-- ✅ Correlation Cycle: cycle/trend detection validated
+- ✅ α–β: characterised (noise gain, lead, overshoot); honest role documented
+- ✅ Recursive Median: outlier resistance confirmed vs plain EMA
+- ✅ RMO: C2 decision made against pre-registered criteria — accept or reject on record
+- ✅ Correlation Cycle: implemented + null-tested (Principle 6)
 
 ---
 
