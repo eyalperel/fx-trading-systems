@@ -15,10 +15,10 @@
 void run()
 {
     // ---- Asset / timeframe: set explicitly, do not inherit ----
-    StartDate = 20150101;
+    StartDate = 20200101;
     EndDate   = 20241231;
-    BarPeriod = 1440;              // D1
-    asset("EUR/USD");
+    BarPeriod = 240;               // H4
+    asset("BTC/USD");
     LookBack  = 200;
 
     // Bar counter - (int)Now fails for bar dating in Light-C
@@ -63,11 +63,19 @@ void run()
     if(is(LOOKBACK)) return;
 
     // ---- Export ----
-    if(barCount == LookBack + 1)
-        file_append("Data/RecursiveMedian_EURUSD_D1.csv",
+    // Header on the first post-lookback bar. Do NOT gate on
+    // barCount == LookBack+1: Zorro auto-extends LookBack when
+    // indicators need more warmup, so the equality can never fire
+    // and the header is silently skipped (happened on BTC/USD H4,
+    // where LookBack was extended 200 -> 201).
+    static int hdrWritten = 0;
+    if(!hdrWritten) {
+        file_append("Data/RecursiveMedian_BTCUSD_H4.csv",
             "barIndex,Price,RM,RMO,AlphaBeta,EMA\n", 0);
+        hdrWritten = 1;
+    }
 
-    file_append("Data/RecursiveMedian_EURUSD_D1.csv",
+    file_append("Data/RecursiveMedian_BTCUSD_H4.csv",
         strf("%d,%.6f,%.6f,%.8f,%.6f,%.6f\n",
              barCount, Price[0], rm, rmo, ab, EMAs[0]), 0);
 }
