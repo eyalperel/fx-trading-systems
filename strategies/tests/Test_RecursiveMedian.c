@@ -1,8 +1,12 @@
 #include <default.c>
 
 // Dependency order matters - Light-C is single-pass.
-// RecursiveMedian.c calls HighPassFilter, so it must come first.
+//   MESAStochastic -> RoofingFilter -> HighPassFilter + SuperSmoother2Pole
+//   RecursiveMedian -> HighPassFilter
 #include "../../indicators/ehlers/HighPassFilter.c"
+#include "../../indicators/ehlers/SuperSmoother2Pole.c"
+#include "../../indicators/ehlers/RoofingFilter.c"
+#include "../../indicators/ehlers/MESAStochastic.c"
 #include "../../indicators/ehlers/RecursiveMedian.c"
 #include "../../indicators/ehlers/AlphaBetaFilter.c"
 
@@ -12,14 +16,20 @@
 #define AB_GAIN     0.10  // alpha-beta: inside usable range [0.02, 0.20]
 #define EMA_ALPHA   0.40  // comparison baseline, similar smoothing to RM
 
+// ---- MESA Stochastic: LOCKED Strategy 2 C1 parameters ----
+// Taken from Test_MESAStochastic.c - do not vary. C-3 compares the
+// C2 candidate against C1 exactly as C1 is locked.
+#define STOCH_PERIOD 20
+#define MS_HP        48
+#define MS_SS        10
+
 void run()
 {
     // ---- Asset / timeframe: set explicitly, do not inherit ----
     StartDate = 20200101;
     EndDate   = 20241231;
-    BarPeriod = 240;               // H4
+    BarPeriod = 240;
     asset("BTC/USD");
-    LookBack  = 200;
 
     // Bar counter - (int)Now fails for bar dating in Light-C
     static int barCount = 0;
@@ -33,6 +43,7 @@ void run()
     // Every call here is unconditional: series() allocates by
     // call order, so a conditional call would corrupt state.
     // ---------------------------------------------------------
+    var mesa  = MESAStochastic(Price, STOCH_PERIOD, MS_HP, MS_SS);
     var rm    = RecursiveMedian(Price, LP_PERIOD);
     var rmo   = RecursiveMedianOsc(Price, LP_PERIOD, HP_PERIOD);
     var ab    = AlphaBetaFilter(Price, AB_GAIN);
@@ -70,12 +81,12 @@ void run()
     // where LookBack was extended 200 -> 201).
     static int hdrWritten = 0;
     if(!hdrWritten) {
-        file_append("Data/RecursiveMedian_BTCUSD_H4.csv",
-            "barIndex,Price,RM,RMO,AlphaBeta,EMA\n", 0);
+        file_append("Data/RM_C2_BTCUSD_H4.csv",
+            "barIndex,Price,RM,RMO,MESAStoch,AlphaBeta,EMA\n", 0);
         hdrWritten = 1;
     }
 
-    file_append("Data/RecursiveMedian_BTCUSD_H4.csv",
-        strf("%d,%.6f,%.6f,%.8f,%.6f,%.6f\n",
-             barCount, Price[0], rm, rmo, ab, EMAs[0]), 0);
+    file_append("Data/RM_C2_BTCUSD_H4.csv",
+        strf("%d,%.6f,%.6f,%.8f,%.6f,%.6f,%.6f\n",
+             barCount, Price[0], rm, rmo, mesa, ab, EMAs[0]), 0);
 }
