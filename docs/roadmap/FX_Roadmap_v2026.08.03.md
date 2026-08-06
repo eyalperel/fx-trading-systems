@@ -26,6 +26,14 @@ Full documentation: `docs/research/Cycle_Premise_Null_Test.md` and `docs/researc
 | Added surrogate/null testing to "What Actually Works"; added cycle extraction to "What Doesn't Work" | Executive Summary | Own empirical result on two assets, with detection-power calibration |
 | Added Principles 6-7 (null gate, mechanism-determines-bar) to Phase 2 Indicator Principles | Key Principles | Any indicator justified by cycle extraction must be distinguishable from matched surrogates, or enter the library classified as a filter |
 | Week 12 Day 5 revised: Correlation Cycle Indicator now implemented **and** null-tested rather than used to "measure cycle dominance" | Phase 2, Week 12 | Original plan measured a quantity found indistinguishable from noise. Same time cost; both outcomes now informative |
+> **CORRECTION (2026-08-06).** This entry previously described the Correlation Cycle as
+> detecting cycles "via autocorrelation rather than band-pass filtering — a genuinely
+> different mechanism." **That is wrong.** The published indicator (TASC V.38:06, 2020)
+> correlates price against a FIXED-PERIOD cosine/sine basis — a normalised single-bin
+> DFT, i.e. a linear projection in the same family as the band-pass chain tested in
+> Week 11. The error came from working off "Measuring Market Cycles" (V.34:09), which
+> *is* autocorrelation-based. The tested claim was changed to **phase coherence**, which
+> Week 11 genuinely did not test. See `docs/research/Cycle_Premise_Second_Null_Test.md`.
 | Week 17 Day 1 expanded: surrogate testing added to the validation framework alongside WFO and Monte Carlo | Phase 2.5, Week 17 | WFO asks whether parameters generalise across time; MC asks about path dependence. Neither asks whether the edge is distinguishable from noise |
 | Phase 4 regime detection anchored on **volatility** state rather than cycle state | Phase 4, Weeks 27/29 | DFA measured H(returns) ≈ 0.5 on both assets but H(\|returns\|) = 0.658 (FX) / 0.766 (crypto). The exploitable memory is in volatility |
 
@@ -989,96 +997,127 @@ var FisherTransform(vars Price, int Period) {
 
 ---
 
-**Week 12: Noise Reduction & Signal Quality**
-*Articles: Ehlers Kalman Filter, Correlation Cycle Indicators*
+**Week 12: Noise Reduction & Signal Quality** — ✅ COMPLETE (2026-08-06)
+*Articles: `Recursive Median Filters.pdf`, `Correlation As A Cycle Indicator.pdf`*
+*(Indicator #21 has NO source article — see provenance correction below.)*
 
-**Why these:** Kalman Filter is the optimal minimum-variance estimator — Ehlers' trading-adapted version is simpler than the full implementation but still powerful.
+> **THIS SECTION WAS REVISED DURING EXECUTION.** The original plan is preserved in the
+> git history (`3c1d697`, v4.3). Three planning errors were found and corrected:
+> a mis-attributed article, a retracted capability claim, and a wrong mechanism
+> description. All three are documented rather than silently fixed.
 
-**Day 1 — Theory (2 hours)**
-- Read Ehlers Kalman Filter article
-- Understand: Kalman balances prediction vs measurement noise
-- Two parameters: Slope (trend speed estimate) and Velocity (noise level)
-- Note: Ehlers simplifies the full Kalman — understand what simplifications were made
-- Document in `/docs/indicators/Kalman_Theory.md`
+**Actual execution:** Days 1–2 theory (RM/RMO, Alpha-Beta, Correlation Cycle),
+Day 3 implementation, Day 4 validation + C2 decision, Day 5 Correlation Cycle + null
+test, Day 6 documentation. The original day plan omitted the **Recursive Median Filter
+(#22)** entirely despite `Week5-14_Indicator_Plan.md` listing it as a Week 12
+deliverable — it became the week's primary C2 candidate and consumed Days 1, 3 and 4.
 
-**Day 2 — Implement Alpha-Beta Filter (2 hours)** *(revised 2026-08-05 — see below)*
+---
 
-⏸️ **PAUSE POINT**
+### Provenance correction — indicator #21 (2026-08-05)
 
-> **PROVENANCE CORRECTION (2026-08-05).** This indicator was previously labelled "Ehlers
-> Kalman Filter." No such article exists in the 102-article library — `Every Little Bit
-> Helps.pdf` was mis-mapped to this slot and is about averaging open+close to reduce
-> Nyquist noise. The filter below is an **α–β (g–h) filter** from radar tracking
-> literature: the steady-state limit of a Kalman filter under fixed noise covariances,
-> with the covariance propagation removed. Renamed accordingly. The claim "optimal
-> minimum-variance estimator" is **retracted** — a fixed-gain tracker is optimal only if
-> the gain matches the true noise ratio.
+> The original text read: *"Why these: Kalman Filter is the optimal minimum-variance
+> estimator — Ehlers' trading-adapted version is simpler than the full implementation
+> but still powerful."*
+>
+> **All three claims are wrong.** No Ehlers Kalman article exists in the 102-article
+> library; `Every Little Bit Helps.pdf` was mis-mapped and concerns averaging open+close
+> to reduce noise at Nyquist. The filter is an **α–β (g–h) tracker** from radar
+> literature — the steady-state limit of a Kalman filter under fixed noise covariances,
+> with covariance propagation removed. **"Optimal minimum-variance estimator" is
+> retracted:** a fixed-gain tracker is optimal only if the gain matches the true noise
+> ratio. And it is not a smoother — a plain EMA smooths harder at equal settings.
+>
+> Renamed `EhlersKalman` → **`AlphaBetaFilter`**. Cite α–β literature (Kalata;
+> Benedict–Bordner), not Ehlers. See commit `5255472`.
+
+**Confirmed sound:** `sqrt(Gain*2)` is not a typo — it is the critical-damping relation
+β = α²/2.
+
+**Measured characteristics** (input σ = 1.0):
+
+| Gain | α | Output σ | Step overshoot |
+|---|---|---|---|
+| 0.05 | 0.316 | 0.542 | 22.6% |
+| 0.10 | 0.447 | 0.688 | 23.7% |
+| 0.20 | 0.632 | 0.908 | 26.2% |
+| **0.246** | 0.702 | **1.000** ← noise-neutral crossover | — |
+| 0.60 | 1.095 | 1.792 ✗ | 69.5% |
+| 0.90 | 1.342 | 3.451 ✗ | 124.2% |
+
+**Usable range [0.02, 0.20].** The originally documented "0.6–0.9 typical" is wrong —
+above Gain ≈ 0.246 the filter *amplifies* noise; above 0.5, α = √(2·Gain) > 1 and the
+position update overshoots the measurement every bar.
+
+**Output leads by exactly 1.000 bar** on a ramp at all gains — the recursion omits the
+prediction step and adds velocity post-hoc. It is a one-step-ahead **forecast**.
 
 ```c
-// /zorro/indicators/AlphaBetaFilter.c
-// Constant-gain alpha-beta (g-h) position+velocity tracker.
-// NOT a Kalman filter: no covariance propagation, no adaptive gain.
-// alpha = sqrt(2*Gain) is the critical-damping relation beta = alpha^2/2. Legitimate.
-//
-// USABLE GAIN RANGE: [0.02, 0.20].  Above ~0.246 this filter AMPLIFIES noise.
-// Above 0.5, alpha = sqrt(2*Gain) > 1 and position overshoots measurement every bar.
-//
-// Measured (input sigma = 1.0):
-//   Gain 0.05 -> out sigma 0.542 | Gain 0.10 -> 0.688 | Gain 0.20 -> 0.908
-//   Gain 0.30 -> 1.100 (amplifies) | Gain 0.60 -> 1.792 | Gain 0.90 -> 3.451
-//
-// OUTPUT LEADS BY EXACTLY 1.000 BAR on a ramp, at all gains. The recursion omits the
-// prediction step and adds velocity post-hoc, double-counting it. This is a ONE-STEP-
-// AHEAD FORECAST, not a current-state estimate. It overshoots at turning points.
-// Do NOT document this as a smoother -- a plain EMA smooths harder at equal settings.
-
+// indicators/ehlers/AlphaBetaFilter.c
 var AlphaBetaFilter(vars Price, var Gain) {
     var* Kf       = series(Price[0], 2);
     var* Velocity = series(0.0, 2);
-
     var dk     = Price[0] - Kf[1];
     var Smooth = Kf[1] + dk * sqrt(Gain * 2);
     Velocity[0] = Velocity[1] + (Gain * dk);
     Kf[0]       = Smooth + Velocity[0];
-
     return Kf[0];
 }
 ```
 
-**Day 3 — FX Validation (2 hours)**
+---
 
-⏸️ **PAUSE POINT**
+### Mechanism correction — Correlation Cycle (2026-08-06)
 
-- Run validation template on EUR/USD D1
-- Compare Kalman vs SuperSmoother: different noise characteristics?
-- Test Gain parameter sweep: **0.02, 0.05, 0.10, 0.20** *(revised 2026-08-05 — the old
-  0.1/0.3/0.6/0.9 sweep spans the noise-amplifying region above Gain 0.246 and is not
-  informative)*
+> The original Day 5 text read: *"This indicator measures cycle presence via
+> autocorrelation rather than via band-pass filtering — a genuinely different mechanism,
+> so it is a real second test rather than a repeat."*
+>
+> **Wrong.** The published indicator (TASC V.38:06, 2020) correlates price against a
+> **fixed-period cosine/sine basis** — a normalised single-bin DFT, i.e. a *linear
+> projection* in the same family as the band-pass chain tested in Week 11. Slutsky–Yule
+> applies directly. The error came from working off `Measuring Market Cycles.pdf`
+> (V.34:09), which *is* autocorrelation-based.
+>
+> **Resolution:** the tested claim was changed to **phase coherence** — genuinely
+> untested in Week 11, since spectral prominence measures power concentration while phase
+> coherence measures regularity of phase progression. Separately, the **autocorrelation
+> periodogram** was implemented in Python to supply the independent mechanism originally
+> intended.
 
-**Day 4 — Crypto Testing (2 hours)**
-- Run on BTC/USD H4
-- Higher Gain needed for crypto? (faster price movements)
-- Document optimal Gain per asset class
+---
 
-**Day 5 — Correlation Cycle Indicator + Null Test (2 hours)** *(revised v4.3)*
-- Implement one of Ehlers' correlation-based indicators (`Correlation_As_A_Cycle_Indicator.pdf`, already in project files)
-- **Do not use it to "measure cycle dominance."** The Aug 2026 null test found cycle dominance indistinguishable from noise on both EUR/USD D1 and BTC/USD H4
-- Instead: implement, then run the surrogate null test against it using the existing harness in `analysis/null_tests/`
-- This indicator measures cycle presence via autocorrelation rather than via band-pass filtering — a genuinely different mechanism, so it is a real second test rather than a repeat
-- **Both outcomes are informative:** rejection would be a significant positive result on a different indicator family; non-rejection is independent confirmation. Same time cost as the original plan
-- Document the outcome in `/docs/research/` alongside the existing null-test documents
+### Outcomes
 
-**Day 6 — Documentation + Commit (2 hours)**
-- Git commit: `feat: EhlersKalman validated + correlation cycle theory documented`
-- Week 12 retrospective
+| Indicator | Result |
+|---|---|
+| **Recursive Median (RM)** | Validated; lag 3.366 bars vs 3.37 predicted from theory. **Crypto rationale refuted** — BTC 99th-pct moves don't revert (median retracement −2.3%), so a median rejects real price discovery. Lag-matched, RM tracks worse than a plain EMA (RMSE 993 vs 785). Use case narrowed to genuinely corrupt input. |
+| **RMO** | ⛔ **ELIMINATED as Strategy 2 C2** — \|ρ\| = 0.799 with MESA Stochastic vs pre-registered 0.65 threshold. Threshold not revised. |
+| **Alpha-Beta Filter** | Characterised; attribution and optimality claim retracted. |
+| **Correlation Cycle** | Implemented + null-tested. Classified as a **filter**, not a cycle detector. Phase coherence R = 0.9706 on EUR/USD vs 0.9705 on a random walk — a window-overlap artefact. |
 
-**Week 12 Validation Gate:** *(revised 2026-08-05)*
-- ✅ Alpha-Beta Filter: noise gain, 1-bar lead and overshoot characterised; role
-  documented honestly as predictive, not smoothing
-- ✅ Recursive Median Filter: outlier resistance confirmed vs plain EMA (2020-03 BTC)
-- ✅ **RMO: Strategy 2 C2 decision made against pre-registered criteria** — accepted or
-  rejected on record, threshold not revised after seeing data
-- ✅ Correlation Cycle: implemented + null-tested per Principle 6
+**Unplanned work that proved necessary:**
+- **Strategy 1 C2 audit** — Reflex was locked in Week 11 on qualitative grounds only.
+  Measured: \|ρ\| = 0.597 / 0.595 with Fisher. **Flagged, not unlocked.**
+- **C-3 criterion amended** — correlation replaced by a two-stage test (C-3a screen +
+  C-3b conditional information gain). Registered before Week 13 data exists.
+- **`docs/ZORRO_LIGHTC_GOTCHAS.md`** created — platform knowledge consolidated.
+- **Degrees/radians documentation sweep** — the May 2026 correction fixed code but not
+  prose. Five stale items found, including a broken snippet in *this roadmap*.
+
+---
+
+**Week 12 Validation Gate — ACTUAL OUTCOME:**
+- ✅ Alpha-Beta Filter: characterised; attribution retracted; claims corrected
+- ✅ Recursive Median: validated; crypto rationale refuted; use case narrowed
+- ⛔ **RMO C2 decision: ELIMINATED.** Strategy 2 C2 remains OPEN
+- ✅ Correlation Cycle: implemented + null-tested; classified as filter
+- ✅ Additional: S1 audit, C-3 amendment, gotchas file, radians sweep
+- ⏸️ **Deferred to Week 14:** action 10 — null-test Reflex and MESA Stochastic
+
+> **Structural finding.** C-3b is a strategy-level test, so **C2 selection cannot be
+> completed in Phase 2.** Week 13's Laguerre RSI is evaluated as a *shortlisted
+> candidate*, not locked. Both C2 slots resolve in Phase 2.5/3.
 
 ---
 
