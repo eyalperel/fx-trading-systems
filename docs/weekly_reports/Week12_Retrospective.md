@@ -255,7 +255,7 @@ distribution.
 | Platform reference | `docs/ZORRO_LIGHTC_GOTCHAS.md` |
 | README | `README.md` — reframed, Week 11 action 9 closed |
 
-**Commits:** `c310e14` → `cf71eb4`, 10 commits, all pushed.
+**Commits:** `c310e14` → `2f495bc`, 14 commits, all pushed.
 
 ---
 
