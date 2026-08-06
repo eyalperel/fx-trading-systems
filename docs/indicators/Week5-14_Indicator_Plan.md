@@ -519,7 +519,7 @@ stop placement. Normalized ATR enables cross-asset comparison on same scale.
 | 9 | Adaptive Trend | 3 | Fractal Adaptive MAs, Laguerre Filters, The Deviation-Scaled MA |
 | 10 | Momentum / Transforms | 3 | Using The Fisher Transform, The Inverse Fisher Transform, Center of Gravity |
 | 11 | Zero-Lag / Predictive | 3 | Reflex, Predictive And Successful Indicators, ELI |
-| 12 | Noise Reduction | 3 | Every Little Bit Helps, Recursive Median Filters, Correlation As A Cycle Indicator |
+| 12 | Noise Reduction | 3 | Recursive Median Filters, Correlation As A Cycle Indicator *(Every Little Bit Helps was mis-mapped here — see Week 12 provenance correction. Indicator #21 has no source article.)* |
 | 13 | Volatility / Stops | 3 | Setting stops, Ultimate Channels And Bands, (Yet Another) Improved RSI |
 | 14 | Consolidation | 0 | — |
 | **Total** | | **26** | |
@@ -534,7 +534,11 @@ The NNFX component mapping from Week 14 directly drives strategy design:
 - **Strategy 2 (Week 19):** FRAMA Baseline + Cyber Cycle C1 + EBS C2
 - **Strategy 3 (Week 20):** DominantCycle adaptive + Bandpass oscillator
 - **Strategy 4 (Week 21):** ATR breakout + Fisher Transform confirmation
-- **Strategy 5 (Week 22):** SuperSmoother trend + Roofing Filter cycle + Kalman filter
+- **Strategy 5 (Week 22):** SuperSmoother trend + Roofing Filter cycle + Alpha-Beta
+  Filter *(was "Kalman filter" — renamed 2026-08-05, see provenance correction above.
+  Note the Alpha-Beta Filter is a one-step-ahead **forecast**, not a smoother, and a
+  plain EMA smooths harder at equal settings. Its role in this strategy needs
+  re-justification before Week 22.)*
 - **Strategy 6 (Week 23):** Crypto-specific — NormalizedATR × 2.5 stops, BTC/ETH
 
 The chain: **theory → implementation → validation → strategy application**

@@ -123,7 +123,13 @@ decorrelation:
 **Applied to Week 13's Laguerre RSI:** RSI's up/down decomposition is a non-linear
 operation performed on *every* bar, not a dormant gate. On that structural ground it is
 a better prospect than RMO was. This is a hypothesis, not a result — it must be measured
-against the same C-3 threshold, unrevised.
+against the C-3 threshold, unrevised.
+
+> **SUPERSEDED (2026-08-06).** C-3 was amended on Day 6 — see Amendment 1 in
+> `C2_Selection_Criteria_PreRegistered.md`. Laguerre RSI is evaluated under **C-3a**
+> (correlation screen, a warning rather than a verdict) and **C-3b** (conditional
+> information gain, decisive). RMO's elimination above stands under C-3 as originally
+> written.
 
 ---
 
@@ -154,7 +160,11 @@ is simply redundant against the C1 already locked.
 - **RMO is not "a bad indicator."** It is redundant *against MESA Stochastic
   specifically*. Against a different C1 — one not built on a roofing filter — it might
   well pass. It is not being removed from the library.
-- **Strategy 1 is unaffected.** FAMA / Fisher / Reflex remain locked and untouched.
+- **Strategy 1 is unaffected** *(true when written on Day 4; **no longer true**)*.
+  The Day 6 audit applied C-3 retroactively to Strategy 1's C2: Reflex vs Fisher
+  |ρ| = 0.597 (FX) / 0.595 (BTC), conditional band on both assets, with a contradictory
+  preliminary information-gain result. **Reflex is flagged, not unlocked.** See
+  Amendment 1.
 - **This is an indicator-level decision.** No strategy-level backtest has been run. The
   correlation measured is between indicator outputs, not between trading signals with
   entry rules, position sizing and costs applied. That distinction holds throughout
