@@ -135,3 +135,98 @@ entering as C2.
 - `docs/indicators/RecursiveMedian_Theory.md` — RMO theory, Day 1
 - `docs/research/Cycle_Premise_Conclusions_and_Impact.md` — Week 11 null test
 - `docs/roadmap/FX_Roadmap_v2026.08.03.md` v4.3 — Phase 2 Principles 6–7
+---
+---
+
+# AMENDMENT 1 — C-3 replaced by a two-stage test
+
+**Date:** 2026-08-06, Week 12 Day 6
+**Status:** REGISTERED BEFORE THE DATA IT GOVERNS. No Week 13 candidate (Laguerre RSI)
+has been implemented or measured at the time of writing.
+**Everything above this line is preserved unedited** — it is the criterion under which
+RMO was eliminated on Day 4, and that decision stands.
+
+## A1.1 Why C-3 is being revised
+
+C-3 measures *correlation*. The question that matters is *conditional information gain*:
+does C2 add anything beyond C1? These come apart, and the Week 12 Strategy 1 audit
+demonstrates it directly.
+
+Reflex vs Fisher, |ρ| ≈ 0.60 on both assets. Signed forward return following C1's
+direction:
+
+| Asset | C1 & C2 agree | C1 alone | C2 filter effect |
+|---|---|---|---|
+| EUR/USD D1 (5-bar fwd) | −5.19 bp | −12.09 bp | **+6.90 bp — adds edge** |
+| BTC/USD H4 (6-bar fwd) | +6.83 bp | +21.75 bp | **−14.93 bp — destroys edge** |
+
+**Near-identical correlation, opposite value.** Correlation cannot distinguish these
+cases. A criterion that rejects on ρ alone rejects the wrong candidates and accepts the
+wrong ones.
+
+The underlying reason: 74% sign agreement leaves 26% of bars where C2 disagrees. Whether
+C2 earns its slot depends entirely on whether *those* bars are informative — which ρ
+does not measure.
+
+## A1.2 The revised test
+
+**C-3a — Correlation screen (retained, demoted to a warning)**
+
+|ρ| between candidate and C1, both assets, contemporaneous.
+
+| \|ρ\| | Action |
+|---|---|
+| ≤ 0.50 | Clean |
+| 0.50 – 0.65 | Flagged — investigate and document the source of correlation |
+| > 0.65 | **Flagged strongly** — high redundancy risk; C-3b must pass decisively |
+
+**No longer eliminates on its own.** Correlation is a warning, not a verdict.
+
+**C-3b — Conditional information gain (new, DECISIVE)**
+
+Does C1 + C2 outperform C1 alone, out of sample, on **both** assets?
+
+- Measured at strategy level: entry rules, transaction costs, walk-forward
+- Metric: risk-adjusted return (Sharpe or equivalent) of C1+C2 vs C1 alone
+- **Pass requires improvement on both assets.** Improvement on one and degradation on
+  the other is a fail — that is parameter luck, not a confirmation indicator.
+
+**This is a stricter test than C-3, not a looser one.** It would have eliminated RMO
+regardless, and it places Reflex genuinely in question.
+
+## A1.3 Consequences
+
+**RMO (Week 12):** elimination stands. Decided under C-3 as originally written, before
+this amendment. Not reopened here. If reconsidered later it must be measured fresh under
+C-3b, with the original decision left standing in the record.
+
+**Reflex (Strategy 1 C2, locked Week 11):** **FLAGGED, NOT UNLOCKED.**
+- C-3a: |ρ| = 0.597 (FX) / 0.595 (BTC) → conditional band on both assets
+- C-3b preliminary: **fails on BTC** (−14.93 bp)
+- The preliminary figure is a crude proxy — no entry rules, no costs, arbitrary horizon,
+  a single unvalidated statistic. Per the Day 3 instrument-validation rule, a rough proxy
+  does not unlock a locked slot.
+- **Formal C-3b resolution deferred to Phase 2.5 / Phase 3**, where the strategy-level
+  machinery exists.
+- Until then, Strategy 1's C2 carries an explicit open question in the README.
+
+**Structural consequence:** C-3b is a strategy-level test. **C2 selection cannot be
+completed at indicator level.** Phase 2 can screen candidates (C-1, C-2, C-3a, C-4, C-5,
+C-6, C-7) and shortlist them; the decisive test belongs to Phase 3. Week 13's Laguerre
+RSI is therefore evaluated as a *shortlisted candidate*, not locked.
+
+## A1.4 Note on multi-asset validation
+
+A proposal was raised to defer these questions to broad testing across many FX pairs.
+Recorded, with the objection that motivates C-3b's both-assets requirement:
+
+**FX majors are not independent tests.** EUR/USD, GBP/USD, AUD/USD and NZD/USD share the
+USD leg, with pairwise correlations typically 0.6–0.9. Twenty pairs yield perhaps three
+to five effective independent samples, while multiple-comparison inflation prices as if
+there were twenty. Run enough pairs and something passes WFO and Monte Carlo on noise.
+
+This project has already measured that effect: the Week 11 regime addendum found a
+max-statistic null 95th percentile of 61.45 against a real value of 20.47.
+
+Broad multi-pair testing remains valuable — as *confirmation* after a candidate passes on
+pre-specified assets, not as a search over pairs for one that works.
