@@ -1,3 +1,14 @@
+> ⚠️ **SUPERSEDED — HISTORICAL RECORD ONLY.**
+> Current roadmap: `FX_Roadmap_v2026.08.03.md` (v4.3).
+> Retained unedited to preserve the record of what was planned and when.
+>
+> **Do not copy code from this document.** Known defect at line ~432:
+> `cos(1.414 * 180.0 / Period)` omits the degrees→radians conversion and would
+> reintroduce the Week 3 radians/degrees bug. The correct form is
+> `cos(1.414 * PI / Period)`. Live implementations in `indicators/ehlers/` are correct;
+> this file is not. *(Flagged 2026-08-06.)*
+
+
 # UNIFIED FX & CRYPTOCURRENCY ALGORITHMIC TRADING ROADMAP
 ## 48-Week Professional Development Program
 ### Zorro Platform | NNFX Framework | John Ehlers Indicators | Evidence-Based 2024-2025

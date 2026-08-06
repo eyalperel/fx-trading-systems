@@ -104,7 +104,8 @@ Understanding it deeply before building on top of it is essential.
 - Ultimate Smoother: what zero-lag claim does Ehlers make and how?
 
 ### Implementation Notes (Day 3)
-- Zorro uses degrees not radians for trig — verify cos() call units
+- Trig args are RADIANS — verify every `cos()`/`sin()` call converts Ehlers' published
+  degrees (`360/P` → `2π/P`). *(Corrected 2026-08-06.)*
 - SuperSmoother needs `series(0.0, 3)` for 3 bars of history
 - 3-pole version needs `series(0.0, 4)`
 

@@ -120,7 +120,10 @@ Same parameters work on both assets — no retuning needed.
 
 ## 7. Implementation Notes
 
-- Zorro uses degrees not radians — cos(360/HPPeriod) not cos(2π/HPPeriod)
+- Trig args are **RADIANS** — `cos(2π/HPPeriod)`, not `cos(360/HPPeriod)`. Zorro Light-C
+  uses the standard C math library. Ehlers publishes EasyLanguage in degrees; all
+  formulas must be converted. *(Corrected 2026-08-06 — this line previously asserted the
+  opposite. See Week3_Summary.md for the original bug.)*
 - RoofingFilter depends on HighPassFilter and SuperSmoother2Pole
 - Include order in test scripts: HighPassFilter.c → SuperSmoother2Pole.c → RoofingFilter.c
 - Relative #include paths inside indicator files don't resolve from strategy

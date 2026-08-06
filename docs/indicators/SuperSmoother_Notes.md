@@ -57,7 +57,9 @@ The /4.0 appearing in some Ehlers publications is a transcription error.
 ## Implementation Notes (Zorro Light-C)
 
 ### Degrees vs Radians
-Zorro's cos() uses **degrees**, not radians. Convert:
+Zorro's `cos()` uses **RADIANS** (standard C math library). Ehlers publishes in degrees,
+so all formulas must be converted: `360/Period` → `2π/Period`.
+*(Corrected 2026-08-06 — this section previously asserted the opposite.)*
 ```
 cos(sqrt(2.0) * 180.0 / Period)   // CORRECT
 cos(sqrt(2.0) * PI / Period)      // WRONG

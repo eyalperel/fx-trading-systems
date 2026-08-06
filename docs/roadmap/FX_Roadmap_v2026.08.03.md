@@ -503,7 +503,11 @@ Every week follows this pattern:
 
 var SuperSmoother2Pole(vars Price, int Period) {
     var c1 = exp(-1.414 * PI / Period);
-    var b1 = 2 * c1 * cos(1.414 * 180.0 / Period);  // degrees in Zorro
+    // RADIANS. Zorro Light-C uses the standard C math library.
+    // Ehlers publishes in degrees; 1.414*180/Period deg -> 1.414*PI/Period rad.
+    // (Corrected 2026-08-06 - this snippet previously omitted the conversion
+    // and would have reintroduced the Week 3 radians/degrees bug if copied.)
+    var b1 = 2 * c1 * cos(1.414 * PI / Period);
     var c2 = b1;
     var c3 = -c1 * c1;
     var c0 = (1 - b1 + c1 * c1) / 4.0;
