@@ -51,3 +51,6 @@ config/credentials.ini
 # Ehlers Articles - too large for Git
 research/articles/*.pdf
 research/articles/**/*.pdf
+
+# Personal working notes - not part of the public portfolio
+audit/
