@@ -1,3 +1,23 @@
+> ⚠️ **PARTIALLY SUPERSEDED, 2026-08-10 — see `Scope_Correction_2026-08-10.md`.**
+>
+> **Part 1 (findings) and Part 3 (limitations) stand unedited.** No measurement, p-value,
+> positive control or stated bound is retracted or revised.
+>
+> **Part 2 §2.3 — forward-looking recommendations — is superseded.** Those recommendations
+> produced roadmap Principles 6–7 and criterion C-7, all three of which are now withdrawn.
+> The finding did not carry the weight of a gate on future indicator work: it covers three
+> linear-projection mechanisms, two assets, one parameterisation and a 10–48 bar passband.
+> Part 3 says as much, and is the reason for this correction rather than an argument
+> against it.
+>
+> **Part 4 action list:** items 5 (add null gate) and 6 (reorganise Week 14 by evidence
+> status) are void. Remaining items stand as recorded.
+>
+> **Also unaffected:** §1.5's statement that this is not a finding against band-pass
+> filters — that distinction is now the project's operating principle rather than a caveat.
+
+---
+
 # Cycle Premise Null Test — Conclusions & Project Impact
 
 **Date:** 2026-08-03
