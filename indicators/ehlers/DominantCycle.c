@@ -93,6 +93,20 @@ var DominantCycle(vars Data)
     var Real, Imag, Denom;
     var MaxPwr, Cycle;
     
+    // --- Run-scoped reset ---------------------------------------
+    // Lite-C statics persist for the lifetime of the LOADED script.
+    // Only the three genuinely persistent ones are reset here:
+    //   Peak        AGC tracker, decays 0.991/bar across bars
+    //   coef[]      Griffiths adaptive coefficients, accumulate
+    //   SmoothCycle rate limiter, carries forward (reset at decl.)
+    // Mu, XX[] and Pwr[] are write-before-read every bar and do
+    // not leak. Values below restore the DECLARED initialisers, so
+    // behaviour matches a freshly compiled run exactly.
+    if(is(INITRUN)) {
+        Peak = 0.1;
+        for(count = 0; count < 100; count++) coef[count] = 0;
+    }
+
     // Initialize convergence factor
     Mu = 1.0 / Length;
     
@@ -162,6 +176,7 @@ var DominantCycle(vars Data)
     // STEP 7: Smooth output to prevent sudden jumps
     // Limit change to ±2 bars per update
     static var SmoothCycle = 20;
+    if(is(INITRUN)) SmoothCycle = 20;   // restores declared initialiser
     if(Cycle > SmoothCycle + 2) Cycle = SmoothCycle + 2;
     if(Cycle < SmoothCycle - 2) Cycle = SmoothCycle - 2;
     SmoothCycle = Cycle;

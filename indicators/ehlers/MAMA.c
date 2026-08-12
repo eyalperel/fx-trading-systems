@@ -66,6 +66,7 @@ var MAMA(vars Price, var FastLimit, var SlowLimit, var* outFAMA)
 {
     // Bar counter: formula needs 6 bars of history before computing
     static int barCount = 0;
+    if(is(INITRUN)) barCount = 0;   // else the 5-bar warmup guard never fires on a stale run
     barCount++;
 
     // All intermediate variables declared as series

@@ -16,6 +16,7 @@ var Reflex(vars Price, int Length) {
 
     // Normalize by running mean-square (0.04/0.96 EMA), then sqrt
     static var rx_MS = 0;
+    if(is(INITRUN)) rx_MS = 0;   // statics persist across runs
     rx_MS = 0.04 * rx_Sum * rx_Sum + 0.96 * rx_MS;
 
     var rx_Reflex = 0;

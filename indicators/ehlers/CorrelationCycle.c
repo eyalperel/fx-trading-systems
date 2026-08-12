@@ -115,6 +115,7 @@ void CorrelationCycle(vars Price, int Period,
     // ---- Monotonicity ratchet (see RATCHET WARNING above) ----
     static var cyc_prevAngle = 0;
     static int  cyc_seeded   = 0;
+    if(is(INITRUN)) cyc_seeded = 0;   // re-arms the seed block below on a new run
     if(!cyc_seeded) { cyc_prevAngle = cyc_angle; cyc_seeded = 1; }
 
     if(cyc_prevAngle - cyc_angle < 270.0 && cyc_angle < cyc_prevAngle)

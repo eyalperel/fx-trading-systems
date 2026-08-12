@@ -15,6 +15,25 @@
 
 var FRAMA(int T) {
 
+    // --- Run-scoped reset ---------------------------------------
+    // Lite-C statics persist for the lifetime of the LOADED script
+    // — across repeated [Test] presses and across Train->Test. The
+    // old value-based seed below could not fire when frama_prev
+    // held a leftover value from a previous run, so FRAMA would
+    // begin holding the PREVIOUS asset's level.
+    //
+    // Editing a source file forces a recompile, which zeroes the
+    // statics — so the normal edit-and-rerun workflow was safe. A
+    // repeat [Test] press without an edit was not. Week 13 Day 2:
+    // the May 2026 BTC baseline differs from a clean run by 1.8e-3
+    // on row 1, decaying over subsequent bars — leftover EUR/USD
+    // state in the baseline, not in the clean run.
+    //
+    // Flag is cleared here; seeding happens on the first valid bar.
+    static int frama_init = 0;
+    if(is(INITRUN)) frama_init = 0;
+
+
     // --- Build High/Low series for range computation ---
     vars frama_High = series(priceHigh());
     vars frama_Low  = series(priceLow());
@@ -50,9 +69,13 @@ var FRAMA(int T) {
     }
     var frama_N3 = (frama_Hi3 - frama_Lo3) / (2.0 * T);
 
-    // --- IIR state: initialize to price on first call ---
+    // --- IIR state: seed to price on the first valid bar ---
+    // Flag-based, not value-based. See the INITRUN block above.
     static var frama_prev = 0;
-    if(frama_prev == 0) frama_prev = frama_price;
+    if(!frama_init) {
+        frama_prev = frama_price;
+        frama_init = 1;
+    }
 
     // --- Guard: flat price → no update ---
     if(frama_N3 <= 0) return frama_prev;

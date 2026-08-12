@@ -62,6 +62,7 @@ var CyberCycle(vars cc_Input, var cc_alpha)
 
     static var CycPrev1 = 0;
     static var CycPrev2 = 0;
+    if(is(INITRUN)) { CycPrev1 = 0; CycPrev2 = 0; }   // statics persist across runs
 
     var cc_out = cc_gain * (cc_Input[0] - 2.0*cc_Input[1] + cc_Input[2])
                + 2.0*cc_pole     * CycPrev1

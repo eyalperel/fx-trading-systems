@@ -56,6 +56,7 @@ var FisherTransform(int Period) {
     // EMA with alpha=0.33 (0.33 + 0.67 = 1.0 — proper EMA)
     // Prevents single-bar channel spikes from contaminating the transform input
     static var ft_Value1 = 0;
+    if(is(INITRUN)) ft_Value1 = 0;   // statics persist across runs
     ft_Value1 = 0.33 * ft_raw + 0.67 * ft_Value1;
 
     // --- Clamp to prevent log(0) or log(negative) in the transform ---
@@ -66,6 +67,7 @@ var FisherTransform(int Period) {
     // --- Capture previous Fisher as trigger BEFORE updating Fish ---
     // ft_Trigger holds Fish from the previous bar — this is the signal line
     static var ft_Fish = 0;
+    if(is(INITRUN)) ft_Fish = 0;   // statics persist across runs
     ft_Trigger = ft_Fish;
 
     // --- Stage 2: Fisher transform + smooth output ---

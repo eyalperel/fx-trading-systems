@@ -44,6 +44,7 @@ var DSMA(var dsma_rf, int Period) {
 
     // --- IIR state ---
     static var dsma_prev = 0;
+    if(is(INITRUN)) dsma_prev = 0;   // statics persist across runs
 
     // --- Guard: flat price → no update ---
     if(dsma_var <= 0) return dsma_prev;
