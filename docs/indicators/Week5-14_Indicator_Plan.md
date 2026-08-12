@@ -402,7 +402,7 @@ propagation — the part that makes Kalman adaptive and optimal — is absent.
 |---|---|---|
 | 21 | Alpha-Beta Filter (was "Ehlers Kalman") | Baseline / predictive — 1-bar lead, NOT a smoother |
 | 22 | Recursive Median Filter + RMO | RM: outlier-robust smoothing. **RMO: Strategy 2 C2 candidate** |
-| 23 | Correlation Cycle Indicator | Null-gate test subject (Principle 6) — see roadmap v4.3 |
+| 23 | Correlation Cycle Indicator | Quadrature projection — normalised single-bin DFT, classified as a filter |
 
 ### Theory Focus (Days 1-2)
 - α–β: position+velocity tracking; what the Kalman "simplification" actually discards
@@ -439,7 +439,7 @@ propagation — the part that makes Kalman adaptive and optimal — is absent.
 - ✅ α–β: characterised (noise gain, lead, overshoot); honest role documented
 - ✅ Recursive Median: outlier resistance confirmed vs plain EMA
 - ✅ RMO: C2 decision made against pre-registered criteria — accept or reject on record
-- ✅ Correlation Cycle: implemented + null-tested (Principle 6)
+- ✅ Correlation Cycle: implemented + characterised (classified as a filter)
 
 ---
 
