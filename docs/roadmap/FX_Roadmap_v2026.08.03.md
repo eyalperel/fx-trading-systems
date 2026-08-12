@@ -17,7 +17,7 @@
 
 **Program Version:** 4.3 - Cycle Premise Null Test Integration  
 **Last Updated:** August 3, 2026  
-**Based On:** 2024-2025 Research + Your Specific Constraints  
+**Based On:** 2024-2025 Research  
 **Asset Classes:** Foreign Exchange (70%) + Cryptocurrency (30%)
 
 ---
@@ -116,21 +116,13 @@ Searched: ML trading strategies, algorithmic trading techniques, RL trading adva
 
 ## 📋 EXECUTIVE SUMMARY
 
-### Your Mission
-Develop multiple **uncorrelated trading systems** across FX and cryptocurrency markets that serve dual purposes:
-1. **Generate consistent returns** with proper risk management
-2. **Build professional portfolio** for employment opportunities in systematic trading
+### Objective
 
-### Your Resources
-- **Time:** 12 hours/week (2 hrs/day × 6 days)
-- **Skills:** Python 6-7/10, Light-C 5/10, Intermediate programming
-- **Capital:** $10K FX + Separate crypto allocation
-- **Platform:** Zorro + MT4/MT5 (DarwinEx demo → live)
+Develop multiple **uncorrelated trading systems** across FX and cryptocurrency markets, with systematic validation at every stage.
+
 - **Framework:** NNFX methodology + John Ehlers indicators
-- **Foundation:** 102 Ehlers TASC articles, established dev environment
-
-### Critical Skill Gap Addressed
-**Backtesting mastery** - Previous attempts stalled at simple backtesting. This roadmap includes dedicated "Backtesting Bootcamp" (Weeks 15-17) with hands-on validation techniques.
+- **Platform:** Zorro + MT4/MT5
+- **Source material:** 102 Ehlers TASC articles, established dev environment
 
 ### Key Evidence-Based Findings (2024-2025)
 
@@ -205,7 +197,7 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 - Asset: Parallel FX and crypto systems
 
 **PHASE 6: Live Deployment (Weeks 41-48)**
-- Scale to live capital ($10K FX + crypto allocation)
+- Scale to live capital
 - Portfolio management
 - Asset: Full multi-asset portfolio
 
@@ -214,9 +206,9 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 ## 📊 ASSET ALLOCATION FRAMEWORK
 
 ### Capital Split
-- **FX:** $10,000 target live capital
-- **Crypto:** Separate allocation (recommend starting with $2,000-3,000)
-- **Total Portfolio:** $12,000-13,000 at full deployment
+- **FX:** target live capital
+- **Crypto:** separate allocation
+- **Total Portfolio:** combined at full deployment
 
 ### Focus Allocation (Time & Development)
 - **FX:** 70% of development time
@@ -1634,7 +1626,7 @@ var NormalizedATR(int Period) {
 - Week 43: Portfolio Expansion
 - Week 44: Capital Scale-Up
 - Week 45: Full Strategy Deployment
-- Week 46: Scale to Target Capital ($10K FX + crypto)
+- Week 46: Scale to Target Capital
 - Week 47: Optimization & Refinement
 - Week 48: Program Completion & Future Planning
 
@@ -1721,27 +1713,24 @@ var NormalizedATR(int Period) {
 
 ## 🎓 PROFESSIONAL PORTFOLIO NOTES
 
-### What This Roadmap Adds to Your Portfolio (v4.0 improvements)
+### Two Deliverables (v4.0 improvements)
 
-The indicator-first approach means your portfolio now has **two distinct professional artifacts**:
+The indicator-first approach produces **two distinct artifacts**:
 
 1. **Indicator Library** (Weeks 4-14 output): A curated, validated Ehlers DSP indicator library with documented performance characteristics per asset class. This is independently valuable and shows systematic research methodology.
 
 2. **Trading Strategies** (Weeks 18-25 output): Strategies explicitly built using the indicator library, with clear documented reasoning for every component choice. Reviewers can trace the logic from DSP theory → indicator → strategy component → validation.
 
-This chain of evidence — theory → implementation → validation → strategy application — is exactly what separates professional systematic traders from hobbyists.
+The chain of evidence runs theory → implementation → validation → strategy application, and every link is documented.
 
 ---
 
 **Document Version:** 4.0 - Indicator-First Revised  
 **Created:** February 2026  
 **Revised From:** v3.0 (November 2025)  
-**For:** Gusbi — FX & Cryptocurrency Trading Systems Development  
 **Platform:** Zorro + MT4/MT5 + Binance  
 **Framework:** NNFX + John Ehlers DSP + Evidence-Based ML
 
 ---
 
-*You've got this. The library you're building in Weeks 5-14 will be the foundation everything else stands on.*
 
-🚀
