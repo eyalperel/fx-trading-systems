@@ -75,7 +75,7 @@ compare against the table above.
 |---|---|---|
 | 3.1 | 🔇 **`series()` allocates by CALL ORDER** | Two calls to the same function get two independent slots — correct — **but only if every call is unconditional and the sequence never varies between bars.** Never place a `series()`-using call inside an `if()`. |
 | 3.2 | **IIR feedback state in included files needs `static`** | The `series()`-then-overwrite pattern is unreliable across file boundaries |
-| 3.3 | 🔇 **Zero-initialised statics need explicit price seeding** | Otherwise the filter ramps from 0 to price level over the warmup, producing a huge startup transient |
+| 3.3 | 🔇 **Zero-initialised statics need explicit price seeding** | Otherwise the filter ramps from 0 to price level over the warmup, producing a huge startup transient. **See §9b.2** — seeding must be flag-based, not value-based, and **§9b.1**: a static that is never reset carries the previous run's state, which defeats the seed entirely |
 | 3.4 | **Non-linear stages cannot use `series()` IIR patterns** | Medians, sorts, rank operations are order-dependent — needs explicit implementation |
 
 **Worked example (Week 12):** `HighPassFilter` and `SuperSmoother2Pole` were each called
@@ -91,7 +91,7 @@ One `if()` would have silently shuffled the slots.
 |---|---|---|
 | 4.1 | 🔇 **Compute ALL indicators BEFORE `if(is(LOOKBACK)) return;`** | Returning early starves IIR filters of warmup — they receive zero history |
 | 4.2 | 🔇 **`LookBack` is auto-extended by Zorro** | Gating on `barCount == LookBack + 1` can never fire. Found Week 12: BTC/USD H4 extended 200 → 201 and the CSV header was silently omitted |
-| 4.3 | `(int)Now` fails for bar dating | Use a `static int barCount` incremented each bar |
+| 4.3 | `(int)Now` fails for bar dating | Use a `static int barCount` incremented each bar — **and reset it at `is(INITRUN)` (§9b.1)**. A stale counter means any warmup guard keyed to it never fires |
 
 **Correct header pattern:**
 
@@ -112,7 +112,7 @@ if(!hdrWritten) {
 | 5.1 | `#include <default.c>` must be **first** | — |
 | 5.2 | **Relative `#include` paths inside indicator files don't resolve** from strategy subfolders | Put all includes in the test script, in dependency order |
 | 5.3 | **Light-C is single-pass** — dependency order matters | A function must be included before anything that calls it |
-| 5.4 | Set `Asset =` explicitly in test scripts | Do not rely on inheritance |
+| 5.4 | Set `Asset =` explicitly in test scripts | Do not rely on inheritance. **A wrong name does not fail (§9b.3)** — guard on price magnitude instead |
 
 **Worked dependency chain (Week 12):**
 
@@ -210,6 +210,36 @@ cases is a complete proof, not a sample.
 
 ---
 
+## 9b. Run-scoped state, asset resolution, and quit()
+
+Four defects found Week 13 Day 2 (2026-08-12). All four produced
+plausible output and no error.
+
+| # | Gotcha | Detail |
+|---|---|---|
+| 9b.1 | 🔇 **Statics persist for the lifetime of the LOADED script** | Not the run. Editing a source forces a recompile and zeroes them — so edit-and-rerun is safe, but a repeat [Test] press or Train→Test is not. Output depends on whether a recompile happened, which is not observable from the CSV. Reset every static on `is(INITRUN)`. |
+| 9b.2 | 🔇 **Value-based seed guards cannot fire on stale state** | `if(prev == 0) prev = price;` tests "is state zero", not "is this a fresh run". Those coincide only by accident. Use an explicit `init` flag cleared at INITRUN. |
+| 9b.3 | 🔇 **`asset()` is not a validity guard** | Zorro 2.70 emits `Warning 034: <name> not in asset list`, then runs anyway with an auto-created dummy asset and returns non-zero. Guard on the data instead — a price-range assertion catches a wrong instrument by magnitude. |
+| 9b.4 | 🔇 **`quit()` completes the current bar before stopping** | It does not abort at the point of call. A bare `quit()` in a validation check still let one mislabelled row reach the CSV. Latch a flag and gate the write on it. |
+
+Asset naming is inconsistent in `AssetsFix.csv`: FX uses a slash
+(`EUR/USD`), crypto does not (`BTCUSD`). Writing `BTC/USD` by analogy
+silently produced EUR/USD data under a BTC filename for five months.
+History resolution strips the slash, so an unknown slashed name may
+still load the right `.t6` file — making the failure even harder to
+see once `AssetList` is pinned.
+
+Reset to the DECLARED INITIALISER, not to zero. `Peak = 0.1` and
+`SmoothCycle = 20` are chosen values; zeroing them changes behaviour
+rather than preserving it. Reset only what genuinely persists — state
+that is write-before-read every bar does not leak.
+
+Standing rule: a guard that has never been seen to fire is not a
+guard. Both guards added this session were tested by deliberately
+breaking the input first. The `asset()` check failed that test.
+
+---
+
 ## 10. Change log
 
 | Date | Change |
@@ -220,3 +250,4 @@ cases is a complete proof, not a sample.
 | 2026-08-06 | Added §8 instrument-validation rule (Week 12 Day 3) |
 | 2026-08-06 | Added §9 sorting network verification (Week 12 Day 3) |
 | 2026-05 | Radians correction applied to four indicator files; prose lagged until 2026-08-06 |
+| 2026-08-12 | Added §9b: static run-scope, seed guards, asset() unreliability, quit() timing (Week 13 Day 2) |
