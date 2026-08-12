@@ -33,12 +33,12 @@
 #include "../../indicators/ehlers/DSMA.c"
 
 // ---------- CONFIG: change these together ----------
-#define ASSET_NAME   "BTCUSD"
-#define OUT_FILE     "Data/FRAMA_Laguerre_DSMA_BTCUSD_H4.csv"
-#define PRICE_MIN    1000     // sanity bounds — BTC, not FX
-#define PRICE_MAX    200000
-#define BAR_MINUTES  240
-#define DATE_START   20200101
+#define ASSET_NAME   "EUR/USD"
+#define OUT_FILE     "Data/FRAMA_Laguerre_DSMA_EURUSD_D1.csv"
+#define PRICE_MIN    0.5      // sanity bounds — FX, not BTC
+#define PRICE_MAX    2.0
+#define BAR_MINUTES  1440
+#define DATE_START   20150101
 #define DATE_END     20241231
 // ---------------------------------------------------
 
@@ -112,8 +112,8 @@ void run() {
     if(is(INITRUN)) abortRun = 0;
     if(med_price < PRICE_MIN || med_price > PRICE_MAX) {
         abortRun = 1;
-        quit(strf("WRONG ASSET: %s price %.4f outside [%d, %d]",
-                  ASSET_NAME, med_price, PRICE_MIN, PRICE_MAX));
+        quit(strf("WRONG ASSET: %s price %.4f outside [%.4f, %.4f]",
+                  ASSET_NAME, med_price, (var)PRICE_MIN, (var)PRICE_MAX));
     }
     if(abortRun) return;
 
