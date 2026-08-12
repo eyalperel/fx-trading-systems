@@ -230,3 +230,85 @@ max-statistic null 95th percentile of 61.45 against a real value of 20.47.
 
 Broad multi-pair testing remains valuable — as *confirmation* after a candidate passes on
 pre-specified assets, not as a search over pairs for one that works.
+---
+---
+
+# AMENDMENT 2 — C-7 withdrawn
+
+**Date:** 2026-08-10, Week 13
+**Status:** REGISTERED BEFORE THE DATA IT GOVERNS. No Week 13 C2 candidate (Laguerre RSI,
+RSIH, Laguerre oscillator) has been implemented or measured at the time of writing.
+**Everything above this line is preserved unedited**, including C-7 itself and Amendment 1.
+**Governed by:** `docs/research/Scope_Correction_2026-08-10.md`
+
+## A2.1 What is withdrawn
+
+**C-7 — "Mechanism survives the Week 11 null finding" — is withdrawn.** It no longer
+eliminates a candidate, conditions one, or requires a surrogate test.
+
+Criteria are now **C-1 through C-6**. Numbering is deliberately not compacted; C-7 remains
+visible above so the criterion under which Week 12 candidates were assessed stays legible.
+
+## A2.2 Why
+
+C-7 made a candidate's eligibility depend on whether its *source author's motivation*
+survived a bounded empirical result. That result — three linear-projection mechanisms, two
+assets, one parameterisation, a 10–48 bar passband — does not carry the weight of an
+eligibility gate.
+
+What matters for a confirmation indicator is whether it produces a directional signal that
+adds information beyond C1. That is C-1 and C-3b. An indicator's frequency response, lag and
+bandwidth are measurable properties of the filter, and they are sufficient grounds for
+inclusion regardless of what phenomenon its author invoked to motivate the design.
+
+C-7 was also partly redundant. A cycle-justified candidate that duplicates C1's mechanism is
+already caught by C-2 (mechanistic distinctness) and C-3a (correlation screen) — on measured
+behaviour rather than on provenance.
+
+## A2.3 Consequences
+
+**Decision procedure, step 1** now reads: *"Evaluate C-1 and C-2 from theory before
+validation. Eliminated candidates do not proceed."*
+
+**Correlation Cycle** is no longer excluded *a priori* as a C2 candidate. It was never
+assessed on merit — Week 12 deferred it under C-7 rather than measuring it against C-3.
+It becomes eligible, subject to every remaining criterion. As a normalised single-bin DFT it
+is expected to correlate highly with MESA Stochastic's roofing-filtered band-pass, so C-3a
+is the likely binding constraint. **That is a prediction, not a decision.** Registered here,
+before measurement.
+
+**RMO's elimination stands.** Decided under C-3 on measured correlation (|ρ| = 0.799),
+not under C-7. Not reopened.
+
+**Reflex remains FLAGGED, not unlocked.** Amendment 1's disposition is unchanged. Its C-3b
+resolution still belongs to Phase 2.5/3.
+
+**Week 12's deferral of Correlation Cycle is not retroactively reversed.** It was decided
+under the criterion as written at the time. If reconsidered, it is measured fresh under
+C-1–C-6, with the original deferral left standing in the record.
+
+## A2.4 What is not weakened
+
+C-3b — conditional information gain, decisive, requiring improvement on **both** development
+assets — is unchanged and remains the binding test. Amendment 1's structural finding also
+stands: **C2 selection cannot be completed at indicator level.** Phase 2 shortlists;
+Phase 2.5/3 decides.
+
+The withdrawal removes a criterion that screened on *provenance*. It does not remove any
+criterion that screens on *measured behaviour*.
+
+## A2.5 Development set extended
+
+Criteria C-3, C-3a, C-4 and C-5 specify measurement on "both assets," meaning EUR/USD D1 and
+BTC/USD H4. The development set is now four instruments: **EUR/USD D1, BTC/USD H4,
+EUR/JPY D1, AUD/USD D1** (see `Scope_Correction_2026-08-10.md` §5).
+
+Where a criterion says "both assets," read **"all development-set instruments for which data
+is available at the time of measurement."** Cross-asset stability (C-5) and correlation
+(C-3a) are measured on every available development instrument; the worse case governs, as
+before.
+
+> **Stated limitation.** EUR/JPY and AUD/USD are not yet set up in Zorro and were not used
+> for any Week 5–12 validation. Until they are, measurements remain two-asset, and any
+> criterion applied on two assets is recorded as such rather than presented as four-asset
+> evidence.

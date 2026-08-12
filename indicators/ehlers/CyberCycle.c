@@ -1,26 +1,15 @@
 // =============================================================================
-// VALIDATION STATUS (updated Aug 2026): implementation is CORRECT and matches
-// Ehlers' published formula. Zorro output reproduced independently in Python to
-// 5.01e-06 (the %.5f CSV rounding floor).
+// CLASSIFICATION: band-pass filter with characterised frequency response.
+// NOT a cycle detector. Usable as a detrended momentum oscillator; do NOT use
+// its measured period or phase to adapt parameters or project forward.
 //
-// HOWEVER — this indicator does NOT measure a market cycle. A surrogate-data
-// null test on EUR/USD D1 and BTC/USD H4 (48 tests, 4 null models, 6 metrics)
-// found its output statistically indistinguishable from the same pipeline run
-// on data containing no cycle by construction. Minimum p = 0.070. Real markets
-// scored LOWER on spectral peak prominence than the noise nulls.
+// Implementation verified against Ehlers' published formula; Zorro output
+// reproduced in Python to 5.01e-06 (CSV rounding floor).
 //
-// Pure Brownian motion through this pipeline yields a ~20-bar oscillation. The
-// zero-crossing period is 19.51 (EUR/USD D1), 19.81 (BTC/USD H4) and 20.40
-// (random walk) — that is the filter chain's resonance, not a market property.
-// Slutsky (1937), Nelson & Kang (1981).
-//
-// CLASSIFICATION: filter with characterised frequency response, NOT a cycle
-// detector. Usable as a detrended momentum oscillator. Do NOT use its measured
-// period or phase to adapt parameters or project forward.
-//
+// The ~20-bar oscillation it reports is the filter chain's resonance, not a
+// market property — pure Brownian motion through this pipeline yields 20.40
+// bars. Slutsky (1937), Nelson & Kang (1981).
 // See docs/research/Cycle_Premise_Null_Test.md
-// =============================================================================
-
 // =============================================================================
 // CyberCycle.c
 // Ehlers Cyber Cycle Oscillator

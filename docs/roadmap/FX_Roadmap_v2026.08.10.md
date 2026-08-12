@@ -1,24 +1,39 @@
-> ⚠️ **SUPERSEDED by `FX_Roadmap_v2026.08.10.md` (v4.4), 2026-08-10.**
->
-> Principles 6–7 (null gate, evidential bar) are **withdrawn and replaced**. The
-> "cycle extraction" and "dominant-cycle-adaptive parameters" entries under *What Doesn't
-> Work* are **rescoped** — they read as general findings but are bounded observations on
-> two assets at one parameterisation. See `docs/research/Scope_Correction_2026-08-10.md`.
->
-> Retained as the historical record. **Do not work from this version.**
-
----
-
 # UNIFIED FX & CRYPTOCURRENCY ALGORITHMIC TRADING ROADMAP
 ## 48-Week Professional Development Program
 ### Zorro Platform | NNFX Framework | John Ehlers Indicators | Evidence-Based 2024-2025
 
 ---
 
-**Program Version:** 4.3 - Cycle Premise Null Test Integration  
-**Last Updated:** August 3, 2026  
+**Program Version:** 4.4 - Scope Correction: Filter-First Framing  
+**Last Updated:** August 10, 2026  
 **Based On:** 2024-2025 Research  
 **Asset Classes:** Foreign Exchange (70%) + Cryptocurrency (30%)
+
+---
+
+## 📋 CHANGELOG v4.3 → v4.4 (August 10, 2026)
+
+**Scope correction — cycle-premise work demoted to a bounded research result**
+
+Not a bi-weekly literature update, and not a retraction. No measurement, p-value, positive control or limitation from the Week 11–12 surrogate work is altered. What changes is the weight that result carries in decisions it does not bear on.
+
+v4.3 promoted a narrowly scoped negative result — three linear-projection mechanisms, two assets, one parameterisation, a 10–48 bar passband — into two mandatory Phase 2 principles and an elimination criterion. That was disproportionate to what was established.
+
+The operative question moves from *"is the source's justification true?"* to *"what does this filter do, and does the combination outperform its parts?"*
+
+Governing document: `docs/research/Scope_Correction_2026-08-10.md`.
+
+| What Changed | Location | Rationale |
+|---|---|---|
+| Principles 6–7 replaced: null gate → **classify by mechanism**; evidential bar → **information contribution decided at strategy level** | Phase 2 Indicator Principles | Frequency response, lag and bandwidth are measurable filter properties and are sufficient grounds for inclusion, independent of the author's motivating theory |
+| **Principle 8 added** — selection on the development set only | Phase 2 Indicator Principles | Fixes dev/confirmation separation as a standing rule; broad testing is confirmation, not search |
+| "Cycle extraction" and "dominant-cycle-adaptive parameters" rescoped from ❌ to ⚠️ with tested bounds stated | Executive Summary → What Doesn't Work | Entries read as general findings; they are bounded observations. Practical consequence unchanged — dominant-cycle adaptation still not used |
+| **Instrument universe defined** — development set (EUR/USD D1, BTC/USD H4, EUR/JPY D1, AUD/USD D1) and confirmation set (remaining majors/crosses + XAU/USD, XAG/USD, WTI/USD; minors excluded) | Phase 2 / Phase 2.5 | Multi-instrument trading is a project goal; pre-specified sets preserve pre-registration discipline while permitting it |
+| **Phase 2.5 duration made elastic** | Phase 2.5 | Strategy-level machinery is now the critical path. The three-week allocation was set when it was a supporting phase; it is not compressed to protect a week number |
+| Surrogate testing retained as a **Phase 2.5 tool, not a gate** | Phase 2.5 | The scope objection does not apply at strategy level: testing whether a Sharpe ratio is distinguishable from its surrogate distribution is a stronger overfitting check than walk-forward alone |
+| C-7 withdrawn from C2 pre-registration | `docs/indicators/C2_Selection_Criteria_PreRegistered.md` | Amendment 2, registered before Week 13 candidate data exists. C-7 screened on provenance; C-2 and C-3a already screen on measured behaviour |
+
+**Unchanged:** all indicator implementations and validation code; Strategy 1 and 2 baselines and C1 slots; the 48-week structure and phase boundaries; the Week 11–12 research documents and their seeded harnesses; RMO's elimination; Reflex's flagged status.
 
 ---
 
@@ -140,8 +155,8 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 **What Doesn't Work:**
 - ❌ Deep learning for FX price prediction
 - ❌ Complex Ehlers indicators without objective validation
-- ❌ **Cycle extraction as a premise** — no detectable cycle in EUR/USD D1 or BTC/USD H4 above ~4-5% of return variance; filters manufacture ~20-bar oscillations from pure Brownian motion (Slutsky 1937, Nelson-Kang 1981; own replication Aug 2026)
-- ❌ **Dominant-cycle-adaptive parameters** — the measured period is unstable and indistinguishable from noise on both assets
+- ⚠️ **Cycle extraction as a *justification*, on the tested scope** — on EUR/USD D1 and BTC/USD H4, at one parameterisation across a 10–48 bar passband, no cycle was detectable above ~4-5% of return variance by three linear-projection mechanisms. Filters manufacture ~20-bar oscillations from pure Brownian motion (Slutsky 1937, Nelson-Kang 1981; own replication Aug 2026). **This is a bounded result, not a general finding**: it does not extend to other periods, parameterisations or instruments, and it is not a finding that band-pass filters lack value. Filters are used on their measured frequency response. See `docs/research/Scope_Correction_2026-08-10.md`.
+- ⚠️ **Dominant-cycle-adaptive parameters, on the tested scope** — on both tested assets the measured period was unstable and indistinguishable from noise, so it is not used to drive parameter adaptation here. Fixed-period equivalents are used instead. Not a claim about all instruments.
 - ❌ Over-optimization (kills 95% of systems)
 - ❌ Most ML models (conceptual parity wins)
 - ❌ Ignoring transaction costs
@@ -174,7 +189,7 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 - **Gate:** Each indicator must pass objective validation before library inclusion
 - Asset: 80% FX, 20% crypto testing
 
-**PHASE 2.5: Backtesting Bootcamp (Weeks 15-17)**
+**PHASE 2.5: Backtesting Bootcamp (Weeks 15-17 nominal — duration elastic, v4.4; now the critical path)**
 - **CRITICAL PHASE** — Walk-forward optimization mastery
 - Monte Carlo simulation
 - Robust validation techniques
@@ -204,11 +219,6 @@ Develop multiple **uncorrelated trading systems** across FX and cryptocurrency m
 ---
 
 ## 📊 ASSET ALLOCATION FRAMEWORK
-
-### Capital Split
-- **FX:** target live capital
-- **Crypto:** separate allocation
-- **Total Portfolio:** combined at full deployment
 
 ### Focus Allocation (Time & Development)
 - **FX:** 70% of development time
@@ -1252,6 +1262,38 @@ var NormalizedATR(int Period) {
 
 **This is the MOST IMPORTANT phase** for preventing the failure that plagues 95% of algorithmic trading systems.
 
+> **⚠️ v4.4 — duration is elastic, and this phase is now the critical path.**
+>
+> The Week 15–17 allocation was set when Phase 2.5 was a supporting phase. It no longer is.
+> Principle 7 places the decisive test for every open component here: **C-3b (conditional
+> information gain) is a strategy-level test**, so both C2 slots, all exit logic and every
+> combination question resolve in this phase and Phase 3 — not in Phase 2.
+>
+> **This phase runs until its objectives are met, not until Week 17 ends.** Overrunning is
+> expected and acceptable; compressing it to protect a week number is not. Downstream week
+> numbers shift accordingly.
+>
+> **Three additions carried in from the v4.4 scope correction:**
+>
+> 1. **Surrogate testing enters as a standard tool, not a gate.** Run a strategy on 1,000
+>    surrogate price series and ask whether its Sharpe ratio is distinguishable from the null
+>    distribution. WFO asks whether parameters generalise across time; Monte Carlo asks about
+>    path dependence; **neither asks whether the edge exists at all.** The scope objection
+>    that demoted this method at indicator level does not apply here — the question is about
+>    a specific strategy's P&L, not about a general market property. Harness:
+>    `analysis/null_tests/`, adaptable.
+> 2. **Development set governs selection** — EUR/USD D1, BTC/USD H4, EUR/JPY D1, AUD/USD D1.
+>    C-3b requires improvement on **all available development instruments**; improvement on
+>    some and degradation on others is a fail, not a partial pass.
+> 3. **The confirmation-set pass condition must be pre-registered here**, in a dated
+>    document, **before the first confirmation run.** It was deliberately left undefined in
+>    the scope correction because it requires metrics that do not exist until this phase.
+>
+> **Pre-flight for this phase:** verify native data availability for EUR/JPY, AUD/USD,
+> XAU/USD, XAG/USD and WTI/USD in Zorro; confirm contract specifications and realistic
+> spread/swap costs. Metals and WTI are not spot FX and do not share its position-sizing or
+> ATR-scaling assumptions.
+
 **Week 15: Walk-Forward Optimization Mastery**
 
 **Goals:**
@@ -1672,8 +1714,9 @@ var NormalizedATR(int Period) {
 3. **NNFX mapping first** — always ask "which slot does this fill?"
 4. **Cross-asset always** — FX behavior ≠ Crypto behavior, document differences
 5. **The library IS the product** — it's a standalone portfolio piece
-6. **Null gate for cycle-justified indicators (NEW in v4.3)** — if an indicator's rationale rests on extracting a cycle, its output on real data must be distinguishable from its output on matched surrogates. If it isn't, it still enters the library, but classified as a *filter with characterised frequency response*, not a cycle detector. Harness: `analysis/null_tests/`, ~2 min per asset.
-7. **Mechanism determines the evidential bar (NEW in v4.3)** — for indicators with a surviving mechanism (trend extraction, normalisation, momentum), a good backtest is corroboration. For cycle-justified ones, it's a coincidence until surrogate-confirmed.
+6. **Classify by mechanism, not by source claim (REVISED in v4.4)** — every indicator enters the library with measured frequency response, lag, bandwidth and cross-asset stability. Where a source claims cycle detection but the mechanism is a linear filter, the library entry says *filter*. This classification follows from the mathematics and requires no surrogate test. *(Replaces the v4.3 null gate — see `docs/research/Scope_Correction_2026-08-10.md`.)*
+7. **Information contribution is decided at strategy level (REVISED in v4.4)** — indicator-level metrics (correlation, lag, signal frequency, bandwidth) **screen** candidates; they do not decide them. Whether a component earns its slot is measured in combination, with transaction costs and walk-forward validation, in Phase 2.5 and beyond. *(Replaces the v4.3 evidential-bar principle.)*
+8. **Selection happens on the development set only (NEW in v4.4)** — EUR/USD D1, BTC/USD H4, EUR/JPY D1, AUD/USD D1. The confirmation set tests a selected component; it never selects one. Broad multi-instrument testing is **confirmation, not search**.
 
 ### Development Principles
 1. **Document everything** (portfolio + debugging)
@@ -1725,7 +1768,7 @@ The chain of evidence runs theory → implementation → validation → strategy
 
 ---
 
-**Document Version:** 4.0 - Indicator-First Revised  
+**Document Version:** 4.4 - Scope Correction: Filter-First Framing  
 **Created:** February 2026  
 **Revised From:** v3.0 (November 2025)  
 **Platform:** Zorro + MT4/MT5 + Binance  
