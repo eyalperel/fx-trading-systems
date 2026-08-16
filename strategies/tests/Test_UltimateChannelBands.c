@@ -14,12 +14,12 @@
 #include "../../indicators/ehlers/FRAMA.c"
 
 // ---------- CONFIG: change these together ----------
-#define ASSET_NAME   "EUR/USD"
-#define OUT_FILE     "Data/UCB_EURUSD_D1.csv"
-#define PRICE_MIN    0.5
-#define PRICE_MAX    2.0
-#define BAR_MINUTES  1440
-#define DATE_START   20150101
+#define ASSET_NAME   "BTCUSD"
+#define OUT_FILE     "Data/UCB_BTCUSD_H4.csv"
+#define PRICE_MIN    1000
+#define PRICE_MAX    200000
+#define BAR_MINUTES  240
+#define DATE_START   20200101
 #define DATE_END     20241231
 // ---------------------------------------------------
 
@@ -47,12 +47,12 @@ void run() {
 
     vars Close = series(priceClose());
 
-    var centre, chUp, chDn, str, bdUp, bdDn, sd, trBox, devSm;
+    var centre, chUp, chDn, str, bdUp, bdDn, sd, trBox, devSm, natr;
     UltimateChannelBands(Close, UCB_LENGTH, UCB_STRLEN,
                          UCB_NUMSTRS, UCB_NUMSDS,
                          &centre, &chUp, &chDn, &str,
                          &bdUp, &bdDn, &sd,
-                         &trBox, &devSm);
+                         &trBox, &devSm, &natr);
 
     // P3 split variable. FRAMA deliberately, not the centre line:
     // the band width IS built from (Close - centre), so splitting
@@ -64,7 +64,7 @@ void run() {
 
     if(!hdrWritten) {
         file_append(OUT_FILE,
-            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama\n", 0);
+            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr\n", 0);
         hdrWritten = 1;
     }
 
@@ -78,8 +78,8 @@ void run() {
     if(abortRun) return;
 
     file_append(OUT_FILE,
-        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
+        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
             year(), month(), day(), hour(),
             Close[0], centre, str, sd, chUp, chDn, bdUp, bdDn,
-            trBox, devSm, frama));
+            trBox, devSm, frama, natr));
 }

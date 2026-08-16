@@ -45,7 +45,7 @@ void UltimateChannelBands(vars Close, int Length, int STRLength,
                           var NumSTRs, var NumSDs,
                           var* pCentre, var* pChUp, var* pChDn, var* pSTR,
                           var* pBdUp, var* pBdDn, var* pSD,
-                          var* pTRBox, var* pDevSm)
+                          var* pTRBox, var* pDevSm, var* pNATR)
 {
     vars uc_High = series(priceHigh());   // GOTCHAS 6.1
     vars uc_Low  = series(priceLow());
@@ -111,4 +111,23 @@ void UltimateChannelBands(vars Close, int Length, int STRLength,
     // in the sequence (GOTCHAS 3.1).
     vars uc_AbsDev = series(abs(uc_Dev[0]));
     *pDevSm = UltimateSmootherE(uc_AbsDev, Length);
+
+    // --- NATR: normalized average true range, percent ----------
+    // ATR divided by price makes volatility comparable across
+    // instruments at different price scales. Raw STR is ~70 on BTC
+    // and ~0.008 on EUR/USD; as a percent both are ~0.7-1.0%.
+    // Required for any threshold that must hold on both assets
+    // without retuning — in particular the regime classifier.
+    //
+    // Uses STR (zero-lag smoother), not a boxcar or Wilder ATR.
+    // Known characteristic: the smoother can overshoot (see
+    // Week13_P1_P4_Results, dev_sm reaching -0.000472).
+    //
+    // Denominator is the current close, per convention. The centre
+    // line would be a steadier denominator, but price moves far
+    // less per bar than STR does, so the difference is small.
+    if(Close[0] != 0)
+        *pNATR = 100.0 * uc_str / Close[0];
+    else
+        *pNATR = 0;
 }
