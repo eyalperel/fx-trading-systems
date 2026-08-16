@@ -12,14 +12,15 @@
 #include "../../indicators/ehlers/UltimateSmootherE.c"
 #include "../../indicators/ehlers/UltimateChannelBands.c"
 #include "../../indicators/ehlers/FRAMA.c"
+#include "../../indicators/ehlers/VolatilityRegime.c"
 
 // ---------- CONFIG: change these together ----------
-#define ASSET_NAME   "BTCUSD"
-#define OUT_FILE     "Data/UCB_BTCUSD_H4.csv"
-#define PRICE_MIN    1000
-#define PRICE_MAX    200000
-#define BAR_MINUTES  240
-#define DATE_START   20200101
+#define ASSET_NAME   "EUR/USD"
+#define OUT_FILE     "Data/UCB_EURUSD_D1.csv"
+#define PRICE_MIN    0.5
+#define PRICE_MAX    2.0
+#define BAR_MINUTES  1440
+#define DATE_START   20150101
 #define DATE_END     20241231
 // ---------------------------------------------------
 
@@ -28,12 +29,19 @@
 #define UCB_NUMSTRS   1.0
 #define UCB_NUMSDS    1.0
 
+// Regime classifier — parameters chosen before results, not swept
+#define VR_WINDOW     250
+#define VR_LO         30.0
+#define VR_HI         70.0
+
 void run() {
     AssetList = "History\\AssetsFix.csv";
     StartDate = DATE_START;
     EndDate   = DATE_END;
     BarPeriod = BAR_MINUTES;
-    LookBack  = 100;
+    // 250-bar regime window + smoother warmup. Too small and the
+    // rank is computed against a partially filled window, silently.
+    LookBack  = 300;
 
     asset(ASSET_NAME);   // return value is NOT a guard (GOTCHAS 9b.3)
 
@@ -60,11 +68,18 @@ void run() {
     // width. T=16 per Week 9.
     var frama = FRAMA(16);
 
+    // NATR must be a series for the regime window. Value passed
+    // INTO series() — writing [0] afterward shifts the wrong value
+    // into [1] next bar (GOTCHAS 3.2).
+    vars NATRs = series(natr);
+    var rank;
+    var regime = VolatilityRegime(NATRs, VR_WINDOW, VR_LO, VR_HI, &rank);
+
     if(is(LOOKBACK)) return;
 
     if(!hdrWritten) {
         file_append(OUT_FILE,
-            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr\n", 0);
+            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr,rank,regime\n", 0);
         hdrWritten = 1;
     }
 
@@ -78,8 +93,8 @@ void run() {
     if(abortRun) return;
 
     file_append(OUT_FILE,
-        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
+        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.0f\n",
             year(), month(), day(), hour(),
             Close[0], centre, str, sd, chUp, chDn, bdUp, bdDn,
-            trBox, devSm, frama, natr));
+            trBox, devSm, frama, natr, rank, regime));
 }
