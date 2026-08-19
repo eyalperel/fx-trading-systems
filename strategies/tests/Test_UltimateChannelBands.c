@@ -13,14 +13,15 @@
 #include "../../indicators/ehlers/UltimateChannelBands.c"
 #include "../../indicators/ehlers/FRAMA.c"
 #include "../../indicators/ehlers/VolatilityRegime.c"
+#include "../../indicators/ehlers/RSIH.c"
 
 // ---------- CONFIG: change these together ----------
-#define ASSET_NAME   "EUR/USD"
-#define OUT_FILE     "Data/UCB_EURUSD_D1.csv"
-#define PRICE_MIN    0.5
-#define PRICE_MAX    2.0
-#define BAR_MINUTES  1440
-#define DATE_START   20150101
+#define ASSET_NAME   "BTCUSD"
+#define OUT_FILE     "Data/UCB_BTCUSD_H4.csv"
+#define PRICE_MIN    1000
+#define PRICE_MAX    200000
+#define BAR_MINUTES  240
+#define DATE_START   20200101
 #define DATE_END     20241231
 // ---------------------------------------------------
 
@@ -33,6 +34,11 @@
 #define VR_WINDOW     250
 #define VR_LO         30.0
 #define VR_HI         70.0
+
+// RSIH — fixed length, project Week 13 convention. Ehlers' 14 is
+// inherited from Wilder and is not his recommendation. Adaptive
+// variant registered for later comparison against this baseline.
+#define RSIH_LENGTH   20
 
 void run() {
     AssetList = "History\\AssetsFix.csv";
@@ -75,11 +81,13 @@ void run() {
     var rank;
     var regime = VolatilityRegime(NATRs, VR_WINDOW, VR_LO, VR_HI, &rank);
 
+    var rsih = RSIH(Close, RSIH_LENGTH);
+
     if(is(LOOKBACK)) return;
 
     if(!hdrWritten) {
         file_append(OUT_FILE,
-            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr,rank,regime\n", 0);
+            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr,rank,regime,rsih\n", 0);
         hdrWritten = 1;
     }
 
@@ -93,8 +101,8 @@ void run() {
     if(abortRun) return;
 
     file_append(OUT_FILE,
-        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.0f\n",
+        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.0f,%.6f\n",
             year(), month(), day(), hour(),
             Close[0], centre, str, sd, chUp, chDn, bdUp, bdDn,
-            trBox, devSm, frama, natr, rank, regime));
+            trBox, devSm, frama, natr, rank, regime, rsih));
 }
