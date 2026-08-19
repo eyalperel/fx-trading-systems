@@ -14,14 +14,15 @@
 #include "../../indicators/ehlers/FRAMA.c"
 #include "../../indicators/ehlers/VolatilityRegime.c"
 #include "../../indicators/ehlers/RSIH.c"
+#include "../../indicators/ehlers/LaguerreOsc.c"
 
 // ---------- CONFIG: change these together ----------
-#define ASSET_NAME   "BTCUSD"
-#define OUT_FILE     "Data/UCB_BTCUSD_H4.csv"
-#define PRICE_MIN    1000
-#define PRICE_MAX    200000
-#define BAR_MINUTES  240
-#define DATE_START   20200101
+#define ASSET_NAME   "EUR/USD"
+#define OUT_FILE     "Data/UCB_EURUSD_D1.csv"
+#define PRICE_MIN    0.5
+#define PRICE_MAX    2.0
+#define BAR_MINUTES  1440
+#define DATE_START   20150101
 #define DATE_END     20241231
 // ---------------------------------------------------
 
@@ -39,6 +40,13 @@
 // inherited from Wilder and is not his recommendation. Adaptive
 // variant registered for later comparison against this baseline.
 #define RSIH_LENGTH   20
+
+// Laguerre oscillator — ARTICLE defaults, not the Week 13
+// convention of 20. Ehlers publishes 0.5/30/100 for the oscillator
+// specifically and no measurement here suggests otherwise.
+#define LO_GAMMA      0.5
+#define LO_LENGTH     30
+#define LO_RMSLEN     100
 
 void run() {
     AssetList = "History\\AssetsFix.csv";
@@ -83,11 +91,13 @@ void run() {
 
     var rsih = RSIH(Close, RSIH_LENGTH);
 
+    var lagosc = LaguerreOsc(Close, LO_GAMMA, LO_LENGTH, LO_RMSLEN);
+
     if(is(LOOKBACK)) return;
 
     if(!hdrWritten) {
         file_append(OUT_FILE,
-            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr,rank,regime,rsih\n", 0);
+            "date,hour,close,centre,str,sd,ch_up,ch_dn,bd_up,bd_dn,tr_box,dev_sm,frama,natr,rank,regime,rsih,lagosc\n", 0);
         hdrWritten = 1;
     }
 
@@ -101,8 +111,8 @@ void run() {
     if(abortRun) return;
 
     file_append(OUT_FILE,
-        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.0f,%.6f\n",
+        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.0f,%.6f,%.6f\n",
             year(), month(), day(), hour(),
             Close[0], centre, str, sd, chUp, chDn, bdUp, bdDn,
-            trBox, devSm, frama, natr, rank, regime, rsih));
+            trBox, devSm, frama, natr, rank, regime, rsih, lagosc));
 }
