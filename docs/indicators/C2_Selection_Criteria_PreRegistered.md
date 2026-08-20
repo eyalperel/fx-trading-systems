@@ -312,3 +312,90 @@ before.
 > for any Week 5–12 validation. Until they are, measurements remain two-asset, and any
 > criterion applied on two assets is recorded as such rather than presented as four-asset
 > evidence.
+
+---
+
+# Amendment 3 — C-4 reference and method
+
+**Date:** 2026-08-13, Week 13 Day 3
+**Status:** Registered BEFORE Laguerre RSI is implemented or measured.
+**Type:** Additive. Original C-4 text stands above, unmodified.
+
+## A3.1 C-4 referenced the wrong strategy
+
+C-4 as written measures the candidate's lag against **Fisher Transform's** measured
+lag + 2.0 bars. Fisher is Strategy 1's C1. This document governs **Strategy 2's** C2
+slot, whose C1 is MESA Stochastic.
+
+No reason is given in the original text. (Inference, labelled as such: Fisher had a
+measured lag figure available in Week 10 and MESA Stochastic may not have, making
+Fisher the available reference rather than the correct one.)
+
+The threshold also does not generalise. Five strategies are planned; "Fisher + 2.0"
+is meaningless for four of them.
+
+**Revised:** C-4 measures against the **C1 of the strategy whose slot is being
+filled**, + 2.0 bars, at comparable smoothing. For Strategy 2 that is MESA
+Stochastic. If that C1's lag has not been measured, it is measured first — the
+reference cannot be substituted for convenience.
+
+## A3.2 Lag against price does not answer the question C-4 asks
+
+C-4 measures lag against **price**, then treats that number as explaining the
+relationship between C1 and C2. It does not follow.
+
+Two candidates can share the same lag-vs-price and mean opposite things:
+
+    C1:  -0.2   +0.4   +0.6   +0.5
+    X:   -0.4   -0.3   -0.1   +0.2     turns up 2 bars after C1
+    Y:   -0.4   -0.3   -0.5   -0.6     never turns up
+
+X is a delayed copy of C1 — it postpones entries without filtering anything. Y is
+measuring something else and keeps disagreeing. Same lag figure, opposite value as
+a confirmation indicator.
+
+**Added — C-4b, lag profile against C1.** Cross-correlate the candidate's output
+against C1's output at shifts 0 to 10 bars, both assets. Record where the
+correlation peaks.
+
+| Peak location | Reading |
+|---|---|
+| Shift 0, low correlation | Genuinely different quantity — the wanted case |
+| Shift 0, high correlation | Duplicate of C1; C-3a already flags this |
+| Shift >= 1, high correlation | **Delayed copy.** Disagreements are latency, not information |
+
+The peak's LOCATION is the diagnostic, not a fixed cutoff. A candidate whose
+correlation with C1 peaks at a non-zero shift with a high value is a lagged
+duplicate: given enough bars it agrees, so it delays entries rather than filtering
+them.
+
+**Fail (high correlation at non-zero shift) => conditional**, on the same footing as
+C-4. Recorded, weighted against the candidate, and C-3b must pass decisively.
+
+This is a diagnostic, not an elimination criterion. C-3b remains the decisive test.
+
+## A3.3 "At comparable smoothing" is undefined
+
+C-4 requires the lag comparison to be made "at comparable smoothing" but gives no
+procedure for establishing it. The intent is clear — lag and smoothness trade off,
+so any indicator can be made to look fast by turning its smoothing down, and a
+comparison at mismatched smoothing is not a comparison at all.
+
+    Period 5:   lag 1.2 bars    output wiggles a lot
+    Period 40:  lag 9.5 bars    output very smooth
+
+Without a matching rule, a candidate could be set to a short period, measured at 2
+bars of lag, and declared a pass against a C1 measured at 4 — while doing far less
+smoothing.
+
+**Method adopted, ours not the document's:** match variance reduction (output sd
+divided by input sd), then measure lag at the matched setting. Recorded as our
+choice so it is not later read as part of the original criteria.
+
+## A3.4 What is not changed
+
+C-1, C-2, C-3a, C-3b, C-5 and C-6 are unchanged. C-7 remains withdrawn per
+Amendment 2. The C-4 numeric margin (+2.0 bars) is unchanged; only its reference
+point moves.
+
+Decisions already made under C-4 as originally written are not revisited.
