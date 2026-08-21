@@ -19,7 +19,16 @@
 // resolution, not additional lag.
 //
 // Parameters:
-//   gamma : memory depth, range [0, 1] (default 0.5)
+//   gamma : memory depth, range [0, 1]
+//     NOTE ON THE DEFAULT. Figure 14.5 declares gamma(.8) for the
+//     FILTER. 0.5 is the default of the Laguerre RSI in Figure
+//     14.8, a different indicator on a later page. Week 9 adopted
+//     0.5 for this file; no reason is recorded and none is
+//     inferred. It is a legitimate parameter choice, but it is
+//     NOT the book's value for this filter. Verified against the
+//     source Week 13 Day 3.
+//     Also note Fig 14.5 takes (H+L)/2 as input, which this file
+//     does; Fig 14.8's RSI takes Close.
 //     -> 0 : no smoothing, output tracks price
 //     -> 1 : infinite smoothing, output frozen
 //
