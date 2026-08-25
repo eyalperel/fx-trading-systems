@@ -240,6 +240,37 @@ breaking the input first. The `asset()` check failed that test.
 
 ---
 
+## 9c. Measuring lag — which quantity, and with what input
+
+Found Week 13 Day 3 (2026-08-13) while measuring Laguerre RSI for C-4.
+
+| # | Gotcha | Detail |
+|---|---|---|
+| 9c.1 | ⚠️ **"Lag" means two different things** | A **ramp** input measures GROUP delay at DC. A **sine** cross-correlation measures PHASE delay at that sine's frequency. They converge at DC and diverge elsewhere. SuperSmoother P=20 is 4.039 by ramp and 4.3505 by sine at period 40 — both correct. Comparing across methods made a working harness look 7% in error. **Use the same method for candidate and reference.** |
+| 9c.2 | 🔇 **The ramp method fails silently on bounded and rescaling indicators** | A stochastic asks where today sits between its own recent high and low; on a rising line today IS the high, so it reads 100 forever. Laguerre RSI pins at 1.0 for the same reason — all four stages stay ordered. The output is constant, no lag can be read, and nothing errors. Use a sine. |
+| 9c.3 | ⚠️ **Search both lead and lag** | Oscillators respond to rate of change, which leads price by a quarter cycle. If the shift search starts at 0, a leading indicator reports a peak at exactly 0 — the boundary of the range, not the true peak. A peak at the edge of the search window is a signal the window is wrong. |
+| 9c.4 | ⚠️ **A single-frequency lag does not predict the market-data relationship** | Sine at period 40 implied Laguerre RSI lags MESA Stochastic by 1.14 bars; market data shows it leads by 0.55-0.85. Opposite sign. A sine is one frequency, markets contain many, and filters behave differently across the range (Ehlers plots this for the Laguerre allpass elements, Cybernetic Analysis Fig 14.3). |
+
+**Sine parameters.** Period 40 was used. Two failure modes it avoids: a cycle short
+enough that the lag approaches half a cycle makes lead and lag indistinguishable,
+and too few samples per cycle makes the peak location imprecise. Longer cycles are
+safer still but yield fewer cycles per run.
+
+**Sub-bar results are within measurement resolution.** Shifts come in whole bars;
+the decimal comes from fitting a parabola through the peak and its two neighbours:
+
+    offset = 0.5 * (y1 - y3) / (y1 - 2*y2 + y3)
+
+A refined value below 1.0 bar should not be reported as a precise lead or lag.
+
+**Read the peak's sharpness, not only its location.** A broad flat profile means
+"essentially in phase" even when the maximum sits at a non-zero shift.
+
+**Standing rule, extending section 8:** validate the harness against a known answer
+before trusting it. SuperSmoother's analytic phase delay served here.
+
+---
+
 ## 10. Change log
 
 | Date | Change |
@@ -251,3 +282,4 @@ breaking the input first. The `asset()` check failed that test.
 | 2026-08-06 | Added §9 sorting network verification (Week 12 Day 3) |
 | 2026-05 | Radians correction applied to four indicator files; prose lagged until 2026-08-06 |
 | 2026-08-12 | Added §9b: static run-scope, seed guards, asset() unreliability, quit() timing (Week 13 Day 2) |
+| 2026-08-13 | Added §9c: group vs phase delay, ramp failure on bounded indicators, lead/lag search (Week 13 Day 3) |

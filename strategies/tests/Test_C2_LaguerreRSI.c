@@ -60,10 +60,17 @@ void run() {
     var mstc = MESAStochastic(Close, STOCH_PERIOD, HP_PERIOD, RF_SS_PERIOD);
     var lrsi = LaguerreRSI(Close, LR_GAMMA);
 
+    // C-6 reference: plain EMA, period 20. The period is the
+    // project's Week 13 CONVENTION, not a matched setting.
+    // Matching 'equivalent smoothing' between a bounded 0..1
+    // oscillator and a price-level EMA would produce a number
+    // without meaning behind it. Recorded as a convention.
+    var ema20 = EMA(Close[0], 2.0/21.0);
+
     if(is(LOOKBACK)) return;
 
     if(!hdrWritten) {
-        file_append(OUT_FILE, "date,hour,close,mstc,lrsi\n", 0);
+        file_append(OUT_FILE, "date,hour,close,mstc,lrsi,ema20\n", 0);
         hdrWritten = 1;
     }
 
@@ -75,6 +82,6 @@ void run() {
     if(abortRun) return;
 
     file_append(OUT_FILE,
-        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f\n",
-            year(), month(), day(), hour(), Close[0], mstc, lrsi));
+        strf("%04d%02d%02d,%02d,%.6f,%.6f,%.6f,%.6f\n",
+            year(), month(), day(), hour(), Close[0], mstc, lrsi, ema20));
 }
