@@ -399,3 +399,83 @@ Amendment 2. The C-4 numeric margin (+2.0 bars) is unchanged; only its reference
 point moves.
 
 Decisions already made under C-4 as originally written are not revisited.
+
+---
+
+# Amendment 4 — C-4b covers leading candidates; C-4 does not predict C-4b
+
+**Date:** 2026-08-13, Week 13 Day 3
+**Status:** Registered BEFORE C-6 is measured. C-1 through C-5 have been measured
+for Laguerre RSI; this amendment does not alter their thresholds or verdicts.
+**Type:** Additive. Amendment 3 stands above, unmodified.
+
+## A4.1 C-4b's table had no row for a leading candidate
+
+Amendment 3 introduced C-4b, the lag profile against C1, with three readings:
+peak at shift 0 with low correlation, peak at shift 0 with high correlation, and
+peak at a non-zero POSITIVE shift.
+
+It has no row for a **negative** peak. The table was written assuming a candidate
+would lag its C1, and that assumption was not stated.
+
+Measured for Laguerre RSI against MESA Stochastic: peak at shift -1 on both assets,
+refined -0.85 (EUR/USD) and -0.55 (BTC). The candidate LEADS C1.
+
+**Added row:**
+
+| Peak location | Reading |
+|---|---|
+| Shift <= -1, high correlation | Candidate LEADS C1. Not the delayed-copy signature C-4b was written to catch. Acceptable: a leading candidate is not waiting on C1's information. **Not a fail.** Record the magnitude. |
+
+Two qualifiers on reading a negative peak:
+
+**Check the peak's sharpness, not only its location.** A genuine lead or lag shows a
+peak clearly above its neighbours. Laguerre RSI's peak is 0.5929 against 0.5757 at
+shift 0 — a difference of 0.017, on a broad flat profile. That is "essentially in
+phase", not "leads by one bar".
+
+**Sub-bar magnitudes are within measurement resolution.** 0.55-0.85 bars is less
+than one sampling interval and should not be reported as a precise lead.
+
+## A4.2 C-4 does not predict C-4b, and both are needed
+
+C-4 measures each indicator's lag against a synthetic input. C-4b measures the two
+indicators against each other on market data. These were treated as related; they
+are not.
+
+Measured for Laguerre RSI:
+
+    C-4  (sine, period 40):  MESA leads price by 5.73, Laguerre RSI by 4.60,
+                             so Laguerre RSI should LAG MESA by 1.14 bars
+    C-4b (market data):      Laguerre RSI LEADS MESA by 0.55-0.85 bars
+
+**Opposite sign.** A sine is a single frequency; market data contains many, and both
+indicators behave differently across the frequency range — Ehlers plots exactly this
+variation for the Laguerre allpass elements (Cybernetic Analysis, Fig 14.3).
+
+**Consequence: neither measurement substitutes for the other.** C-4 answers "is this
+candidate unusably slow against a known reference?" C-4b answers "is it a delayed
+copy of C1?" Both are retained. A candidate passing C-4 says nothing about C-4b.
+
+## A4.3 Method note — phase delay is not group delay
+
+Not a criterion change; recorded because C-4 is ambiguous without it.
+
+"Lag" has two distinct meanings and the measurement method determines which one is
+obtained:
+
+- **Group delay** — what a ramp input measures, at DC (zero frequency).
+- **Phase delay** — what a sine cross-correlation measures, at that sine's frequency.
+
+They converge at DC and diverge elsewhere. SuperSmoother P=20 measures 4.039 by
+ramp and 4.3505 by sine at period 40. Both are correct.
+
+**C-4 comparisons must use the same method for candidate and reference.** During
+Laguerre RSI's measurement, comparing a sine result against the ramp figure made a
+working harness appear to be 7% in error.
+
+## A4.4 What is not changed
+
+C-1, C-2, C-3a, C-3b, C-5, C-6 unchanged. C-7 remains withdrawn per Amendment 2.
+C-4's +2.0 bar margin and Amendment 3's reference-point revision are unchanged.
+Verdicts already recorded for Laguerre RSI under C-1 to C-5 are not revisited.
