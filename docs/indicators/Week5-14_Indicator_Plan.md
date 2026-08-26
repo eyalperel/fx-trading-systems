@@ -487,24 +487,37 @@ stop placement. Normalized ATR enables cross-asset comparison on same scale.
 
 ---
 
-## Week 14 — Consolidation & Library Finalization
-**No new indicators — review, mapping, documentation, GitHub preparation**
+## Week 14 — Guided Review of Weeks 1-13 + Consolidation
 
-- **Days 1-2:** Full library code review — standardize headers, naming, comments
-- **Day 3:** Master comparison table — all 26 indicators, lag, SNR, periods, NNFX role
-- **Day 4:** NNFX component mapping document — drives Phase 3 strategy design
-- **Day 5:** Cross-asset summary — what works better on FX vs Crypto, parameter guidelines
-- **Day 6:** Professional GitHub README, Phase 2 retrospective, final commit
+**REVISED 2026-08-14.** Full plan: `docs/Week14_Review_Plan.md` — that document governs.
 
-**NNFX Component Map (to be filled with evidence by Week 14):**
+**No new indicators.** The week's purpose is that the project can be explained under
+question; the consolidation artifacts are its output rather than its method.
 
-| NNFX Slot | Primary Candidate | Secondary Candidate | Evidence Source |
+**Why revised.** `UltimateSmoother.c` did not implement its cited article yet was recorded
+VALIDATED in Week 5, because the check used a method that could not have detected the
+discrepancy. Week 9's validation is not reproducible — no tracked file reads its CSVs.
+"Validated" therefore does not mean the same thing across the library, and tabulating it
+unexamined would carry that into Phase 2.5.
+
+**Method:** recall from memory -> probe -> read the artifact -> gap check -> fix.
+Eight function-grouped sessions, one chat each, duration elastic.
+
+**Deliverables:** master comparison table including **how each indicator was validated**;
+NNFX map verified against named evidence; README update; Phase 2 retrospective.
+
+**NNFX Component Map — state entering Week 14** (verified this week, not constructed;
+Week 13 filled the volatility slots):
+
+| NNFX Slot | Strategy 1 | Strategy 2 | Evidence |
 |---|---|---|---|
-| Baseline | MAMA/FAMA | FRAMA | Week 7 + 9 comparison |
-| C1 | Fisher Transform | Cyber Cycle | Week 8 + 10 |
-| C2 | Laguerre RSI | EBS | Week 8 + 13 |
-| ATR/Stops | NormalizedATR | Ultimate Bands | Week 13 |
-| Exit | SuperSmoother crossback | — | Week 5 |
+| Baseline | FAMA | FRAMA | Weeks 7, 9 — both locked |
+| C1 | Fisher Transform | MESA Stochastic | Weeks 10, 11 — both locked |
+| C2 | Reflex *(flagged)* | Laguerre RSI *(shortlisted)* | Weeks 11-13; C-3b resolves in Phase 2.5 |
+| ATR / Stops | Ultimate Channel | Ultimate Channel | Week 13 P4 — channel preferred, band has a lag-20 cliff |
+| Volatility measure | NATR | NATR | Week 13 — comparable across assets, thresholds do not transfer |
+| Regime filter | Volatility regime classifier | — | Week 13 — above the system, not an NNFX slot |
+| Exit | TBD | TBD | Open |
 
 ---
 
@@ -528,7 +541,15 @@ stop placement. Normalized ATR enables cross-asset comparison on same scale.
 
 ## Connection to Phase 3 (Weeks 18-25)
 
-The NNFX component mapping from Week 14 directly drives strategy design:
+The NNFX component mapping from Week 14 directly drives strategy design.
+
+> **⚠️ The list below pre-dates the Week 10-13 decisions and is not current.** Strategy 1's
+> baseline is FAMA, not MAMA, and its C2 is Reflex (flagged), not Laguerre RSI. Strategy 2's
+> C1 is MESA Stochastic, locked in Week 11 — not Cyber Cycle — and its C2 is open with
+> Laguerre RSI shortlisted. Strategy 3's Bandpass oscillator was never implemented. The
+> current map is in the Week 14 section above. Retained here as the original Phase 3 sketch;
+> it is rewritten when Phase 3 is planned, not before.
+
 
 - **Strategy 1 (Week 18):** MAMA Baseline + Fisher Transform C1 + Laguerre RSI C2
 - **Strategy 2 (Week 19):** FRAMA Baseline + Cyber Cycle C1 + EBS C2
