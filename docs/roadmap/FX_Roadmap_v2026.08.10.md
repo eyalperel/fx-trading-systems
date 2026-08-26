@@ -1126,7 +1126,7 @@ var AlphaBetaFilter(vars Price, var Gain) {
 - ⛔ **RMO C2 decision: ELIMINATED.** Strategy 2 C2 remains OPEN
 - ✅ Correlation Cycle: implemented + null-tested; classified as filter
 - ✅ Additional: S1 audit, C-3 amendment, gotchas file, radians sweep
-- ⏸️ **Deferred to Week 14:** action 10 — null-test Reflex and MESA Stochastic
+- ⛔ **VOID (2026-08-10 rescope):** action 10 — null-test Reflex and MESA Stochastic. Registered under Principle 6, which was withdrawn. Indicators are classified by mechanism; no surrogate test is required for library admission. See `docs/Week14_Review_Plan.md` section 4.2.
 
 > **Structural finding.** C-3b is a strategy-level test, so **C2 selection cannot be
 > completed in Phase 2.** Week 13's Laguerre RSI is evaluated as a *shortlisted
@@ -1194,55 +1194,63 @@ var NormalizedATR(int Period) {
 
 ---
 
-**Week 14: Consolidation & Indicator Library Finalization**
+**Week 14: Guided Review of Weeks 1-13 + Library Consolidation (REVISED 2026-08-14)**
 
-**Objective:** Code review, library cleanup, comprehensive documentation, and strategic review before Backtesting Bootcamp
+**Full plan:** `docs/Week14_Review_Plan.md` — that document governs; this is a summary.
 
-**Day 1: Full Library Code Review (2 hours)**
-- Go through every indicator in `/zorro/indicators/ehlers/`
-- Check: consistent function signatures, naming conventions, comments
-- Standardize: every function has header comment block with Purpose, Inputs, Outputs, Reference
-- Flag any that need cleanup
+**Objective:** That the project can be held in the head and explained under question.
+Consolidation is the output, not the method.
 
-**Day 2: Bug Fix & Standardization (2 hours)**
-- Fix any issues found in Day 1 review
-- Ensure all test scripts still compile and run cleanly
-- Update any indicators where understanding improved during the 10 weeks
+**Why the scope changed.** Two Week 13 findings made a plain consolidation pass unsafe.
+`UltimateSmoother.c` did not implement its cited article and was recorded VALIDATED
+anyway — the Week 5 check used a method that could not have detected the discrepancy.
+And Week 9's validation is not reproducible: no tracked file reads its CSVs. **"Validated"
+does not mean the same thing across the library**, so tabulating existing status without
+re-examining it would carry that into Phase 2.5.
 
-**Day 3: Comprehensive Comparison Table (2 hours)**
-- Create `/docs/indicators/Library_Overview.md`
-- Master table: all 20-25 indicators, with:
+**Method.** Recall -> probe -> read -> gap check -> fix. I explain from memory before
+reading anything; the artifact is then compared against what I said. Fixes are batched to
+the end of each session so debugging does not break the thread. Two standing questions at
+every topic: could the validation method have failed, and can it be reproduced from the
+repo alone.
 
-| Indicator | Category | Lag vs SMA | FX Rec. Period | Crypto Rec. Period | NNFX Role | FX Quality | Crypto Quality |
-|---|---|---|---|---|---|---|---|
-| SuperSmoother 2P | Smooth | Lower | 14-20 | 8-14 | C1 input | ★★★★★ | ★★★★☆ |
-| ... | ... | ... | ... | ... | ... | ... | ... |
+**Sessions** (one chat each, function-grouped, duration elastic):
 
-**Day 4: NNFX Component Mapping (2 hours)**
-- Create strategic mapping: which indicators go in which NNFX slot?
-- This directly drives strategy design in Phase 3
+| # | Session |
+|---|---|
+| 1 | Foundation filters |
+| 2 | Baselines |
+| 3 | Oscillators and normalisers |
+| 4 | Zero-lag, predictive, noise reduction |
+| 5 | Volatility and regime |
+| 6 | Validation methods |
+| 7 | Decisions and criteria |
+| 8 | Consolidation |
 
-| NNFX Component | Primary Candidate | Secondary Candidate | Notes |
+**Deliverables:**
+- Master comparison table — including **how each indicator was validated**
+- NNFX component map, verified against evidence, with each slot's evidence named
+- README update, accurate against the reviewed library
+- Phase 2 retrospective
+
+**NNFX component map — current state entering Week 14** (Week 13 filled the volatility
+slots; the map is verified, not constructed, this week):
+
+| NNFX Slot | Strategy 1 | Strategy 2 | Status |
 |---|---|---|---|
-| Baseline | MAMA/FAMA | FRAMA | MAMA for volatile, FRAMA for choppy |
-| C1 (Confirmation 1) | Fisher Transform | Cyber Cycle | Fisher for trend, Cyber for cycle |
-| C2 (Confirmation 2) | Laguerre RSI | EBS | |
-| Volume | (TBD Week 5-14 research) | | |
-| Exit | SuperSmoother crossback | | |
-| ATR / Stops | NormalizedATR | Ehlers Bands | |
+| Baseline | FAMA | FRAMA | Locked |
+| C1 | Fisher Transform | MESA Stochastic | Locked |
+| C2 | Reflex | Laguerre RSI | **Flagged / shortlisted** — C-3b resolves in Phase 2.5 |
+| ATR / Stops | Ultimate Channel | Ultimate Channel | Preferred over the band (Week 13 P4) |
+| Volatility measure | NATR | NATR | Cross-asset comparable; thresholds do not transfer |
+| Regime filter | Volatility regime classifier | — | Above the system, not an NNFX slot |
+| Exit | TBD | TBD | Open |
 
-**Day 5: Final Crypto vs FX Summary (2 hours)**
-- Create `/docs/cross_asset/Library_FX_vs_Crypto_Summary.md`
-- Key findings document: what works better on which asset class
-- Parameter adjustment guidelines for moving from FX to Crypto
-- This document will be referenced throughout Phases 3-6
-
-**Day 6: Phase 2 Documentation + Git Finalization (2 hours)**
-- Write Phase 2 retrospective
-- Create professional README for indicator library (GitHub-ready)
-- Final Git commit: `docs: Phase 2 complete - indicator library finalized`
-- Write Week 14 retrospective
-- **Celebrate:** You now have a professional-grade indicator library
+**Week 14 Validation Gate:**
+- Every Week 5-13 indicator explained from memory before its artifact is read
+- Every VALIDATED status either reproduced or amended
+- Open items from `Week14_Review_Plan.md` section 4.1 closed or explicitly deferred
+- Master table and NNFX map committed
 
 **Phase 2 Milestone Checklist:**
 - ✅ 20-25 Ehlers indicators implemented and validated
