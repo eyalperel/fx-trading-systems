@@ -103,7 +103,7 @@ The naive published 3-pole formula is **unstable** (net feedback > 1.0).
 Use the stable pole-combination derivation:
 ```c
 var a1 = exp(-PI / Period);
-var b1 = 2.0 * a1 * cos(sqrt(3.0) * 180.0 / Period);
+var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / Period);   // radians - see Degrees vs Radians above
 var c1 = b1 + a1;
 var c2 = -(b1 * a1 + a1 * a1);
 var c3 = a1 * a1 * a1;
