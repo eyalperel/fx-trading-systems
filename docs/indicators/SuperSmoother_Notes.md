@@ -57,13 +57,34 @@ The /4.0 appearing in some Ehlers publications is a transcription error.
 ## Implementation Notes (Zorro Light-C)
 
 ### Degrees vs Radians
-Zorro's `cos()` uses **RADIANS** (standard C math library). Ehlers publishes in degrees,
-so all formulas must be converted: `360/Period` → `2π/Period`.
-*(Corrected 2026-08-06 — this section previously asserted the opposite.)*
+
+Zorro's `cos()` takes **RADIANS** (standard C math library). Ehlers publishes
+in degrees, so every formula taken from an article must be converted.
+
+**The unit conversion, on its own:**
+
+    360 / Period   degrees  =  2*pi / Period   radians
+
+That is the whole rule. It carries no design constant - it is just a change
+of units, the way metres and feet both measure length.
+
+**Design constants are separate.** SuperSmoother's sqrt(2) is a Butterworth
+pole placement factor belonging to this filter, not part of the conversion.
+Ehlers writes `1.414 * 180 / Period` in degrees; converted, that is
+`sqrt(2.0) * PI / Period` in radians. The sqrt(2) survives the conversion
+because it was there before it, not because of it.
+
+```c
+cos(sqrt(2.0) * PI / Period)      // CORRECT - radians
+cos(sqrt(2.0) * 180.0 / Period)   // WRONG - 57.3x too large
 ```
-cos(sqrt(2.0) * 180.0 / Period)   // CORRECT
-cos(sqrt(2.0) * PI / Period)      // WRONG
-```
+
+Sanity check: with Period = 20, the correct form gives cos(0.2221). The wrong
+form gives cos(14.14). If the argument is bigger than about 3, the units are
+wrong.
+
+*(Corrected 2026-08-06: prose fixed, code block left inverted. Code block
+corrected 2026-08-31 during Week 14 session 1 - see GAP-1.6.)*
 
 ### Series Sizing
 - 2-pole: `series(Price[0], 3)` — needs 3 elements
