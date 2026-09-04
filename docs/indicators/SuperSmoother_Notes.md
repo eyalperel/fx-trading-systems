@@ -45,7 +45,12 @@ Each pole adds -20 dB/decade of rolloff steepness:
 - 2-pole: -40 dB/decade rolloff
 - 3-pole: -60 dB/decade rolloff
 
-More poles = steeper noise rejection = slightly more lag.
+More poles = steeper rolloff = more lag. Note that steeper is not uniformly
+better: a steeper filter also attenuates more in the passband, so it removes more
+of the slow movement you intend to keep. The -20 dB/decade-per-pole figure above
+is asymptotic and does not hold near period 2, where the two-bar input average
+places a zero and attenuation is far deeper than the rule predicts (SS2 measures
+-134 dB at period 2 against the -40 dB/decade the rule would imply).
 
 ### DC Gain
 The c0 coefficient normalizes DC gain to 1.0 — a constant price passes through
@@ -99,7 +104,24 @@ if(Init) { Filt[0] = Price[0]; return Filt[0]; }
 This ensures feedback terms contain real price values by live period start.
 
 ### 3-Pole Coefficients
-The naive published 3-pole formula is **unstable** (net feedback > 1.0).
+The naive published 3-pole formula is reported **unstable**. Note two
+limitations of that statement as previously written here: the naive formula is
+not reproduced or cited anywhere in this repo, so the claim cannot be checked
+from it; and the reason originally given — "net feedback > 1.0" — is not a valid
+stability test. Coefficient sum below 1.0 does not imply stability:
+
+    y[t] = 0.1*x[t] + 2.5*y[t-1] - 1.6*y[t-2]
+
+sums to 0.9 and diverges (reaches 124 by bar 20 on a constant input of 1).
+
+**The correct test is pole magnitude.** The poles are the roots of the feedback
+polynomial; the filter is stable if and only if every root has magnitude below
+1.0. For the derivation below at Period=20 the pole magnitudes are 0.626, 0.626
+and 0.443 — stable with margin. The largest magnitude also sets how long the
+filter carries its own past: 0.626^20 is about 0.00009, so state contamination
+from a wrong seed or from statics leaking across assets is effectively gone
+within ~20 bars.
+
 Use the stable pole-combination derivation:
 ```c
 var a1 = exp(-PI / Period);
@@ -146,8 +168,16 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 ## Key Findings
 
 1. **DC gain fix:** c0 must use /2.0 not /4.0 — published formula has transcription error
-2. **3-pole is correct:** Apparent over-responsiveness explained by shifted effective
-   cutoff period — frequency response confirms SS3 beats SS2 at all frequencies
+2. **3-pole is correct, but its advantage is narrow.** The apparent
+   over-responsiveness is explained by a shifted cutoff: SS3's -3 dB point sits at
+   roughly 1.57x its Period parameter, where SS2's sits at 1.0x. Compared at
+   matched -3 dB placement (SS2 Period=20 vs SS3 Period=12.8, both cornering at
+   ~20 bars), SS3 outperforms SS2 only at periods of roughly 3-8 bars. Above that
+   it is worse: it passes more in the 10-14 bar band, attenuates 30-50 bar moves
+   by a further 7-9 percentage points, and costs 5.17 bars of lag against SS2's
+   4.04. The earlier claim that SS3 "beats SS2 at all frequencies" came from
+   treating more attenuation as better at every period, including in the passband
+   where attenuation is signal loss. See Week14_Session1_Handoff GAP-1.9.
 3. **Period=14 sweet spot:** Best SNR + tightest tracking for EUR/USD D1
 4. **Cross-asset consistency:** Same Period=20 works on both FX D1 and Crypto H4
    without retuning — smoothing ratios nearly identical (29-37%)
@@ -166,6 +196,13 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 Note: Same parameters work across both asset classes.
 Shorter periods (10-14) for more responsiveness.
 Longer periods (20-30) for more smoothing.
+
+**SS3 Period is not comparable to SS2 Period.** SS2's -3 dB point falls at
+approximately 1.0x its Period parameter; SS3's falls at approximately 1.57x. So
+SS3(20) corners near 31 bars, not 20, and is a substantially heavier filter than
+SS2(20). To match SS2(20) use SS3 at about Period=13. The SS3 column above lists
+the same 14-20 range as SS2 and is therefore misleading as written; it is
+retained pending the SS3 retention decision (Week14_Session1_Handoff GAP-1.13).
 
 ---
 
