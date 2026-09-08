@@ -13,7 +13,7 @@
 
 #include <default.c>
 #include "../../indicators/ehlers/SuperSmoother2Pole.c"
-#include "../../indicators/ehlers/UltimateSmoother.c"
+#include "../../indicators/ehlers/UltimateSmoother_W5_Superseded.c"
 #include "../../indicators/ehlers/UltimateSmootherE.c"
 
 #define PERIOD 20
@@ -46,7 +46,7 @@ void run() {
     vars Ramp = series(barCount);
 
     var usE = UltimateSmootherE(Ramp, PERIOD);
-    var usW5 = UltimateSmoother(Ramp, PERIOD);
+    var usW5 = UltimateSmoother_W5_Superseded(Ramp, PERIOD);
     var ss  = SuperSmoother2Pole(Ramp, PERIOD);
 
     if(!hdrWritten) {

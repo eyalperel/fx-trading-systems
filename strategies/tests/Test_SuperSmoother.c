@@ -5,7 +5,6 @@
 #include <default.c>
 #include "../../indicators/ehlers/SuperSmoother2Pole.c"
 #include "../../indicators/ehlers/SuperSmoother3Pole.c"
-#include "../../indicators/ehlers/UltimateSmoother.c"
 
 void run() {
     // --- Setup ---

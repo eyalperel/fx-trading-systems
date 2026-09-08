@@ -9,7 +9,7 @@
 //           cos() uses radians — standard C math library
 //           Zero-lag claim should be verified empirically via cross-correlation
 
-var UltimateSmoother(vars Price, int Period) {
+var UltimateSmoother_W5_Superseded(vars Price, int Period) {
     // --- Stage 1: SuperSmoother coefficients (2-pole Butterworth) ---
     var c1 = exp(-sqrt(2.0) * PI / Period);
     var b1 = 2.0 * c1 * cos(sqrt(2.0) * PI / Period);

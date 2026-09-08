@@ -54,3 +54,7 @@ research/articles/**/*.pdf
 
 # Personal working notes - not part of the public portfolio
 audit/
+
+# one-shot fix scripts (Week 14 review) — intent captured in commit messages
+fix_*.py
+rename_*.py
