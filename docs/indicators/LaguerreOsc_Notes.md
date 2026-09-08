@@ -9,6 +9,10 @@ Implemented Week 13 Day 3. Article defaults: gamma 0.5, Length 30, RMS 100.
     L1  = a delayed version of L0
     Osc = (L0 - L1) / RMS(L0 - L1, 100)
 
+Ehlers' `UltimateSmoother` here is his published filter, implemented by
+`UltimateSmootherE.c`. It is not `UltimateSmoother_W5_Superseded.c`, which does
+not implement that article — see `docs/methods/Lag_Cancellation_Derivation.md`.
+
 L1 is L0 pushed slightly later in time. Subtracting removes what the two have in
 common — the trend — leaving what changed between them, which oscillates around
 zero. Same principle as the Decycler (Week 6).
@@ -21,7 +25,7 @@ zero. Same principle as the Decycler (Week 6).
 | gamma | 0.5 | how far L1 trails L0 |
 | RMSLen | 100 | what counts as a "typical" reading |
 
-Length is the UltimateSmoother period. It does NOT set the L0-L1 gap — that is
+Length is the `UltimateSmootherE` period. It does NOT set the L0-L1 gap — that is
 gamma's job, and the two are easy to confuse.
 
 ## How gamma sets the delay

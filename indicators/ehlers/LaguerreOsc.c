@@ -11,6 +11,11 @@
 //   L1  = delayed version of L0
 //   Osc = (L0 - L1) / RMS(L0 - L1, 100)
 //
+//   Ehlers' "UltimateSmoother" above is his published filter,
+//   implemented here by UltimateSmootherE.c. It is NOT
+//   UltimateSmoother_W5_Superseded.c, which does not implement
+//   that article — see docs/methods/Lag_Cancellation_Derivation.md.
+//
 // L1 is L0 pushed later in time, so subtracting removes whatever
 // the two have in common — the trend — and leaves what changed
 // between them, oscillating around zero. Same principle as the
@@ -26,7 +31,7 @@
 //
 // PARAMETERS ARE THE ARTICLE'S, NOT THE WEEK 13 CONVENTION.
 //   gamma = 0.5, Length = 30, RMS window = 100.
-//   Every other Week 13 component uses 20 (UltimateSmoother, the
+//   Every other Week 13 component uses 20 (UltimateSmootherE, the
 //   channel, the band, the SD window, RSIH). This file deliberately
 //   does not, because the article publishes 0.5/30 for the
 //   oscillator specifically and no measurement here suggests

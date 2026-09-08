@@ -1,5 +1,12 @@
 # Week 13 — Volatility Indicators, Bands, and a C2 Candidate
 
+> **Naming note (added Week 14 session 1, 2026-08-31).** This document predates
+> the rename of the Week 5 file to `UltimateSmoother_W5_Superseded.c`. Where the
+> body says "UltimateSmoother" without qualification it means
+> `UltimateSmootherE.c`, Ehlers' published filter. Body text is left unchanged as
+> a record of what was concluded at the time.
+
+
 **Dates:** 2026-08-12 to 2026-08-13 (Days 2-3)
 **Branch:** `main`, 15 commits
 **Assets:** EUR/USD D1 2015-2024 (2,596 bars), BTC/USD H4 2020-2024 (7,534 bars)
