@@ -10,9 +10,16 @@
 
 | Indicator | File | Status |
 |---|---|---|
-| SuperSmoother 2-pole | `indicators/ehlers/SuperSmoother2Pole.c` | ✅ Validated |
-| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | ✅ Validated |
-| Ultimate Smoother | `indicators/ehlers/UltimateSmoother.c` | ✅ Validated |
+| SuperSmoother 2-pole | `indicators/ehlers/SuperSmoother2Pole.c` | Validated — see note below |
+| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | Validated — see note below |
+| Ultimate Smoother (published) | `indicators/ehlers/UltimateSmootherE.c` | Ramp lag verified 0.0000 bars — exact on straight lines only |
+| Ultimate Smoother (Week 5) | `indicators/ehlers/UltimateSmoother_W5_Superseded.c` | SUPERSEDED — does not implement its cited article |
+
+**Note on "Validated".** The Week 5 validation used an SNR metric that could not
+have failed — see `docs/Week14_Session1_Handoff.md` section 4.1. The
+implementations are correct; the evidence originally offered for them was not.
+SS2 and SS3 have since been checked by frequency response and ramp lag, which is
+why they are retained as validated here.
 
 ---
 
@@ -24,7 +31,14 @@ Every moving average faces the smoothing vs lag tradeoff:
 
 SuperSmoother is Ehlers' DSP-based answer: a **2-pole Butterworth IIR low-pass filter**
 that achieves better noise rejection than SMA/EMA for the same lag budget.
-The Ultimate Smoother extends this by correcting for the filter's own lag.
+`UltimateSmootherE.c` takes a different route to the same goal: rather than
+averaging price, it computes price's fast component with a high-pass filter and
+subtracts it. Smoothing by subtraction rather than by averaging.
+
+Note that `UltimateSmoother_W5_Superseded.c` does NOT do this, despite its
+original name and cited article. It adds a fraction of the residual
+`Price - SuperSmoother` back to SuperSmoother — an approach that cannot separate
+lag from noise, because the residual contains both summed together.
 
 ---
 
@@ -181,8 +195,34 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 3. **Period=14 sweet spot:** Best SNR + tightest tracking for EUR/USD D1
 4. **Cross-asset consistency:** Same Period=20 works on both FX D1 and Crypto H4
    without retuning — smoothing ratios nearly identical (29-37%)
-5. **Ultimate Smoother:** Best lag+SNR tradeoff — zero-lag claim credible visually
-   and confirmed by mean absolute difference metric
+5. **Ultimate Smoother — the Week 5 claim was wrong, and so was the method.**
+   Mean absolute difference does not measure lag; it measures how closely the
+   output tracks price, which a filter that does nothing achieves perfectly.
+   Measured properly on a synthetic ramp (`Test_USLag.c`, Period=20):
+
+   | filter | ramp lag |
+   |---|---|
+   | `UltimateSmootherE.c` (published) | 0.0000 bars |
+   | `UltimateSmoother_W5_Superseded.c` (Week 5) | 3.8725 bars |
+   | `SuperSmoother2Pole.c` | 4.0387 bars |
+
+   The Week 5 file removes 4.1% of SuperSmoother's lag. Week 5 recorded it as
+   VALIDATED and near-zero-lag. Found in Week 13
+   (`UltimateSmoother_Lag_2026-08-12.md`); this file was not updated at the time.
+
+   **These are lags on a synthetic ramp — a perfectly straight line — and
+   nothing else has been measured.** The published filter is
+   `Price - HighPass(Price)`, and the high-pass numerator is proportional to
+   (1, -2, 1), which is a discrete second derivative. The second derivative of a
+   straight line is exactly zero, so the high-pass outputs nothing on a ramp and
+   US = Price exactly. That is an algebraic identity, not a tuning result, and it
+   holds at every Period.
+
+   It also holds ONLY for straight lines. Real price is not a straight line; the
+   moment it bends, the second derivative is non-zero, the high-pass produces
+   output, and the filter subtracts something real. **Whether `UltimateSmootherE`
+   has low lag on a curve, a turn, or a cycle is a separate question that this
+   measurement does not answer and that nothing in this repo currently answers.**
 
 ---
 
@@ -196,6 +236,13 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 Note: Same parameters work across both asset classes.
 Shorter periods (10-14) for more responsiveness.
 Longer periods (20-30) for more smoothing.
+
+**The periods in this table were selected using the Week 5 SNR metric**, which
+ranks filters by how little they smooth (Week14_Session1_Handoff section 4.1).
+They are not evidence-backed recommendations and should be treated as untested
+defaults until re-derived. The `US Period` column additionally predates the split
+between `UltimateSmootherE.c` and `UltimateSmoother_W5_Superseded.c` and does not
+say which filter it refers to.
 
 **SS3 Period is not comparable to SS2 Period.** SS2's -3 dB point falls at
 approximately 1.0x its Period parameter; SS3's falls at approximately 1.57x. So
