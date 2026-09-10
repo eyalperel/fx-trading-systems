@@ -1,25 +1,42 @@
-# SuperSmoother — Implementation Notes
-**Week:** 5  
-**Articles:** Moving Averages and Smoothing Filters (Ehlers TASC) + The Ultimate Smoother (Ehlers TASC)  
-**Status:** VALIDATED ✅  
-**Last Updated:** Week 5 Day 6
+# SuperSmoother Family — Implementation Notes
+**Week:** 5 (implementation) — reviewed Week 14
+**Articles:** Moving Averages and Smoothing Filters (Ehlers TASC) + The Ultimate Smoother (Ehlers TASC)
+**Last Updated:** 2026-09-10 (Week 14 Session 1, part 3)
+
+> **This file has no single family status.** Status is per indicator and per
+> claim, because the evidence differs between them. See the table below.
+
+---
+
+## How to Read "Validated" in This File
+
+The Week 5 validation used an SNR metric that could not have failed. It is
+defined as `var(indicator) / var(price - indicator)` — the reference is the
+candidate's own output, so a filter that smooths less scores higher, and a filter
+that does nothing scores infinity. See `docs/Week14_Session1_Handoff.md` §4.1.
+
+The Week 5 *implementations* are correct. The *evidence originally offered for
+them* was not. SS2 and SS3 have since been checked by frequency response and by
+ramp lag, which is why they are retained as validated here. Everything in this
+file sourced from the Week 5 SNR metric is marked as superseded at the point
+where the numbers appear.
+
+The Week 5 validation is also **not reproducible from a fresh clone**: the
+notebook reads three CSVs from `C:/Zorro/Data/`, none of them tracked
+(GAP-1.10). Superseded by decision **D-14.1** (Week 14 Session 1 part 3), which
+splits correctness testing onto synthetic inputs and behaviour testing onto
+small committed data slices.
 
 ---
 
 ## Indicators in This Family
 
-| Indicator | File | Status |
-|---|---|---|
-| SuperSmoother 2-pole | `indicators/ehlers/SuperSmoother2Pole.c` | Validated — see note below |
-| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | Validated — see note below |
-| Ultimate Smoother (published) | `indicators/ehlers/UltimateSmootherE.c` | Ramp lag verified 0.0000 bars — exact on straight lines only |
-| Ultimate Smoother (Week 5) | `indicators/ehlers/UltimateSmoother_W5_Superseded.c` | SUPERSEDED — does not implement its cited article |
-
-**Note on "Validated".** The Week 5 validation used an SNR metric that could not
-have failed — see `docs/Week14_Session1_Handoff.md` section 4.1. The
-implementations are correct; the evidence originally offered for them was not.
-SS2 and SS3 have since been checked by frequency response and ramp lag, which is
-why they are retained as validated here.
+| Indicator | File | Status | Evidence |
+|---|---|---|---|
+| SuperSmoother 2-pole | `indicators/ehlers/SuperSmoother2Pole.c` | **Validated** | Frequency response (notebook cells 11-12, independently reproduced); ramp lag 4.04 bars (`Test_USLag.c`) |
+| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | **Validated, with a narrower advantage than originally claimed** | Frequency response; ramp lag 5.17 bars. See Key Finding 2 |
+| Ultimate Smoother (published) | `indicators/ehlers/UltimateSmootherE.c` | **Ramp lag verified 0.0000 bars — exact on straight lines only** | `Test_USLag.c`; verified against independent scipy computation to 4 dp. Lag on curves is **unmeasured** (GAP-1.16) |
+| Ultimate Smoother (Week 5) | `indicators/ehlers/UltimateSmoother_W5_Superseded.c` | **SUPERSEDED — does not implement its cited article** | Ramp lag 3.87 bars vs SS2's 4.04, i.e. removes 4.1% of the lag. See Key Finding 5 |
 
 ---
 
@@ -117,6 +134,11 @@ if(Init) { Filt[0] = Price[0]; return Filt[0]; }
 ```
 This ensures feedback terms contain real price values by live period start.
 
+Note that seeding at price level is correct **for a low-pass filter**, whose
+steady-state output sits at price level. It is wrong for a high-pass filter,
+whose output oscillates around zero — see `HighPass_RoofingFilter_Notes.md`
+and GAP-1.26.
+
 ### 3-Pole Coefficients
 The naive published 3-pole formula is reported **unstable**. Note two
 limitations of that statement as previously written here: the naive formula is
@@ -148,7 +170,19 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 
 ---
 
-## Validation Results
+## Week 5 Validation Results — SUPERSEDED
+
+> **The numbers below are retained as a record of what was measured in Week 5.
+> They are not evidence of filter quality.**
+>
+> The SNR column ranks filters by how little they smooth (see "How to Read
+> 'Validated'" above). The `Mean |diff|` column measures how closely the output
+> tracks price, which is maximised by a filter that does nothing — it is not a
+> lag measurement (GAP-1.23). Neither column can distinguish a correct
+> implementation from an incorrect one.
+>
+> These results are also not reproducible from a clone (GAP-1.10). Superseded by
+> D-14.1.
 
 ### EUR/USD D1 (2015-2024)
 
@@ -158,6 +192,9 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 | SS 2-pole | 14.18 | +1.95 dB | 0.007876 |
 | SS 3-pole | 16.14 | +3.91 dB | — |
 | Ultimate Smoother | 14.45 | +2.22 dB | 0.007632 |
+
+The `Ultimate Smoother` row predates the split between `UltimateSmootherE.c` and
+`UltimateSmoother_W5_Superseded.c`. It refers to the Week 5 file, now superseded.
 
 ### BTC/USD H4 (2020-2024)
 
@@ -170,18 +207,30 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
 
 ### Parameter Sensitivity (SS 2-pole, EUR/USD D1)
 
-| Period | SNR (dB) | Mean \|diff\| | Recommendation |
+| Period | SNR (dB) | Mean \|diff\| | Week 5 recommendation |
 |---|---|---|---|
 | 10 | 17.53 | 0.005354 | Too responsive for D1 |
-| 14 | 19.86 | 0.004070 | ✅ Sweet spot for FX D1 |
-| 20 | 14.18 | 0.007876 | ✅ More smoothing, valid |
+| 14 | 19.86 | 0.004070 | Sweet spot for FX D1 |
+| 20 | 14.18 | 0.007876 | More smoothing, valid |
 | 30 | 18.99 | 0.004624 | More lag, diminishing returns |
+
+> **GAP-1.28 — this table is internally inconsistent and unresolved.** The SNR
+> column is non-monotonic: it rises from Period 10 to 14, collapses at 20, then
+> rises again at 30. A smoothing parameter should not produce a dip flanked by
+> higher values on both sides. The value at Period=20 (14.18) is also *exactly*
+> the SS 2-pole entry in the EUR/USD table above, which suggests a copied cell
+> rather than an independently measured one.
+>
+> Period=20 is the value used throughout the rest of the library. Settling this
+> requires re-running the Week 5 notebook, which is not currently possible from a
+> clone (GAP-1.10). Open.
 
 ---
 
 ## Key Findings
 
 1. **DC gain fix:** c0 must use /2.0 not /4.0 — published formula has transcription error
+
 2. **3-pole is correct, but its advantage is narrow.** The apparent
    over-responsiveness is explained by a shifted cutoff: SS3's -3 dB point sits at
    roughly 1.57x its Period parameter, where SS2's sits at 1.0x. Compared at
@@ -192,9 +241,23 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
    4.04. The earlier claim that SS3 "beats SS2 at all frequencies" came from
    treating more attenuation as better at every period, including in the passband
    where attenuation is signal loss. See Week14_Session1_Handoff GAP-1.9.
-3. **Period=14 sweet spot:** Best SNR + tightest tracking for EUR/USD D1
-4. **Cross-asset consistency:** Same Period=20 works on both FX D1 and Crypto H4
-   without retuning — smoothing ratios nearly identical (29-37%)
+
+3. **~~Period=14 sweet spot: best SNR + tightest tracking for EUR/USD D1.~~
+   WITHDRAWN.** Both quantities named are superseded metrics: SNR rewards the
+   filter that smooths least, and "tightest tracking" is mean absolute difference
+   from price, which is minimised by a filter that does nothing. The table those
+   numbers came from is additionally non-monotonic and unresolved (GAP-1.28).
+   **No period recommendation for SS2 is currently evidence-backed.**
+
+4. **Cross-asset consistency — restated, narrower than originally claimed.**
+   What was written was that the same Period works on both FX D1 and crypto H4
+   without retuning, on the basis of similar smoothing ratios (29-37%). Two
+   limits on that: (a) the ratios come from the superseded SNR/smoothing metrics,
+   so they show the filters behave similarly under a measure that cannot fail;
+   (b) it holds for SS2 only. `Period` does not mean the same thing for SS2 and
+   SS3 (Finding 2), so a single cross-asset Period statement cannot cover both.
+   **Unresolved pending a measurement that can fail.**
+
 5. **Ultimate Smoother — the Week 5 claim was wrong, and so was the method.**
    Mean absolute difference does not measure lag; it measures how closely the
    output tracks price, which a filter that does nothing achieves perfectly.
@@ -223,6 +286,14 @@ var c0 = (1.0 - c1 - c2 - c3) / 2.0;
    output, and the filter subtracts something real. **Whether `UltimateSmootherE`
    has low lag on a curve, a turn, or a cycle is a separate question that this
    measurement does not answer and that nothing in this repo currently answers.**
+   (GAP-1.16.)
+
+   Week 14 session 1 part 3 established the mechanism on the subtracted
+   high-pass directly: its feedback polynomial is a perfect square, so it is
+   critically damped — a single bend disturbs the output for ~50 bars at the 1%
+   level (HPPeriod=48), decaying monotonically without oscillation. By
+   superposition the output at any bar is the accumulated sum of every past
+   bend. See `HighPass_RoofingFilter_Notes.md`.
 
 ---
 
@@ -265,6 +336,10 @@ SS2 and SS3 are the **foundation** — they appear inside MAMA, Cyber Cycle,
 Roofing Filter, and most other Ehlers indicators in the Week 6-14 plan.
 Understanding them deeply was the correct starting point for Phase 2.
 
+The `Ultimate Smoother` row refers to `UltimateSmootherE.c`. Its suitability as a
+lag-critical baseline rests on the 0.0000-bar ramp result, which holds only on
+straight-line input (GAP-1.16). Treat the role assignment as provisional.
+
 ---
 
 ## Cross-Asset Notes
@@ -273,3 +348,22 @@ Understanding them deeply was the correct starting point for Phase 2.
 - Both asset classes respond identically to the same Period parameter
 - BTC SNR values are higher overall due to stronger trending (2020-2024 bull run)
 - No parameter adjustment needed when moving between FX and crypto
+
+> **All four points above derive from the superseded Week 5 SNR and smoothing
+> metrics** and inherit their limits — see Key Finding 4. The third point is an
+> interpretation of SNR values, not a measurement of trending, and the metric
+> does not measure trend strength. Retained as the Week 5 record; not currently
+> evidence-backed.
+
+---
+
+## Changelog
+
+| date | commit | change |
+|---|---|---|
+| 2026-08-06 | — | Degrees/radians prose corrected; code block left inverted |
+| 2026-08-31 | 12a6c35 | Degrees/radians code block corrected; unit conversion separated from the Butterworth sqrt(2); argument-magnitude sanity check added (GAP-1.6) |
+| 2026-08-31 | 191404b | 3-pole coefficient line corrected to PI (GAP-1.11) |
+| 2026-08-31 | b93df97 | SS3 "beats SS2 at all frequencies" claim corrected (GAP-1.9) |
+| 2026-08-31 | 758aa4b | Week 13's UltimateSmoother finding propagated into this file (GAP-1.15) |
+| 2026-09-10 | *this commit* | Family status replaced with per-indicator status and named evidence; validation caveats relocated to the tables they describe; Key Finding 3 withdrawn and Key Finding 4 narrowed; GAP-1.28 recorded; cross-asset notes caveated; changelog added |
