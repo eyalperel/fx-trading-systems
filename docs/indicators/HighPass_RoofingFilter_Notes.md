@@ -138,8 +138,17 @@ which is `(z - b)²` identically. Its discriminant is **zero at every HPPeriod**
 so the filter has a **repeated real pole at b**: it is **critically damped** by
 construction — the fastest settling achievable with no oscillation.
 
-**This filter does not ring.** After a bend, its output decays monotonically,
-without sign flips. A single dropped factor breaks this: `z² - 2b·z + b` has
+**This filter does not ring.** Across 120 bars after a single bend its output
+changes sign **zero** times. It is not, however, monotonic. A repeated root gives
+an impulse response of the form `(A + B*n)*b^n`, so the disturbance **grows before
+it decays**: at HPPeriod=48 the tent's -1.83 kick at bar 6 reaches **-7.95 at bar
+16**, 4.3x larger, and only then falls away. The turning point sits at
+`1/(-ln b)` = 10.8 bars. The contamination window is therefore ~10 bars longer
+than the settling table below suggests, and the disturbance is largest well after
+the bend that caused it. *(Corrected 2026-09-10: this passage previously said the
+output "decays monotonically" -- wrong, and caught only by running the filter.)*
+
+A single dropped factor breaks this: `z² - 2b·z + b` has
 discriminant -0.36 at b=0.9, giving complex poles and an oscillating filter.
 Critically damped and ringing are completely different behaviours, and on real
 price both look like a squiggle around zero.
@@ -153,7 +162,8 @@ price both look like a squiggle around zero.
 | 0.1% | 75 |
 
 Roughly **25 bars per factor of 10** — constant bars-per-decade, the signature of
-exponential decay. Rule of thumb, measured at two periods (48 → 49.7 bars, 20 → 20.6
+exponential decay. These are **envelope** figures measured from the response peak,
+not from the bend: add ~11 bars to get the window from the bend itself. Rule of thumb, measured at two periods (48 → 49.7 bars, 20 → 20.6
 bars): **1% settling ≈ HPPeriod**. Two points, not a proof.
 
 ### Superposition

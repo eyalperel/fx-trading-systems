@@ -290,8 +290,10 @@ The `Ultimate Smoother` row predates the split between `UltimateSmootherE.c` and
 
    Week 14 session 1 part 3 established the mechanism on the subtracted
    high-pass directly: its feedback polynomial is a perfect square, so it is
-   critically damped — a single bend disturbs the output for ~50 bars at the 1%
-   level (HPPeriod=48), decaying monotonically without oscillation. By
+   critically damped — it never changes sign. It is not monotonic, though: the
+   response grows for ~11 bars before decaying, peaking ~4.3x the initial kick,
+   so a single bend disturbs the output for ~60 bars at the 1% level
+   (HPPeriod=48). By
    superposition the output at any bar is the accumulated sum of every past
    bend. See `HighPass_RoofingFilter_Notes.md`.
 
