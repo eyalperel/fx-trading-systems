@@ -1,8 +1,12 @@
 # High-Pass Filter, Roofing Filter & Decycler — Implementation Notes
 **Week:** 6 (implementation) — reviewed Week 14
-**Source articles:** Optimal Detrending, Whiter Is Brighter, Decyclers — TASC
+**Source articles:** Predictive And Successful Indicators (TASC V.32:1, 2014 —
+the roofing filter's source), Whiter Is Brighter, Decyclers — TASC. *(Corrected
+2026-09-28: this line previously cited "Optimal Detrending", which is not the
+roofing filter's source; the project PDF of that name is* Optimum Detrending
+*(1992), a different design. GAP-1.31.)*
 **Implementation date:** March 2026
-**Last Updated:** 2026-09-10 (Week 14 Session 1, part 3)
+**Last Updated:** 2026-09-28 (Week 14 Session 1, part 4)
 
 > **This file has no single family status.** Status is per indicator and per
 > claim. The implementations and the evidence offered for them are in
@@ -15,14 +19,16 @@
 | Indicator | File | Implementation | Evidence |
 |---|---|---|---|
 | HighPassFilter | `indicators/ehlers/HighPassFilter.c` | **Correct.** Coefficients verified against the header's own reference (HPPeriod=30 → alpha1 = 0.138102, recomputed to 6 s.f.). Feedback polynomial is a perfect square → critically damped by construction | **Week 6 validation superseded.** Its four criteria cannot fail — see §5. No test in the repo could distinguish this filter from a mis-coefficiented one |
-| RoofingFilter | `indicators/ehlers/RoofingFilter.c` | Not re-examined in Week 14 | Week 6 only — superseded, same criteria |
+| RoofingFilter | `indicators/ehlers/RoofingFilter.c` | **Structure matches the source** — HP(48) → SS(10), both values hard-coded in Ehlers' published code. Gain computed from coefficients: peak 0.8907 at 19.15 bars, half-power band 10.40–43.57 bars. The SS stage seeds at its input's first value, so it inherits the HP's price-level seed (GAP-1.26) — confirmed on the real CSV, row 1 = 0.992166 × Close | **None valid.** Week 6 superseded, and its EUR/USD figures were computed from pre-radians-fix filters (GAP-1.35). `Test_RoofingFilter.c` has no pass criterion (GAP-1.33) and returns before computing, so the start-up transient lands in the export (GAP-1.34) |
 | Decycler | `indicators/ehlers/Decycler.c` | Not re-examined in Week 14 | Week 6 only — superseded. The "4.5x closer to price" result measures the wrong quantity (§5) |
 
 The distinction matters: **`HighPassFilter.c` is a correct implementation with no
 valid evidence behind it.** Those are separate facts and the second does not
 impugn the first.
 
-Reviewed in Week 14 Session 1 part 3. Gaps GAP-1.17 through GAP-1.27 refer.
+Reviewed in Week 14 Session 1 part 3 (HighPassFilter; gaps GAP-1.17 to GAP-1.28)
+and part 4 (RoofingFilter; gaps GAP-1.29 to GAP-1.35). Plain-language walkthrough:
+`docs/learning/RoofingFilter_Explained.md`.
 
 ---
 
@@ -46,10 +52,21 @@ component by removing trend and/or noise.
 - Use: input preprocessing for oscillators
 
 ### RoofingFilter
-- HP → SuperSmoother pipeline (band-pass filter)
-- Removes both trend (HP stage) and noise (SS stage)
-- Only dominant cycle survives
+- HP → SuperSmoother pipeline (band-pass filter). The two gains multiply
+- Attenuates slow movement (HP stage) and fast movement (SS stage), both
+  **gradually**: HP(48) still passes 0.4186 at period 80, SS(10) passes 0.5244 at
+  period 8. Only period 2 is removed exactly (SS gain 0)
+- Passes a band: half-power 10.40 to 43.57 bars, peak 0.8907 at 19.15 bars
+- **Produces cycle-shaped output from any broadband input.** A coin-flip walk
+  comes out swinging on a ~23-bar rhythm. The output's shape says nothing about
+  whether a cycle was in the input
 - Use: standard preprocessor for all Week 8 oscillators
+
+*(Corrected 2026-09-28: this list previously said "Removes both trend (HP stage)
+and noise (SS stage)" and "Only dominant cycle survives". The first overstates a
+gradual slope as a wall; the second is contradicted — see the coin-flip result
+above, and the Cycle Premise null test, which reached the same conclusion on
+market data in Week 11.)*
 
 ### Decycler
 - Price - HighPassFilter(Price)
@@ -209,19 +226,43 @@ Controls the high-frequency (noise) cutoff.
 | 10 | 2.6x | Ehlers default — general purpose |
 | 14-20 | 3.3-4.6x | Maximum smoothness needed |
 
-> **GAP-1.27e — unresolved contradiction.** This table gives 2.6x at SSPeriod=10.
-> §5 below and notebook cell 15 both report **10.9x** for the same configuration
-> on the same data — a 4x disagreement between two tables in this file. Which is
-> correct has not been determined; settling it requires re-running cell 19, which
-> is not currently possible from a clone (see D-14.1). Open.
+> **Not evidence-backed.** SSPeriod=10 is in the same position as HPPeriod=48:
+> Ehlers' published value, a citation rather than a measurement. The same Week 6
+> notebook was its only support. It cannot be justified by matching a dominant
+> cycle on EUR/USD D1, because the Cycle Premise null test found none. (GAP-1.30.)
+
+> **GAP-1.27e — resolved 2026-09-28.** Both figures were computed correctly; they
+> describe **two different filters**, and neither is the library's.
+>
+> - **2.6x** (this table) is notebook cell 19, which recomputes the filter in
+>   Python without the 0.707 (alpha1 0.123024). Reproduced at 2.59 on a random
+>   walk. The whole table describes that filter.
+> - **10.9x** (§5, cell 15) is computed from `data/fx/` CSVs exported by the
+>   **pre-radians-fix** `HighPassFilter.c` and SuperSmoother. Reproduced exactly:
+>   **10.88** on those files. See §5 and GAP-1.35.
+> - **Current library:** cell 15's formula on the current Zorro export gives
+>   **2.17** (30 rows dropped), 2.42 (72 dropped).
+>
+> The ratio is the std of bar-to-bar changes — it measures **jaggedness**, not
+> size. On a random walk the size ratio is only 1.12.
 
 **Critical rule (unsourced):** SSPeriod must always be significantly less than
 HPPeriod. If they overlap, the passband collapses and cycles are blocked.
 
-> Stated without a source reference and without a measurement. Plausible on
-> band-pass reasoning, but it is not derived here, not cited to an article, and
-> no test in the repo demonstrates the collapse. Same class as the 3-pole
-> instability claim in `SuperSmoother_Notes.md` (GAP-1.12). Treat as unverified.
+> Still unsourced. **Measured 2026-09-28** (gain from coefficients, SSPeriod=10):
+>
+> | HP/SS | peak gain | half-power band |
+> |---|---|---|
+> | 1.0 | 0.4778 | none |
+> | 1.5 | 0.6237 | none |
+> | 2.0 | 0.7131 | 12.99–15.65 |
+> | 4.8 | 0.8907 | 10.40–43.57 |
+>
+> Direction supported, wording not: nothing collapses "to nothing". The band
+> shrinks smoothly and the half-power band first appears between ratio 1.5 and
+> 2. "Significantly less" can now read: **below HPPeriod ≈ 1.5 × SSPeriod there is
+> no half-power band; at 2 × there is a narrow one** (measured at SSPeriod=10
+> only).
 
 ### Recommended defaults
 | Asset | Timeframe | HPPeriod | SSPeriod |
@@ -266,7 +307,26 @@ verdict in §5, which is a hardcoded string. See below.
 > records the copy step between them. `data/` is gitignored by policy.
 > (GAP-1.20, superseded by **D-14.1**.)
 
-### EUR/USD D1 (2015-2024, 2566 bars)
+> **The EUR/USD figures below describe a filter the library does not contain.**
+> (GAP-1.35, found 2026-09-28.) The notebook reads `data/fx/*_EURUSD_D1.csv`,
+> dated 2026-05-04. The radians fix landed between 4 and 10 May; the Zorro
+> exports were regenerated on 10 May but never copied into `data/fx/`.
+>
+> - `data/fx/HP_EURUSD_D1.csv` rows 1–3 (0.39169, 0.09814, 0.02575) are
+>   reproduced exactly only by `cos(360/48)` taken as radians with no 0.707
+>   (alpha1 0.8211, library 0.088513). The Roofing file needs the matching
+>   SuperSmoother degrees bug.
+> - The files hold **5,192 rows = two runs**. Run 2 uses `cos(0.707*360/48)`
+>   (alpha1 −2.2903, pole 3.29) and diverges to `-nan(ind)`. The notebook would
+>   crash if re-run today.
+> - Cell 15's smoothing formula on run 1 alone gives **10.88**. On the current
+>   library export it gives 2.17.
+>
+> Not checked: `Decycler_EURUSD_D1.csv` (same date, also oversized) and the BTC
+> files under `data/crypto/`. Treat the Decycler and BTC figures as unverified
+> for the same reason.
+
+### EUR/USD D1 (2015-2024, 2566 bars) — pre-fix filters, see box above
 - HP mean: -0.000001 (oscillates around zero)
 - Roofing Filter: 10.9x smoother than raw HP
 - Decycler: 4.5x closer to price than SuperSmoother
@@ -338,18 +398,27 @@ all six.
 
 ### Warmup — insufficient as configured
 
-The notebook discards `WARMUP = 30` bars. At HPPeriod=48 the filter needs ~50
-bars to fall to 1% of a disturbance and ~75 to reach 0.1%. Thirty is short by
-roughly half.
+The notebook discards `WARMUP = 30` bars. From a price-level seed the high-pass
+needs **71 bars** to fall below 1% of the seed and **99** to reach 0.1%; the
+roofing output needs 72 and 100. Thirty is short by more than half.
 
 This compounds with the initialisation. `HighPassFilter.c` uses
 `series(Price[0], 3)`, seeding the HP state at **price level** (~1.10 on
 EUR/USD), while the filter's steady-state output oscillates around **zero**. The
 startup transient is therefore not a small seeding error but a decay from ~1.10
-to ~0. At bar 30, `0.911487³⁰ = 0.0621`, so about 6% of the seed survives —
-roughly **0.068 in price units**, against an HP output whose typical scale is a
-fraction of a cent. The retained data begins with a transient far larger than the
-signal.
+to ~0. At bar 30 the HP output on flat price 1.10 is **0.2328** — about 21% of
+the seed — against a typical scale of ~0.001. The retained data begins with a
+transient far larger than the signal. *(Corrected 2026-09-28: this previously
+gave `0.911487³⁰ = 0.0621`, "about 0.068". That is the single-pole decay `b^n`;
+this filter has a **repeated** pole, which decays as `(n+1)·b^n` for a kick and
+about `b·(1 + alpha1·(n+1))·b^n` from a seed, 3.4x larger at bar 30. GAP-1.32.)*
+
+**Confirmed on the real export.** `Test_RoofingFilter.c` places
+`if(is(LOOKBACK)) return;` *before* computing the filters (against GOTCHAS §4.1),
+so the filters get no warm-up and their first call is CSV row 1. The current
+`C:/Zorro/Data/RoofingFilter_EURUSD_D1.csv` shows HP = Roofing = 1.19306 on row 1
+(= 0.992166 × Close 1.20248, as `1 − alpha1²` predicts), 0.28310 / 0.31283 on row
+30, and only reaches normal scale (HP −0.00100) near row 72. (GAP-1.34.)
 
 The `.c` comment `// Initialize at Price[0] level to avoid startup transient` is
 correct reasoning for a low-pass filter and backwards for a high-pass: for a
@@ -372,6 +441,7 @@ before/after verification.
 | Test_RoofingFilter.c | strategies/tests/ |
 | Test_Decycler.c | strategies/tests/ |
 | HighPass_RoofingFilter_Analysis.ipynb | analysis/notebooks/ |
+| RoofingFilter_Explained.md, roofing_playground.py, RoofingFilter_Playground_Manual.md | docs/learning/ |
 
 **Naming:** the file is `HighPassFilter.c`; this document, the handoffs and
 `docs/methods/Lag_Cancellation_Derivation.md` refer to it as "HighPass". Noted
@@ -385,4 +455,6 @@ before it becomes the `UltimateSmoother` / `UltimateSmootherE` problem.
 | date | commit | change |
 |---|---|---|
 | 2026-08-06 | — | §7 degrees/radians line corrected; §3 formula block left in the degrees form |
-| 2026-09-10 | *this commit* | §3 formula corrected to radians with the 0.707 restored; wrong forms retained as explicit counterexamples. "Zero acceleration = trend blocked" corrected to curvature. Damping, settling and superposition added. Family status replaced with per-indicator status and named evidence. §5 retitled superseded, its four criteria caveated, BTC threshold breach stated. §4 SSPeriod contradiction and unsourced "critical rule" flagged. Warmup insufficiency and seeding defect recorded. Changelog added. No measured value changed |
+| 2026-09-10 | `ec12066` | §3 formula corrected to radians with the 0.707 restored; wrong forms retained as explicit counterexamples. "Zero acceleration = trend blocked" corrected to curvature. Damping, settling and superposition added. Family status replaced with per-indicator status and named evidence. §5 retitled superseded, its four criteria caveated, BTC threshold breach stated. §4 SSPeriod contradiction and unsourced "critical rule" flagged. Warmup insufficiency and seeding defect recorded. Changelog added. No measured value changed |
+| 2026-09-10 | `cc1bcdc` | §3 damping: "decays monotonically" corrected to grows-then-decays, no sign changes |
+| 2026-09-28 | *this commit* | RoofingFilter reviewed (part 4). Source corrected (GAP-1.31). Status row filled. §2 "removes" / "only dominant cycle survives" corrected. §4: SSPeriod flagged unjustified (GAP-1.30); GAP-1.27e resolved — 2.6x and 10.9x are two different filters; critical rule measured. §5: EUR/USD inputs identified as pre-radians-fix output (GAP-1.35). §7: seed transient at bar 30 corrected 0.068 → 0.2328 (GAP-1.32); warm-up figures recomputed from a price-level seed; transient confirmed in the real export (GAP-1.34). No Week 6 value changed |
