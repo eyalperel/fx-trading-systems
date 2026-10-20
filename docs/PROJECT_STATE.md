@@ -171,14 +171,11 @@ swappable slots, automated indicator checks.
 
 ## Appendix — chat inventory (for archiving)
 
-All superseded by this document. Archive or delete in the claude.ai UI.
+Done 2026-10-20. Chats are renamed rather than archived (claude.ai has no archive).
+A `[ARCHIVED]` chat is history; where it conflicts with this document, this document wins.
 
-| Period | Chats |
+| Prefix | Chats |
 |---|---|
-| Nov 2025 – Jan 2026 | Roadmap review; Unified FX/crypto roadmap; Integrating FX and crypto plans; Week 1; Week 2 |
-| Feb – May 2026 | Week 3-4 Light-C; Week 4 Day 3-6; Week 5 SuperSmoother; Week 6 High-Pass; Week 7 MAMA (a, b); Week 8 Cyber Cycle; Week 9 FRAMA/Laguerre/DSMA |
-| Jul – Aug 2026 | Week 10 Fisher/IFT/COG; Cross-asset validation spec; Ehlers price decomposition premise; Week 12 Noise reduction; Week 13 (two chats); Claim Audit; rehaul_10_08_2026 |
-| Sep 2026 | Week 14 Session 1 parts 1–5 |
-
-Chats worth keeping un-archived for reference: **Ehlers price decomposition premise**
-(the null-test design) and **Claim Audit** (CV and interview gaps).
+| `[REF]` | Ehlers price decomposition premise (null-test design); Claim Audit (CV and interview gaps) |
+| `[ARCHIVED]` | Roadmap review; Unified FX/crypto roadmap; Integrating FX and crypto plans; Weeks 5, 6, 7 (MAMA), 8, 9, 10, 12, 13 (NATR/Channels/RSIH/Laguerre) |
+| Deleted | Weeks 1, 2, 3-4, 4 Day 3-6, 7 part b, 13 Volatility & Bands; Cross-asset validation spec; rehaul_10_08_2026; Week 14 Session 1 parts 1–5 |
