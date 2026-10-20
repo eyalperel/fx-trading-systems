@@ -116,11 +116,52 @@ continuing the manual review.
 
 ---
 
-## 5. Next — Phase 0 remaining
+## 5. Carried forward from retired docs
+
+Kept here because the source docs leave project knowledge (they remain in the repo).
+
+**Known answers for the indicator harness** (computed from coefficients; matched by
+simulation):
+
+| Filter | Input | Expected | Source |
+|---|---|---|---|
+| SuperSmoother2Pole(20) | Flat line | Output = input (DC gain 1) | Session 2026-10-20 |
+| SuperSmoother2Pole(20) | Unit sine, period 5 / 20 / 100 | Amplitude 0.0577 / 0.7042 / 0.9990 | Session 2026-10-20 |
+| SuperSmoother2Pole(20) | Ramp | Lag 4.0387 bars | Session 2026-10-20 |
+| RoofingFilter(48, 10) | Unit sine, period 20 / 2 | Gain 0.890038 / 0 | Week 14 Handoff 4 §8 |
+| EMA (lag reference) | Ramp | Lag 1.50 bars | README, measuring-tool check |
+
+**D-14.1 — test data design.** Correctness tests use synthetic inputs. Real-data
+checks use three small committed EUR/USD D1 slices, each named by the event it
+covers, never stitched together: a splice creates an artificial bend the filter
+treats as signal.
+
+**Strategy-level validation (from roadmap v4.4, Phase 2.5).**
+- Walk-forward over a 3×3 grid of training/testing window lengths; stability across
+  the grid is the signal, not any single window's result.
+- Surrogate test on a strategy's Sharpe: run it on ~1,000 surrogate price series
+  (`analysis/null_tests/`), locate the real Sharpe in that distribution, with a
+  positive control (injected known edge) so a null result has a detection bound.
+- Confirmation-set pass condition is written and committed before the first
+  confirmation run.
+
+**Recurring error to avoid: one number in place of a trade-off.** Seen 5+ times in
+Week 14 (SNR, "more attenuation = better", mean absolute difference as lag, mid-band
+attenuation as quality). Harness and backtest reports show the trade-off as a table,
+not a single score.
+
+**Debugging method (found GAP-1.35).** Predict a value from first principles, check
+it against the actual file; on a miss, find which coefficient version reproduces the
+file's first rows exactly.
+
+---
+
+## 6. Next — Phase 0 remaining
 
 - [x] Step 1: project instructions rewritten (two modes, validation gate)
-- [ ] Step 2: this document — review and commit as `docs/PROJECT_STATE.md`
-- [ ] Step 3: retire superseded docs (repo `docs/archive/`, project knowledge)
+- [x] Step 2: this document committed as `docs/PROJECT_STATE.md` (`e151871`)
+- [x] Step 3: superseded docs removed from project knowledge (21 docs; all remain in
+  the repo, verified 2026-10-20). Repo reorganisation deferred to the README rewrite.
 - [ ] Step 4: compile NNFX rules (VP) and indicator rankings (Stonehill) with sources
 
 Then Phase 1: Claude Code + Zorro CLI pipeline, generic NNFX template with
