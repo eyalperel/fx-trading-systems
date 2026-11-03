@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-10-18 (rehaul, Phase 0)
+**As of:** 2026-11-03 (rehaul, Phase 0 complete)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -62,7 +62,6 @@ indicators through the new test harness — not settled answers.
 - Walk-forward, Monte Carlo, or strategy-level surrogate test
 - Swap / spread cost model
 - Confirmation-set pass condition
-- Written NNFX rules from VP / Stonehill sources (see §5)
 
 ---
 
@@ -162,7 +161,10 @@ file's first rows exactly.
 - [x] Step 2: this document committed as `docs/PROJECT_STATE.md` (`e151871`)
 - [x] Step 3: superseded docs removed from project knowledge (21 docs; all remain in
   the repo, verified 2026-10-20). Repo reorganisation deferred to the README rewrite.
-- [ ] Step 4: compile NNFX rules (VP) and indicator rankings (Stonehill) with sources
+- [x] Step 4: `docs/sources/NNFX_Sources.md` — VP rules + Stonehill tests from 143 videos
+  (transcripts fetched by `tools/fetch_transcripts.sh`, kept outside the repo). Numbers are
+  configurable defaults; risk 0.3%–2%; dead-market mode optional, off. Stonehill numeric
+  results are on their blog — fetch only for shortlisted indicators.
 
 Then Phase 1: Claude Code + Zorro CLI pipeline, generic NNFX template with
 swappable slots, automated indicator checks.
