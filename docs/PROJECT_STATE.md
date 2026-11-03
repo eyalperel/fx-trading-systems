@@ -166,8 +166,30 @@ file's first rows exactly.
   configurable defaults; risk 0.3%–2%; dead-market mode optional, off. Stonehill numeric
   results are on their blog — fetch only for shortlisted indicators.
 
-Then Phase 1: Claude Code + Zorro CLI pipeline, generic NNFX template with
-swappable slots, automated indicator checks.
+## 7. Phase 1 — build pipeline (decided 2026-11-03)
+
+**Platform decision:** free Zorro, **batch scripts, one click per batch**. Move to Zorro S
+(€35/month, cancel anytime) only if clicking becomes the bottleneck.
+- Reason: Zorro's command-line automation (`-run`, `-train`, `-h`, `-quiet`, `-a`, `-d`, `-i`)
+  is **Zorro S only** (Zorro manual, "Automatization with the command line"). Free Zorro can
+  only *select* a script from the command line; [Test] must be clicked.
+- Workflow: Claude Code (VS Code extension) writes a batch script that loops internally over
+  indicators / assets / parameter sets and writes all results to file → user clicks [Test]
+  once → Claude Code reads results and writes the next batch.
+- Considered and not chosen now: Python research platform with own backtest engine (free, fully
+  automatic, but leaves Zorro's built-in WFO/MC/cost model). Revisit if Light-C keeps causing
+  silent bugs.
+- Roles: claude.ai project chat = planning, decisions, research, review.
+  Claude Code in VS Code = building and testing.
+
+**Phase 1 steps**
+1. Check Claude Code in VS Code works in the repo (`git status`).
+2. Write `CLAUDE.md` (rules Claude Code reads: validation gate, gotchas, paths, batch workflow).
+3. Indicator harness as a batch script: known-answer checks (flat line, waves, ramp — §5) for
+   SuperSmoother first, then the rest of the library, PASS/FAIL to one results file.
+4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
+5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
+   trailing after 2×ATR) before any strategy result is trusted.
 
 ---
 
