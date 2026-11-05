@@ -46,7 +46,7 @@ that is the signal for the Zorro S decision.
 | What | Path |
 |---|---|
 | Repo | `C:/Users/eyalp/Documents/fx-trading-systems` (Git Bash: `/c/Users/eyalp/...`) |
-| Zorro install | `C:/Zorro` (free edition, 2.70+) |
+| Zorro install | `C:/Zorro` (free edition, **Zorro 3.11**, `Zorro.exe` file version 3.1.1.2; (b) H1 session 2026-11-05) |
 | Zorro runs scripts from | `C:/Zorro/Strategy` |
 | Zorro file output (`file_append("Data/x.csv", ...)`) | `C:/Zorro/Data/` (relative to the Zorro install, not the repo) |
 | Price history (`.t6`) | Zorro `History/` folder; not in git |
@@ -57,9 +57,10 @@ that holds the scripts. Nothing is copied into `C:/Zorro/Strategy`.
 - Put all scripts in `strategies/tests/` unless the user says otherwise. Zorro lists one
   folder at a time, and scripts there include indicators as
   `#include "../../indicators/ehlers/X.c"` (two levels up to the repo root).
-- (c) Inference: Zorro resolves these relative includes from the script's own folder.
-  The first harness batch must confirm this (a deliberately wrong include path must fail
-  to compile).
+- (b) Zorro resolves these relative includes from the script's own folder (H1 run 2: the
+  harness compiled and ran with `#include "../../indicators/ehlers/SuperSmoother2Pole.c"`,
+  no Error line). A *missing* include is NOT fatal: Zorro prints an Error line and still
+  runs the script (H1 probe), so check the message window every run. See gotchas 9d.3.
 - When you hand over a batch, tell the user which folder Zorro must point at, and the exact
   script name to pick in the dropdown.
 
@@ -111,6 +112,8 @@ any indicator or batch script. The ones that fail **silently**:
 - Trig takes **radians**. Ehlers' EasyLanguage is in degrees: `360/P` → `2*PI/P`.
   A file with some coefficients converted and others not still gives plausible output.
 - **No ternary operator.** `Period` is reserved. Use `void run()`.
+  (b, Zorro 3.11, H1 run 2) `int Period` as a function parameter compiles with no Error line.
+  Not tested as a global or static name: keep avoiding it there (c).
 - **Flat namespace across includes.** Prefix every global/static (`cc_`, `cyc_`, `rm_`,
   `rmo_`, `ab_`, `mstc_` are taken).
 - `series()` slots are allocated by **call order**. Never call a `series()` user inside `if()`.
@@ -124,15 +127,32 @@ any indicator or batch script. The ones that fail **silently**:
   the header once.
 - `LookBack` is auto-extended. Never key logic to `barCount == LookBack + 1`.
 - Includes: `#include <default.c>` first, then dependencies in order (single pass).
+- **Decimal literals are float32** (`1.1` becomes 1.100000023841858). Build exact constants at
+  run time from integers: `var c = 11; c = c / 10;`. (gotchas 9d.1)
+- **The `PI` macro is 3.14159**, not π. Exact π: `var p = 4; p = p * atan(1);`. Every
+  indicator using `PI` is slightly off (tiny). (gotchas 9d.2)
+- **After `quit()` the EXITRUN branch did not visibly run** (no printf, no file). Write
+  anything important before `quit()`. (gotchas 9d.4)
+- **A missing `#include` is not fatal**: an `Error ... not found` line appears and the script
+  still runs. Every run, check the window for any line starting with `Error`. (gotchas 9d.3)
+- `Init` is `is(INITRUN)`, not "first bar". (gotchas 9d.5)
 
 ## 7. Batch script and results conventions
 
-- One results file per batch, CSV, with a header row. Name it
-  `<BatchName>_<YYYYMMDD>.csv`. One row per check, with at least:
+- One results file per run, CSV, with a header row. Name it
+  `<BatchName>_<YYYYMMDD>.csv` for run 1 and `<BatchName>_<YYYYMMDD>_run<k>.csv` after that.
+  Results files are never overwritten (the writer refuses; H1 `h1_check.py` shows the
+  pattern: exclusive-create mode). One row per check, with at least:
   `check_id, indicator, params, asset, input, expected, actual, tolerance, result`
   (`result` ∈ PASS / FAIL / ERROR).
 - Write a footer or companion line with: batch name, number of variants run, number of
   PASS / FAIL / ERROR. A guard that fires writes an ERROR row; it never just stops.
+- Store `expected`, `actual` and `|diff|` in full precision or `%.3e`, never rounded to `%f`
+  (6 decimals hides differences of 1e-6 and below). H1 predates this rule (its results store
+  %.6f); the rule applies from H2 on.
+- After each run, copy the raw CSV to `*_run<k>.csv` (the next run deletes it at INITRUN) and
+  record its sha256 in the results file.
+- Every run card says: "expect no line starting with `Error` in the Zorro window."
 - Synthetic inputs (flat line, unit sines, ramp) for correctness tests. Real-data checks use
   the committed EUR/USD D1 slices, never stitched together (PROJECT_STATE §5, D-14.1).
 - Script header comment: purpose, pre-registration file it implements, inputs, outputs,

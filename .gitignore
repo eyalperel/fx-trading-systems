@@ -58,3 +58,8 @@ audit/
 # one-shot fix scripts (Week 14 review) — intent captured in commit messages
 fix_*.py
 rename_*.py
+
+# Harness results ARE tracked: failures stay documented (PROJECT_STATE §2 rule 9).
+# The Zorro "Results/" pattern above also matches "results/" because git on Windows
+# is case-insensitive, so re-include the harness results folder explicitly.
+!analysis/harness/results/

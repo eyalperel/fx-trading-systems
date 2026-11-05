@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-03 (rehaul, Phase 0 complete)
+**As of:** 2026-11-05 (Phase 1 step 3 in progress: H1 SuperSmoother2Pole passed)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -20,7 +20,8 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 
 | Group | Indicators | Week 14 review status |
 |---|---|---|
-| Smoothers | SuperSmoother 2-pole, 3-pole, UltimateSmootherE | **Reviewed** |
+| Smoothers | SuperSmoother 2-pole | **Verified by harness H1 (run 2 PASS, f59f6e4)** |
+| Smoothers | SuperSmoother 3-pole, UltimateSmootherE | **Reviewed** |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter, RoofingFilter | **Reviewed** — code correct; tests cannot fail |
 | High-pass family | Decycler | Not reviewed — may be identical to UltimateSmootherE |
@@ -50,7 +51,7 @@ indicators through the new test harness — not settled answers.
 
 - Repo: `eyalperel/fx-trading-systems` (public), local
   `C:/Users/eyalp/Documents/fx-trading-systems/`
-- Zorro 2.70+, Git Bash, VS Code, Python/Jupyter (`python`, not `python3`)
+- Zorro 3.11 (file version 3.1.1.2, (b) H1 session 2026-11-05), Git Bash, VS Code, Python/Jupyter (`python`, not `python3`)
 - Data: EUR/USD D1, BTC/USD H4 (Zorro native); EUR/JPY D1, AUD/USD D1 (Darwinex MT4)
 - `docs/ZORRO_LIGHTC_GOTCHAS.md` — platform reference, keep
 - `analysis/null_tests/` — seeded surrogate harness (bootstrap, fGn, IAAFT, stoch-vol)
@@ -107,6 +108,8 @@ indicators through the new test harness — not settled answers.
 | — | Week 9 validation not reproducible (no tracked file reads its CSVs) | FRAMA, Laguerre, DSMA status unsupported |
 | — | `CyberCycle.c` statics may lack `cc_` prefix | Unconfirmed after four sittings |
 | — | Decycler vs UltimateSmootherE — possibly the same filter | Unchecked |
+| — | `SuperSmoother2Pole.c` "First bar" comments are misleading: `Init` is `is(INITRUN)`, not the first bar (b, `include/variables.h:182`; gotchas 9d.5) | Comment only; output unaffected (H1 run 2) |
+| — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). Decision on an own exact π deferred |
 
 **Inference:** given that every test script reviewed so far could not fail, the
 practical status of the unreviewed library is "implemented, not verified". The
@@ -155,7 +158,7 @@ file's first rows exactly.
 
 ---
 
-## 6. Next — Phase 0 remaining
+## 6. Phase 0 — complete
 
 - [x] Step 1: project instructions rewritten (two modes, validation gate)
 - [x] Step 2: this document committed as `docs/PROJECT_STATE.md` (`e151871`)
@@ -183,10 +186,18 @@ file's first rows exactly.
   Claude Code in VS Code = building and testing.
 
 **Phase 1 steps**
-1. Check Claude Code in VS Code works in the repo (`git status`).
-2. Write `CLAUDE.md` (rules Claude Code reads: validation gate, gotchas, paths, batch workflow).
-3. Indicator harness as a batch script: known-answer checks (flat line, waves, ramp — §5) for
-   SuperSmoother first, then the rest of the library, PASS/FAIL to one results file.
+1. [x] Check Claude Code in VS Code works in the repo (`git status`). Done.
+2. [x] Write `CLAUDE.md` (rules Claude Code reads: validation gate, gotchas, paths, batch
+   workflow). Done, `176fe70`.
+3. [ ] **In progress.** Indicator harness as a batch script: known-answer checks (flat line,
+   waves, ramp — §5) for SuperSmoother first, then the rest of the library, PASS/FAIL to one
+   results file. H1 SuperSmoother2Pole: **run 2 PASS** (28/28 checks, NC1 + NC2 fail as
+   required, 6 variants; `analysis/harness/results/H1_SuperSmoother2Pole_20261105_run2.csv`,
+   `f59f6e4`). **Run 1 FAIL** (7 input guards: harness input precision — float32 literals and
+   the `PI` macro) is kept in the record
+   (`H1_SuperSmoother2Pole_20261105.csv`, `fd40b37`). Criteria:
+   `docs/preregistration/H1_SuperSmoother2Pole_Criteria.md` (+ Amendment 1). Findings:
+   gotchas §9d. Next: the rest of the library.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
