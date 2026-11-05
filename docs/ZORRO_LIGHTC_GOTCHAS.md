@@ -1,6 +1,7 @@
 # Zorro Light-C — Standing Gotchas Reference
 
-**Platform:** Zorro 2.70, Light-C
+**Platform:** Zorro 3.11 (file version 3.1.1.2), Light-C. Sections 1–9c were found on
+Zorro 2.70 and have **not** been re-verified on 3.11 (c). Section 9d was found on 3.11.
 **Maintained since:** Week 1. Consolidated into this file Week 12 Day 6 (2026-08-06).
 **Purpose:** Every one of these cost at least one debug cycle. Several were silent
 failures that produced plausible-looking output. Consult before writing any new
@@ -18,7 +19,7 @@ Light-C is not full C. Constructs that compile elsewhere will fail here.
 | # | Gotcha | Symptom | Fix |
 |---|---|---|---|
 | 1.1 | **No ternary operator `? :`** | `syntax error` at the line | Explicit `if`/`else` |
-| 1.2 | `Period` is a reserved word | Compile error or unexpected behaviour | Use `BarPeriod`, or a prefixed local |
+| 1.2 | `Period` is a reserved word | Compile error or unexpected behaviour | Use `BarPeriod`, or a prefixed local. (b, Zorro 3.11, H1 run 2) `int Period` as a function parameter compiles with no Error line. Not tested as a global or static name: keep avoiding it there (c). |
 | 1.3 | 🔇 **Flat variable namespace across all included files** | Silent collision; one file overwrites another's local | Prefix every local: `rm_`, `rmo_`, `cc_`, `cyc_`, `ab_`, `mstc_` |
 | 1.4 | `void run()`, not `function run()` | Compile error | — |
 
@@ -271,6 +272,23 @@ before trusting it. SuperSmoother's analytic phase delay served here.
 
 ---
 
+## 9d. Zorro 3.11 findings (H1, 2026-11-05)
+
+Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, input guards;
+`analysis/harness/results/H1_SuperSmoother2Pole_20261105.csv`), H1 run 2 (PASS;
+`..._20261105_run2.csv`), include probe (`strategies/tests/H1_IncludeProbe_BAD.c`).
+
+| # | Gotcha | Evidence and fix |
+|---|---|---|
+| 9d.1 | 🔇 **Decimal literals are float32** | (b) run 1: `X[0] = 1.1` was exported as `1.100000023841858` (= float32(1.1)); the ramp slope `0.0001` fitted float32(1e-4) to 12 digits. **Fix:** build exact constants at run time from integers: `var c = 11; c = c / 10;`. (c) Compile-time folding of `11.0/10.0` may also be float32, hence the run-time form. Run 2 used this and passed the 1e-12 input guard (b). |
+| 9d.2 | 🔇 **`PI` macro = 3.14159** | (b) `C:/Zorro/Include/trading.h:25` `#define PI 3.14159`. (b) The value actually used is float32(3.14159) = 3.141590118…, i.e. the filter behaves as if the period were larger by a factor 1 + 8.07e-7 (the decimal macro alone would give 8.4e-7). (b) Run 2 ramp-lag offsets from the exact-π value, full precision: +1.76e-6 / +2.50e-6 / +3.60e-6 / +5.43e-6 bars for P = 10 / 14 / 20 / 30. A Python recursion using P/(1−8.07e-7) reproduces them to the digits printed. The simpler estimate lag × 8.4e-7 (1.5e-6 / 2.3e-6 / 3.4e-6 / 5.3e-6) is within about 15% (b); lag is not exactly proportional to P. Every indicator using `PI` is affected; the effect is tiny (~1e-6 bars; ~1e-8 in filter output). Exact π: `var p = 4; p = p * atan(1);`. |
+| 9d.3 | 🔇 **A missing `#include` is not fatal** | (b) Probe: `Error in line 11: Include file ... not found`, and the script **still ran**. **Rule:** every run, check the message window for any line starting with `Error`. A clean compile of a script that includes a file also shows that the relative path resolved (b, H1 run 2). |
+| 9d.4 | ⚠️ **After `quit()` the EXITRUN branch did not visibly run** | (b) H1 runs 1 and 2: the EXITRUN `printf` never appeared; in run 2 the EXITRUN `file_append` marker file was never created. (c) Cause not proven: EXITRUN may not be called after `quit()`, or output at exit may be unavailable. **Rule:** write anything important BEFORE `quit()`. |
+| 9d.5 | ⚠️ **`Init` is `is(INITRUN)`** | (b) `C:/Zorro/include/variables.h:182` `#define Init is(INITRUN)`. An indicator's `if(Init)` branch runs only in the INITRUN call, never on the first bar. The "First bar" comments in `SuperSmoother2Pole.c` are misleading (comment only; the output is unaffected, H1 run 2). |
+| 9d.6 | `series(x, n)` seeds with the first value | (b) Run 2 observations O1–O3: with `series(Price[0], 3)` the flat-input error was 0 from n = 0 for all 6 variants, and the ramp output starts at exactly x[0]. So no startup transient on a flat input. **Shown for these inputs only** (synthetic, `LookBack = 0`, INITRUN returning before any `series()` call) (c for other cases). |
+
+---
+
 ## 10. Change log
 
 | Date | Change |
@@ -283,3 +301,4 @@ before trusting it. SuperSmoother's analytic phase delay served here.
 | 2026-05 | Radians correction applied to four indicator files; prose lagged until 2026-08-06 |
 | 2026-08-12 | Added §9b: static run-scope, seed guards, asset() unreliability, quit() timing (Week 13 Day 2) |
 | 2026-08-13 | Added §9c: group vs phase delay, ramp failure on bounded indicators, lead/lag search (Week 13 Day 3) |
+| 2026-11-05 | Added §9d: Zorro 3.11 findings from H1 (float32 literals, PI macro, missing include not fatal, EXITRUN after quit, Init, series seeding); platform line updated to 3.11, §1–9c not re-verified on 3.11 |
