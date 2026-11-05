@@ -5,7 +5,12 @@
 //           anything. Python (analysis/harness/h1_check.py) measures and writes PASS/FAIL.
 // PREREG:   docs/preregistration/H1_SuperSmoother2Pole_Criteria.md (incl. Amendment 1).
 // INPUTS:   Synthetic only, from the bar counter n (criteria S2):
-//             flat 1.1 | 1.1+0.01*sin(2*PI*n/T), T=5,10,20,40,100 | ramp 1.1+0.0001*n
+//             flat 1.1 | 1.1+0.01*sin(2*pi*n/T), T=5,10,20,40,100 | ramp 1.1+0.0001*n
+//           (b, run 1) Decimal literals are float32 in this Zorro build and the PI macro is
+//           3.14159 (Include/trading.h:25). So the constants are built at run time from
+//           integers (11/10, 1/100, 1/10000, 4*atan(1)). Python's 1e-12 input guard checks it.
+//           The indicator itself still uses Zorro's PI: a finding, not changed here.
+//           NC2's copy below also keeps PI (it is a copy of the indicator's coefficients).
 //           EUR/USD D1 is used only as a bar clock. clock_close is exported so Python can
 //           check by magnitude that the clock really is EUR/USD (gotchas 9b.3).
 // OUTPUT:   C:/Zorro/Data/H1_SS2P_raw.csv  (3000 rows n=0..2999 + header; 50 columns;
@@ -27,6 +32,7 @@
 #include "../../indicators/ehlers/SuperSmoother2Pole.c"
 
 #define H1_RAW "Data/H1_SS2P_raw.csv"
+#define H1_MARK "Data/H1_exit_marker.txt"
 #define H1_NBARS 3000
 
 static int h1_n = 0;
@@ -64,10 +70,13 @@ void run()
 	if(is(INITRUN)) {
 		h1_n = 0; h1_done = 0; h1_hdr = 0; h1_rows = 0;	// declared initialisers
 		file_delete(H1_RAW);
+		file_delete(H1_MARK);
 		return;
 	}
 	if(is(EXITRUN)) {
 		printf("\nH1 EXIT: rows written = %d, done = %d  (expected 3000 and 1)", h1_rows, h1_done);
+		// marker file: if it exists after the run, EXITRUN ran even if the printf was lost
+		file_append(H1_MARK, strf("EXITRUN ran: rows=%d done=%d\n", h1_rows, h1_done), 0);
 		return;
 	}
 
@@ -76,14 +85,21 @@ void run()
 	var Y[42];
 	n = h1_n;
 
-	// --- inputs from the bar counter (radians) ---
-	X[0] = 1.1;
-	X[1] = 1.1 + 0.01 * sin(2.0 * PI * n / 5.0);
-	X[2] = 1.1 + 0.01 * sin(2.0 * PI * n / 10.0);
-	X[3] = 1.1 + 0.01 * sin(2.0 * PI * n / 20.0);
-	X[4] = 1.1 + 0.01 * sin(2.0 * PI * n / 40.0);
-	X[5] = 1.1 + 0.01 * sin(2.0 * PI * n / 100.0);
-	X[6] = 1.1 + 0.0001 * n;
+	// --- constants built at RUN TIME from integers (run 1 showed that decimal literals are
+	// float32 in this Zorro build and that the PI macro is 3.14159; see run card / results) ---
+	var lvl = 11;	lvl = lvl / 10;			// 1.1
+	var amp = 1;	amp = amp / 100;		// 0.01
+	var slp = 1;	slp = slp / 10000;		// 0.0001
+	var pi_x = 4;	pi_x = pi_x * atan(1);	// exact pi (NOT the PI macro)
+
+	// --- inputs from the bar counter (radians); no decimal literal, no PI macro ---
+	X[0] = lvl;
+	X[1] = lvl + amp * sin(2 * pi_x * n / 5);
+	X[2] = lvl + amp * sin(2 * pi_x * n / 10);
+	X[3] = lvl + amp * sin(2 * pi_x * n / 20);
+	X[4] = lvl + amp * sin(2 * pi_x * n / 40);
+	X[5] = lvl + amp * sin(2 * pi_x * n / 100);
+	X[6] = lvl + slp * n;
 
 	// --- input series: 7 unconditional calls, fixed order ---
 	vars S0 = series(X[0], 3);

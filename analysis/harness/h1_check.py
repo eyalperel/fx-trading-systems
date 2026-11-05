@@ -20,7 +20,9 @@ import hashlib
 import io
 import math
 import os
+import re
 import sys
+import tempfile
 
 import numpy as np
 
@@ -264,9 +266,26 @@ def verdict(rows, nc, errs, nvariants):
     return ok, n_pass, n_fail, n_err
 
 
-def write_results(path, rows, nc, errs, obs, o3, raw_path, raw_sha):
+def next_results_path(out_dir, date_str):
+    """H1_SuperSmoother2Pole_<date>[_run<k>].csv. The un-suffixed file counts as run 1; the
+    result is the next free run number (so run 1 keeps its name and is never reused)."""
+    base = "H1_SuperSmoother2Pole_%s" % date_str
+    used = 0
+    if os.path.isdir(out_dir):
+        for name in os.listdir(out_dir):
+            if name == base + ".csv":
+                used = max(used, 1)
+            m = re.fullmatch(re.escape(base) + r"_run(\d+)\.csv", name)
+            if m:
+                used = max(used, int(m.group(1)))
+    k = used + 1
+    return os.path.join(out_dir, base + ".csv" if k == 1 else "%s_run%d.csv" % (base, k)), k
+
+
+def write_results(path, rows, nc, errs, obs, o3, raw_path, raw_sha, marker=None):
     ok, n_pass, n_fail, n_err = verdict(rows, nc, errs, len(VARIANTS) if not errs else 0)
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    # mode "x": exclusive create. Refuses (FileExistsError) to overwrite any existing results file.
+    with open(path, "x", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=RESULT_FIELDS, lineterminator="\n")
         w.writeheader()
         for e in errs:
@@ -289,6 +308,8 @@ def write_results(path, rows, nc, errs, obs, o3, raw_path, raw_sha):
         out.writerow(["# neg_controls NC1_fails_as_required=%s NC2_fails_as_required=%s"
                       % (nc.get("NC1"), nc.get("NC2"))])
         out.writerow(["# raw_file=%s sha256=%s" % (raw_path, raw_sha)])
+        if marker is not None:
+            out.writerow(["# exit_marker (informational, not in verdict): %s" % marker])
         out.writerow(["# H1 VERDICT: %s" % ("PASS" if ok else "FAIL")])
         if obs:
             out.writerow(["# OBSERVATIONS O1-O3 (Amendment 1, A1.2) - reported only, not in verdict"])
@@ -423,6 +444,27 @@ def selftest():
     report("LS gain (T=20, P=20) differs from peak-based gain, as S3 warns",
            abs(m_gain(y20, 20) - peak) > 1e-4,
            "(LS %.6f, peak-based %.6f)" % (m_gain(y20, 20), peak))
+
+    print("STEP 1e: results-file naming and the no-overwrite guard")
+    with tempfile.TemporaryDirectory(dir=os.environ.get("H1_TMP")) as td:
+        d = "20261105"
+        p1, k1 = next_results_path(td, d)
+        report("empty dir -> run 1, un-suffixed name", k1 == 1 and p1.endswith("%s.csv" % d), os.path.basename(p1))
+        write_results(p1, [], {}, [("G_TEST", "x")], [], [], "raw", "sha")
+        p2, k2 = next_results_path(td, d)
+        report("run-1 file exists -> next is run 2", k2 == 2 and p2.endswith("_run2.csv"), os.path.basename(p2))
+        write_results(p2, [], {}, [("G_TEST", "x")], [], [], "raw", "sha")
+        p3, k3 = next_results_path(td, d)
+        report("run-1 and run-2 exist -> next is run 3", k3 == 3, os.path.basename(p3))
+        before = open(p1, encoding="utf-8").read()
+        try:
+            write_results(p1, [], {}, [("G_OVERWRITE", "must not land")], [], [], "raw", "sha")
+            refused = False
+        except FileExistsError as e:
+            refused = True
+            print("      overwrite attempt refused: %s" % os.path.basename(str(e.filename)))
+        report("guard fires: writing over an existing results file is refused",
+               refused and open(p1, encoding="utf-8").read() == before)
     return not failures
 
 
@@ -431,6 +473,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", default="C:/Zorro/Data/H1_SS2P_raw.csv")
     ap.add_argument("--out-dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
+    ap.add_argument("--marker", default="C:/Zorro/Data/H1_exit_marker.txt")
     ap.add_argument("--selftest-only", action="store_true")
     a = ap.parse_args()
 
@@ -452,15 +495,22 @@ def main():
     raw = load_raw(io.StringIO(blob.decode("utf-8", errors="replace")))
     errs = validate(raw)
     os.makedirs(a.out_dir, exist_ok=True)
-    out = os.path.join(a.out_dir, "H1_SuperSmoother2Pole_%s.csv" % datetime.date.today().strftime("%Y%m%d"))
+    out, run_k = next_results_path(a.out_dir, datetime.date.today().strftime("%Y%m%d"))
+    print("results file (run %d): %s" % (run_k, out))
+    marker = None
+    if os.path.exists(a.marker):
+        marker = "present: " + open(a.marker, encoding="utf-8", errors="replace").read().strip()
+    else:
+        marker = "absent"
+    print("EXIT marker file %s: %s" % (a.marker, marker))
     if errs:
         for g, m in errs:
             print("  GUARD ERROR %s: %s" % (g, m))
-        write_results(out, [], {}, errs, [], [], a.raw, sha)
+        write_results(out, [], {}, errs, [], [], a.raw, sha, marker)
         print("H1 VERDICT: FAIL (guard errors; no checks computed). Results: %s" % out)
         sys.exit(1)
     rows, nc, obs, o3 = evaluate(raw)
-    ok, n_pass, n_fail, n_err = write_results(out, rows, nc, [], obs, o3, a.raw, sha)
+    ok, n_pass, n_fail, n_err = write_results(out, rows, nc, [], obs, o3, a.raw, sha, marker)
     print("variants run: %d (4 periods + 2 negative controls)" % len(VARIANTS))
     print("real checks: PASS=%d FAIL=%d ERROR=%d" % (n_pass, n_fail, n_err))
     print("NC1 fails as required: %s | NC2 fails as required: %s" % (nc["NC1"], nc["NC2"]))
