@@ -113,4 +113,33 @@ These are observations to report, not pass conditions.
 
 ## Amendments
 
-(none)
+### Amendment 1 — 2026-11-05 (before any run; no results seen)
+
+**Reason.** Claude Code's plan review (2026-11-05) showed that two statements above are
+wrong. Every registered check excludes bars n < 500 (§3), and a startup transient decays to
+about 1e-32 by then, even at P=30. So no registered check can observe startup or seeding.
+
+**A1.1 Correction to §6 and §8.** The flat check tests unit gain at zero frequency **in
+steady state**. It does **not** test startup or seeding, contrary to §6 ("it tests startup and
+seeding") and §8 bullet 1 ("the flat check or the early ramp rows should show it"). Those
+sentences stand above as written and are superseded by this amendment.
+
+**A1.2 Observations block (reported, not part of the verdict).** The results file adds a
+separately labelled block, computed per variant (P10, P14, P20, P30, NC1, NC2):
+
+| ID | Observation |
+|---|---|
+| O1 | max \|y − 1.1\| on the flat input over n = 0 … 499 |
+| O2 | the first bar n at which the flat-input error stays ≤ 1e-9 for all later bars |
+| O3 | raw output rows n = 0 … 9 for the flat and ramp inputs |
+
+No pass/fail is attached to O1–O3. (c) There is no trustworthy expected value for startup
+yet, because how `series()` seeds the filter state in Zorro is the uncertain part. Any future
+pass criterion on startup needs its own dated amendment, written before the run it applies to.
+
+**A1.3 Clarification of §2.** Each input value x[n], for n = 0 … 2999, is fed to every filter
+**exactly once**, in order. A run in which any x[n] is fed twice or skipped (for example by
+the INITRUN call) is an ERROR, not a PASS.
+
+**A1.4 Unchanged.** §3–§5 (measurements, expected values, tolerances), §6's negative controls
+and their required outcome, and the §7 pass condition are unchanged.
