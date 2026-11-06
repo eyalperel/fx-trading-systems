@@ -20,7 +20,7 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 
 | Group | Indicators | Week 14 review status |
 |---|---|---|
-| Smoothers | SuperSmoother 2-pole | **Verified by harness H1 (run 2 PASS, f59f6e4)** |
+| Smoothers | SuperSmoother 2-pole | **Implementation verified by harness H1** (run 2 PASS, f59f6e4): Zorro computes the filter its `.c` coefficients define. **Source fidelity not yet checked**: the `.c` uses `sqrt(2)` and `PI`, Ehlers' code uses `1.414` and `3.14159` (see `docs/harness/HARNESS_DESIGN.md` §6 D1) |
 | Smoothers | SuperSmoother 3-pole, UltimateSmootherE | **Reviewed** |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter, RoofingFilter | **Reviewed** — code correct; tests cannot fail |
@@ -197,7 +197,8 @@ file's first rows exactly.
    the `PI` macro) is kept in the record
    (`H1_SuperSmoother2Pole_20261105.csv`, `fd40b37`). Criteria:
    `docs/preregistration/H1_SuperSmoother2Pole_Criteria.md` (+ Amendment 1). Findings:
-   gotchas §9d. Next: the rest of the library.
+   gotchas §9d. Next: the reusable harness (`docs/harness/HARNESS_DESIGN.md`), which takes
+   expected values from the articles; decide its open points D1–D3 first.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
