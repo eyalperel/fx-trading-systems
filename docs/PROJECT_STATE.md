@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-05 (Phase 1 step 3 in progress: H1 SuperSmoother2Pole passed)
+**As of:** 2026-11-06 (Phase 1 step 3 in progress: H1 SuperSmoother2Pole passed; harness decisions D1–D3 made)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -20,7 +20,7 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 
 | Group | Indicators | Week 14 review status |
 |---|---|---|
-| Smoothers | SuperSmoother 2-pole | **Implementation verified by harness H1** (run 2 PASS, f59f6e4): Zorro computes the filter its `.c` coefficients define. **Source fidelity not yet checked**: the `.c` uses `sqrt(2)` and `PI`, Ehlers' code uses `1.414` and `3.14159` (see `docs/harness/HARNESS_DESIGN.md` §6 D1) |
+| Smoothers | SuperSmoother 2-pole | **Implementation verified by harness H1** (run 2 PASS, f59f6e4): Zorro computes the filter its `.c` coefficients define. **Source fidelity not yet checked**: the `.c` uses `sqrt(2)` and `PI`, Ehlers' code uses `1.414` and `3.14159`; per D1 (`docs/harness/HARNESS_DESIGN.md` §6) the fidelity check uses exact √2 and π |
 | Smoothers | SuperSmoother 3-pole, UltimateSmootherE | **Reviewed** |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter, RoofingFilter | **Reviewed** — code correct; tests cannot fail |
@@ -109,7 +109,7 @@ indicators through the new test harness — not settled answers.
 | — | `CyberCycle.c` statics may lack `cc_` prefix | Unconfirmed after four sittings |
 | — | Decycler vs UltimateSmootherE — possibly the same filter | Unchecked |
 | — | `SuperSmoother2Pole.c` "First bar" comments are misleading: `Init` is `is(INITRUN)`, not the first bar (b, `include/variables.h:182`; gotchas 9d.5) | Comment only; output unaffected (H1 run 2) |
-| — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). Decision on an own exact π deferred |
+| — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). **Decided 2026-11-06 (HARNESS_DESIGN D3): keep `PI`**; each spec records the gap in its tolerance floor |
 
 **Inference:** given that every test script reviewed so far could not fail, the
 practical status of the unreviewed library is "implemented, not verified". The
@@ -197,8 +197,11 @@ file's first rows exactly.
    the `PI` macro) is kept in the record
    (`H1_SuperSmoother2Pole_20261105.csv`, `fd40b37`). Criteria:
    `docs/preregistration/H1_SuperSmoother2Pole_Criteria.md` (+ Amendment 1). Findings:
-   gotchas §9d. Next: the reusable harness (`docs/harness/HARNESS_DESIGN.md`), which takes
-   expected values from the articles; decide its open points D1–D3 first.
+   gotchas §9d. Reusable harness design: `docs/harness/HARNESS_DESIGN.md`; its open points
+   **D1–D3 decided 2026-11-06** (§6 there): exact √2/π under a literal-constant rule;
+   per-quantity tolerances inside a floor×10 / ceiling÷10 window; keep Zorro `PI`.
+   Next: build reference model, generator and checker with self-tests (Claude Code), then the
+   tool acceptance run (reproduce H1 on SS2, HARNESS_DESIGN §5).
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
