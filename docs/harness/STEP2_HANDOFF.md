@@ -95,3 +95,29 @@ Spec format, Light-C batch script writer (one click), lint that rejects decimal 
 ## Stage 4 — tool acceptance (Zorro, user clicks) — HARNESS_DESIGN §5
 
 Reproduce H1 on SS2: 28/28 PASS, NC1 + NC2 FAIL as required.
+
+---
+
+## Amendment 1 — 2026-11-06 (stage 1 criteria; decided in the planning chat)
+
+**Reason.** The stage 1 table compared `ss2_code` (Zorro `PI` = float32(3.14159)) against H1's
+`EXPECT`, which `h1_check.py` `coeffs()` computes with exact π (`math.pi`, lines 65–69) (b).
+The `PI` gap (gotchas 9d.2: lag +1.76e-6 … +5.43e-6 bars; gain ~6.2e-7) exceeds the 1e-6
+tolerance for lag, so the criterion was inconsistent as written. First run (9 tests, 8 ok,
+1 FAIL: lag 4/4) is kept in the record; nothing was changed to make it pass.
+
+**A1.1 — known-answer rows, gain and lag.** Compare H1's `EXPECT` against `ss2_code` evaluated
+with **exact π** (and against `ss2_article`, which is algebraically the same filter: the `.c`'s
+`c0·(P0+P1)` equals the article's `c1·(P0+P1)/2`), tolerance 1e-6. Both forms were written
+independently, so matching both also cross-checks article form vs code form.
+
+**A1.2 — `PI` gap as INFO.** Report `ss2_code(Zorro PI) − ss2_code(exact π)`: largest gain diff
+and largest lag diff, P = 10..30. INFO only, never PASS/FAIL. This is the `PI` floor term for
+D2 (HARNESS_DESIGN §6).
+
+**A1.3 — sourcing.** `ss2_article` is (a): TASC V.42:04, sidebar "SuperSmoother Function, In
+EasyLanguage" (`a1 = expvalue(-1.414*3.14159 / Period); b1 = 2*a1*Cosine(1.414*180 / Period);
+c2 = b1; c3 = -a1*a1; c1 = 1 - c2 - c3;`), with the D1 replacements. Relabel from (c).
+
+**A1.4 — negative controls.** NC-A and NC-B stay as run; both must still FAIL. Their per-check
+error/tolerance ratios are reported for the amended D2 rule (per-control detection).
