@@ -80,12 +80,48 @@ to the planning chat.
 
 ---
 
-## Stage 2 — checker (`checker.py`) — do not start before review of stage 1
+## Stage 2 — checker (`checker.py`) — criteria pre-registered 2026-11-06, after stage 1 review
 
-Input construction (integers at run time, H1 pattern), least-squares sine gain, ramp lag from
-filter output, input guards, results writer (no-overwrite, sha256, `%.3e`, footer with variant
-count). Self-test on simulated outputs with known gain/lag, and every guard fed a broken input
-and seen to fire. Detailed criteria will be added to this file after the stage 1 review.
+Stage 1 committed as `e03b026` (9/9 OK on both machines).
+
+**Purpose:** generalise `h1_check.py` from one indicator to any spec: build inputs, read a Zorro
+raw CSV, run guards, measure, compare, write the results file. No Zorro run in this stage.
+
+**Contents**
+- Inputs: flat, unit sines (any list of T), ramp; level/amplitude/slope as parameters; same
+  construction as H1 `make_inputs()` (copy, cite).
+- Measurements: flat error, least-squares sine gain, ramp lag — H1 §3 methods (copy, cite).
+- Guards: all eleven H1 guards (`G_EMPTY`, `G_RAGGED`, `G_UNPARSEABLE`, `G_NONFINITE`,
+  `G_HEADER`, `G_ROWCOUNT`, `G_N_REPEAT`, `G_N_GAP`, `G_N_SEQUENCE`, `G_CLOCK`,
+  `G_INPUT_MISMATCH`), with the column list and row count taken from the spec, not hard-coded.
+  A guard that fires writes an ERROR row and the run continues to the results file.
+- Negative-control report per D2 Amendment 1: for each control, every check's error/tolerance
+  ratio; "fails as required" (any check FAILs) and "10× margin met" (any ratio ≥ 10) as two
+  separate fields.
+- Results writer per CLAUDE.md §7: one row per check with `check_id, indicator, params, asset,
+  input, expected, actual, abs_diff, tolerance, result`; `expected/actual/abs_diff` as `%.3e` or
+  full precision; exclusive create (refuses to overwrite, next name gets `_run<k>`); footer with
+  batch name, variant count, PASS/FAIL/ERROR counts, raw file path + sha256.
+- The spec is passed in as a plain Python dict for now (format is stage 3's job); stage 2 uses
+  one hand-written dict reproducing H1's setup.
+
+**Self-test (`tests/test_checker.py`)** — acceptance criteria:
+
+| # | Check | Expected (source) | Tolerance |
+|---|---|---|---|
+| C1 | Measurement accuracy: checker measures `reference.simulate` output for `ss2_code` P = 10/14/20/30 (exact π) and EMA(0.4) | `reference` analytic gain, lag (b, stage 1) | 1e-9 each. Report the worst value: it is the checker's term of the D2 floor |
+| C2 | Same verdicts as H1: on `h1_check.fake_zorro_csv()` output (clean, and each of its mutations), checker rows vs `h1_check.evaluate()` rows | identical PASS/FAIL per check; actual values equal | 1e-12 |
+| C3 | H1 run 2 reproduction, **if** `C:/Zorro/Data/H1_SS2P_raw.csv` exists and its sha256 = `e8ffc043…5a6f` (recorded in `H1_SuperSmoother2Pole_20261105_run2.csv` line 49) | the run-2 results file: all 28 checks PASS, NC1 + NC2 FAIL as required, actual values equal to the 6 decimals stored | exact at `%.6f`. If the file is missing or the hash differs: report "C3 not available" (not a FAIL), do not search further |
+| C4 | Each of the eleven guards fires on its own deliberately broken file, and writes an ERROR row | one firing guard each, with the right id | — |
+| C5 | Clean file fires no guard (no false alarm) | zero ERROR rows | — |
+| C6 | Inputs equal H1 `make_inputs()` for H1's parameters | each other | 1e-12 |
+| C7 | Results writer: second write to the same name is refused; `_run2` is created; sha256 in the footer equals a fresh hash of the raw file; footer counts equal row counts | — | exact |
+| C8 | NC report reproduces stage 1 numbers for NC-A / NC-B (simulated output, P = 20): gain ratio 9.71× / 25.28×, "fails as required" = yes / yes, "10× margin met" = no / yes | stage 1 report (b) | ratio 1e-6 relative |
+
+**Do not** change `h1_check.py`; import it read-only for C2 (or copy the two functions, cite).
+
+**Then STOP**, as in stage 1: test command → user's output → git steps one at a time
+(`harness: checker + self-tests`) → bring the report to the planning chat.
 
 ## Stage 3 — generator (`generator.py`) — do not start before review of stage 2
 
