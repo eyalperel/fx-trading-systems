@@ -22,7 +22,7 @@ would still have passed H1.
 
 **Decision 2026-11-05:** the reusable harness takes expected values **from the article**, so it
 answers both questions. A FAIL can then mean either a Zorro problem or a copying difference; the
-per-check report and the H1-style implementation cross-check (§6) separate the two.
+per-check report and the H1-style implementation cross-check (§5) separate the two.
 
 ## 2. Scope (version 1)
 
