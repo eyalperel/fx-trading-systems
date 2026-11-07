@@ -286,6 +286,7 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 9d.4 | ⚠️ **After `quit()` the EXITRUN branch did not visibly run** | (b) H1 runs 1 and 2: the EXITRUN `printf` never appeared; in run 2 the EXITRUN `file_append` marker file was never created. (c) Cause not proven: EXITRUN may not be called after `quit()`, or output at exit may be unavailable. **Rule:** write anything important BEFORE `quit()`. |
 | 9d.5 | ⚠️ **`Init` is `is(INITRUN)`** | (b) `C:/Zorro/include/variables.h:182` `#define Init is(INITRUN)`. An indicator's `if(Init)` branch runs only in the INITRUN call, never on the first bar. The "First bar" comments in `SuperSmoother2Pole.c` are misleading (comment only; the output is unaffected, H1 run 2). |
 | 9d.6 | `series(x, n)` seeds with the first value | (b) Run 2 observations O1–O3: with `series(Price[0], 3)` the flat-input error was 0 from n = 0 for all 6 variants, and the ramp output starts at exactly x[0]. So no startup transient on a flat input. **Shown for these inputs only** (synthetic, `LookBack = 0`, INITRUN returning before any `series()` call) (c for other cases). |
+| 9d.7 | `Warning 047: EUR/USD first bar on 2008-01-07` is harmless here | (b) Seen 2026-11-07 in the Zorro window of the generated H1 run (`GEN_H1_SuperSmoother2Pole`, StartDate 20080101, EndDate 20240101); the run completed with 3000 rows, no `Error` line, and 28/28 PASS. EUR/USD D1 history starts 2008-01-07, after StartDate. The harness exports the first 3000 bars fed, so the start date does not matter for it. (c) H1 run 2 likely showed the same warning: its raw file is byte-identical to the GEN run (sha256 e8ffc043…5a6f) and its StartDate is the same, but its message window was not recorded. Still check every run for lines starting with `Error`. |
 
 ---
 
@@ -302,3 +303,4 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 2026-08-12 | Added §9b: static run-scope, seed guards, asset() unreliability, quit() timing (Week 13 Day 2) |
 | 2026-08-13 | Added §9c: group vs phase delay, ramp failure on bounded indicators, lead/lag search (Week 13 Day 3) |
 | 2026-11-05 | Added §9d: Zorro 3.11 findings from H1 (float32 literals, PI macro, missing include not fatal, EXITRUN after quit, Init, series seeding); platform line updated to 3.11, §1–9c not re-verified on 3.11 |
+| 2026-11-07 | Added §9d.7: Warning 047 (EUR/USD D1 history starts 2008-01-07, after StartDate) is harmless for the harness (stage 4 run) |

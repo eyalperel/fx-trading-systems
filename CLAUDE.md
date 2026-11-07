@@ -147,9 +147,10 @@ any indicator or batch script. The ones that fail **silently**:
   (`result` ∈ PASS / FAIL / ERROR).
 - Write a footer or companion line with: batch name, number of variants run, number of
   PASS / FAIL / ERROR. A guard that fires writes an ERROR row; it never just stops.
-- Store `expected`, `actual` and `|diff|` in full precision or `%.3e`, never rounded to `%f`
-  (6 decimals hides differences of 1e-6 and below). H1 predates this rule (its results store
-  %.6f); the rule applies from H2 on.
+- Store `expected` and `actual` in full precision (`repr`); `|diff|` and `ratio` may use `%.3e`.
+  Never round to `%f` (6 decimals hides differences of 1e-6 and below), and never store values
+  as `%.3e` (it hides 1e-4 differences on values near 0.7). H1 predates this rule (its results
+  store %.6f). Clarified 2026-11-07 from the harness stage 2 review (`checker.py` does this).
 - After each run, copy the raw CSV to `*_run<k>.csv` (the next run deletes it at INITRUN) and
   record its sha256 in the results file.
 - Every run card says: "expect no line starting with `Error` in the Zorro window."

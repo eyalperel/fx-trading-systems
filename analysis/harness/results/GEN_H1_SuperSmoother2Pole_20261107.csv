@@ -1,0 +1,51 @@
+check_id,indicator,params,asset,input,expected,actual,abs_diff,tolerance,ratio,result,role
+H1-P10-flat,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+H1-P10-gain-T5,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=5,0.2242,0.2241994415568623,5.584e-07,0.0001,5.584e-03,PASS,real
+H1-P10-gain-T10,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=10,0.695059,0.695058599148115,4.009e-07,0.0001,4.009e-03,PASS,real
+H1-P10-gain-T20,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=20,0.966116,0.9661157759232836,2.241e-07,0.0001,2.241e-03,PASS,real
+H1-P10-gain-T40,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=40,0.997024,0.9970236376501653,3.623e-07,0.0001,3.623e-03,PASS,real
+H1-P10-gain-T100,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=100,0.999785,0.9997853598474388,3.598e-07,0.0001,3.598e-03,PASS,real
+H1-P10-ramp-lag,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),ramp,1.825321,1.8253231870116964,2.187e-06,0.001,2.187e-03,PASS,real
+H1-P14-flat,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+H1-P14-gain-T5,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=5,0.116965,0.11696436337159709,6.366e-07,0.0001,6.366e-03,PASS,real
+H1-P14-gain-T10,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=10,0.446731,0.4467300250346773,9.750e-07,0.0001,9.750e-03,PASS,real
+H1-P14-gain-T20,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=20,0.894265,0.8942645581100611,4.419e-07,0.0001,4.419e-03,PASS,real
+H1-P14-gain-T40,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=40,0.991557,0.9915574286529132,4.287e-07,0.0001,4.287e-03,PASS,real
+H1-P14-gain-T100,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=100,0.999643,0.9996434295833335,4.296e-07,0.0001,4.296e-03,PASS,real
+H1-P14-ramp-lag,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),ramp,2.704175,2.7041777711540376,2.771e-06,0.001,2.771e-03,PASS,real
+H1-P20-flat,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+H1-P20-gain-T5,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=5,0.057665,0.05766489131762553,1.087e-07,0.0001,1.087e-03,PASS,real
+H1-P20-gain-T10,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=10,0.238406,0.2384053167254408,6.833e-07,0.0001,6.833e-03,PASS,real
+H1-P20-gain-T20,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=20,0.704174,0.7041730186718012,9.813e-07,0.0001,9.813e-03,PASS,real
+H1-P20-gain-T40,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=40,0.969143,0.9691428260875173,1.739e-07,0.0001,1.739e-03,PASS,real
+H1-P20-gain-T100,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=100,0.999037,0.9990365310356498,4.690e-07,0.0001,4.690e-03,PASS,real
+H1-P20-ramp-lag,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),ramp,4.038666,4.038669966521958,3.967e-06,0.001,3.967e-03,PASS,real
+H1-P30-flat,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+H1-P30-gain-T5,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=5,0.025669,0.0256690071426619,7.143e-09,0.0001,7.143e-05,PASS,real
+H1-P30-gain-T10,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=10,0.108551,0.10855095977591118,4.022e-08,0.0001,4.022e-04,PASS,real
+H1-P30-gain-T20,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=20,0.404454,0.4044532443963903,7.556e-07,0.0001,7.556e-03,PASS,real
+H1-P30-gain-T40,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=40,0.870678,0.8706772031814839,7.968e-07,0.0001,7.968e-03,PASS,real
+H1-P30-gain-T100,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=100,0.995811,0.9958105368469701,4.632e-07,0.0001,4.632e-03,PASS,real
+H1-P30-ramp-lag,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),ramp,6.277073,6.277078509396672,5.509e-06,0.001,5.509e-03,PASS,real
+H1-NC1-flat,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+H1-NC1-gain-T5,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=5,0.057665,0.05232183426165296,5.343e-03,0.0001,5.343e+01,FAIL,neg_control
+H1-NC1-gain-T10,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=10,0.238406,0.21737718514890786,2.103e-02,0.0001,2.103e+02,FAIL,neg_control
+H1-NC1-gain-T20,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=20,0.704174,0.6690489089399483,3.513e-02,0.0001,3.513e+02,FAIL,neg_control
+H1-NC1-gain-T40,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=40,0.969143,0.9630577747244079,6.085e-03,0.0001,6.085e+01,FAIL,neg_control
+H1-NC1-gain-T100,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=100,0.999037,0.9988646122443459,1.724e-04,0.0001,1.724e+00,FAIL,neg_control
+H1-NC1-ramp-lag,SuperSmoother2Pole,P=21 vs P=20 expected,synthetic (EURUSD D1 bar clock),ramp,4.038666,4.261977918353122,2.233e-01,0.001,2.233e+02,FAIL,neg_control
+H1-NC2-flat,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+H1-NC2-gain-T5,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=5,0.057665,0.04347575538636397,1.419e-02,0.0001,1.419e+02,FAIL,neg_control
+H1-NC2-gain-T10,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=10,0.238406,0.17484186318010145,6.356e-02,0.0001,6.356e+02,FAIL,neg_control
+H1-NC2-gain-T20,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=20,0.704174,0.5309753547455391,1.732e-01,0.0001,1.732e+03,FAIL,neg_control
+H1-NC2-gain-T40,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=40,0.969143,0.8732988335531227,9.584e-02,0.0001,9.584e+02,FAIL,neg_control
+H1-NC2-gain-T100,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),sine T=100,0.999037,0.9827905054667376,1.625e-02,0.0001,1.625e+02,FAIL,neg_control
+H1-NC2-ramp-lag,SuperSmoother2Pole,cos arg in degrees vs P=20 expected,synthetic (EURUSD D1 bar clock),ramp,4.038666,5.42579863138699,1.387e+00,0.001,1.387e+03,FAIL,neg_control
+H1-NC1-verdict,SuperSmoother2Pole,control must FAIL at least one check,,all,FAILS_AS_REQUIRED,FAILS_AS_REQUIRED,,,,PASS,neg_control
+H1-NC2-verdict,SuperSmoother2Pole,control must FAIL at least one check,,all,FAILS_AS_REQUIRED,FAILS_AS_REQUIRED,,,,PASS,neg_control
+# batch=GEN_H1_SuperSmoother2Pole variants_run=6
+# real_checks=28 PASS=28 FAIL=0 ERROR=0
+# NC NC1 fails_as_required=True margin10_met=True max_ratio gain=3.513e+02 lag=2.233e+02 flat=0.000e+00
+# NC NC2 fails_as_required=True margin10_met=True max_ratio gain=1.732e+03 lag=1.387e+03 flat=0.000e+00
+# raw_file=C:/Zorro/Data/GEN_H1_SS2P_raw.csv sha256=e8ffc04300e8ffb02221917d08f245aa492d410367f9f7d51ba5601b040c5a6f
+# VERDICT: PASS

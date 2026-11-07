@@ -1,0 +1,159 @@
+# H1_SuperSmoother2Pole.toml -- spec reproducing H1 (docs/preregistration/H1_SuperSmoother2Pole_Criteria.md).
+# Format: STEP2_HANDOFF.md "Stage 3". Read with tomllib (Python >= 3.11).
+# Every expected value and tolerance carries a source label: (a) source states, (b) measured/verified
+# here, (c) inference. Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+# The raw/marker file names differ from H1's, so running the generated script never deletes
+# C:/Zorro/Data/H1_SS2P_raw.csv (the hash-pinned H1 run-2 file used by test_checker C3).
+
+[batch]
+name = "H1_SuperSmoother2Pole"
+id_prefix = "H1"
+indicator = "SuperSmoother2Pole"          # also the Light-C function called by `param` variants
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "docs/preregistration/H1_SuperSmoother2Pole_Criteria.md (incl. Amendment 1)"
+script_name = "GEN_H1_SuperSmoother2Pole"  # generated Light-C file; the generator never overwrites
+
+[zorro]
+include = "../../indicators/ehlers/SuperSmoother2Pole.c"   # resolved from strategies/tests/
+raw_file = "Data/GEN_H1_SS2P_raw.csv"
+marker_file = "Data/GEN_H1_exit_marker.txt"
+clock_asset = "EUR/USD"                    # bar clock only; clock_close is exported
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]
+n_bars = 3000
+warmup = 500
+level = [11, 10]            # 1.1 = 11/10, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[tolerances.flat]
+value = 1e-9
+source = "(a) H1 criteria section 5"
+[tolerances.gain]
+value = 1e-4
+source = "(a) H1 criteria section 5"
+[tolerances.lag]
+value = 1e-3
+source = "(a) H1 criteria section 5"
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n])"
+
+# D2 floor per quantity: largest known accepted difference. INFO only (never refuses).
+[floor]
+gain = 6.185e-7
+lag = 5.429e-6
+flat = 2.2e-16
+source = "(b) stage 1 A1.2 INFO line (Zorro PI gap, P=10..30) and test_03 (DC gain 1 to 2.2e-16); stage 2 C1 checker term 4.5e-12"
+
+# expected tables: flat error, gains at sine_periods, ramp lag
+[expected.P10]
+flat = 0.0
+gains = [0.224200, 0.695059, 0.966116, 0.997024, 0.999785]
+lag = 1.825321
+source = "(a) H1 criteria section 4 table (= EXPECT in h1_check.py)"
+[expected.P14]
+flat = 0.0
+gains = [0.116965, 0.446731, 0.894265, 0.991557, 0.999643]
+lag = 2.704175
+source = "(a) H1 criteria section 4 table (= EXPECT in h1_check.py)"
+[expected.P20]
+flat = 0.0
+gains = [0.057665, 0.238406, 0.704174, 0.969143, 0.999037]
+lag = 4.038666
+source = "(a) H1 criteria section 4 table (= EXPECT in h1_check.py)"
+[expected.P30]
+flat = 0.0
+gains = [0.025669, 0.108551, 0.404454, 0.870678, 0.995811]
+lag = 6.277073
+source = "(a) H1 criteria section 4 table (= EXPECT in h1_check.py)"
+
+# D1 literal replacements: none (H1 expected values come from the .c coefficients, exact pi).
+# Format when used:  [[literal_replacements]]  literal = "1.414"  exact = 1.4142135623730951  source = "(a) ..."
+
+[[variants]]
+id = "P10"
+role = "real"
+label = "P=10"
+kind = "param"
+param = 10
+expected = "P10"
+
+[[variants]]
+id = "P14"
+role = "real"
+label = "P=14"
+kind = "param"
+param = 14
+expected = "P14"
+
+[[variants]]
+id = "P20"
+role = "real"
+label = "P=20"
+kind = "param"
+param = 20
+expected = "P20"
+
+[[variants]]
+id = "P30"
+role = "real"
+label = "P=30"
+kind = "param"
+param = 30
+expected = "P30"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "P=21 vs P=20 expected"
+kind = "param"
+param = 21
+expected = "P20"
+[variants.effect]       # measured error vs the expected table (D2 per-control 10x margin, INFO)
+gain = 0.0351250910600549
+lag = 0.22331191835697428
+flat = 0.0
+source = "(b) analysis/harness/reference.py ss2_code(21) vs P=20 table, stage 3 session"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "cos arg in degrees vs P=20 expected"
+kind = "inline"
+function = "h1_ss_deg"
+param = 20
+expected = "P20"
+comment = """NC2: negative control. Identical to SuperSmoother2Pole.c except the cos argument is
+in degrees (sqrt(2)*180/P instead of sqrt(2)*PI/P). Defined here only."""
+body = '''
+var h1_ss_deg(vars Price, int P)
+{
+	var c1 = exp(-sqrt(2.0) * PI / P);
+	var b1 = 2.0 * c1 * cos(sqrt(2.0) * 180.0 / P);
+	var c2 = b1;
+	var c3 = -c1 * c1;
+	var c0 = (1.0 - b1 + c1 * c1) / 2.0;
+	var* Filt = series(Price[0], 3);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = c0 * (Price[0] + Price[1]) + c2 * Filt[1] + c3 * Filt[2];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 0.1731986452544676
+lag = 1.3871326313939765
+flat = 0.0
+source = "(b) analysis/harness reference model, degrees-cosine coefficients vs P=20 table, stage 3 session"

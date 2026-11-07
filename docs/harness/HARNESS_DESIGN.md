@@ -1,6 +1,7 @@
 # Reusable indicator harness — design
 
-**Status:** design agreed 2026-11-05 (user). Not built yet. D1–D3 decided 2026-11-06.
+**Status:** design agreed 2026-11-05 (user). D1–D3 decided 2026-11-06. **Built and accepted
+2026-11-07** (§5 passed; branch `harness-step2`, stages per `docs/harness/STEP2_HANDOFF.md`).
 **Builds on:** H1 (`docs/preregistration/H1_SuperSmoother2Pole_Criteria.md`, results in
 `analysis/harness/results/`). H1's files stay frozen as its record.
 **Implements:** PROJECT_STATE §7, Phase 1 step 3 (the rest of the library).
@@ -84,6 +85,8 @@ exact √2 with `3.14159` differs from the `.c` form by ~6e-7 in gain; `1.414` w
 ~1.1e-4. Relative errors: `1.414` vs √2 = −1.5e-4; `3.14159` vs π = −8.4e-7. Assumes the `.c`
 uses `PI` inside the cosine as well (not re-read this sitting).
 (c) `1.414` is √2 rounded for typing (Butterworth 2-pole uses √2).
+(b) 2026-11-06, stage 1 (Claude Code read of `SuperSmoother2Pole.c` lines 3–4): `PI` is used in
+both the exponent and the cosine — the assumed case. Measured article vs code gain gap: 6.185e-7.
 
 Options considered: (i) literal constants: rejected, fails a known intended rounding and either
 forces a worse `.c` or trains ignoring FAILs; (iii) literal constants with widened tolerance:
@@ -117,6 +120,18 @@ lag, near-zero high-pass outputs and (later) oscillators have different scales.
 (c) The 10× margins are judgement, not derived; minimum on each side. H1's 100× ceiling margin
 meets it. (b) SS2 check: floor ≈ 6e-7, gain tol 1e-4, smallest H1 bug ≈ 1e-2: inside the window.
 
+**D2 Amendment 1 — 2026-11-06 (per-control detection).** Stage 1 negative controls (b,
+P = 20): NC-A (pole factor +1 in 3rd digit) gain err 9.71e-4, lag err 2.76e-4, DC 0;
+NC-B (input weight +1 in 3rd digit) gain err 2.53e-3, lag err 3.97e-6, DC err 2.5e-3.
+Rule 3's ceiling side as written ("tolerance ≤ ceiling ÷ 10" for every quantity) would force the
+lag tolerance to ~4e-7 to "catch" NC-B, which barely moves lag by construction. Replaced by:
+- **Per-control detection:** each negative control must be caught by **at least one** check
+  with error ≥ 10 × that check's tolerance.
+- The floor side stays per quantity: floor × 10 ≤ tolerance.
+Status: NC-A is caught by gain at 9.7× (just under 10×). The gain tolerance stays 1e-4 for now
+and is set in the SS2 spec once the Zorro-side floor is measured at `%.3e` (H1 stored `%.6f`, so
+Zorro's residual below 1e-6 is not yet visible). (c) Likely outcome ~2e-5.
+
 **D3. Exact π in the library — DECIDED 2026-11-06: keep Zorro's `PI`; no library change.**
 
 (b) Zorro's `PI` is 3.14159 (9d.2). With D1 = (ii) the reference uses true π; the library's `PI`
@@ -130,8 +145,12 @@ a decimal literal (9d.1).
 ## 7. Order of work
 
 1. [x] Decide D1–D3 (planning chat, 2026-11-06).
-2. Build reference model, generator and checker; self-tests (Claude Code).
-3. Tool acceptance run: reproduce H1 on SS2 (§5).
+2. [x] Build reference model, generator and checker; self-tests (Claude Code). Stages 1–3:
+   `e03b026`, `54be500`, `7224db9`; 27/27 tests on both machines (`analysis/harness/run_tests.sh`).
+3. [x] Tool acceptance run (§5), 2026-11-07, `417da02`: generated `GEN_H1_SuperSmoother2Pole.c`
+   gave 28/28 PASS, NC1 + NC2 FAIL as required, no guard, no `Error` line. (b) Raw output
+   byte-identical to H1 run 2 (sha256 `e8ffc043…5a6f`). (b) Observed real-check |diff| vs H1's
+   6-decimal table: gain ≤ 9.8e-7, lag ≤ 5.5e-6 = the `PI` gap (D1/D3) plus table rounding.
 4. First article-based specs: SS2 (fidelity), SS3, HighPassFilter, RoofingFilter
    (known answer in PROJECT_STATE §5), UltimateSmootherE, Decycler — pre-registered and committed
    before the batch runs.
