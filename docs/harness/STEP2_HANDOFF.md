@@ -179,9 +179,32 @@ any indicator other than H1's SuperSmoother2Pole.
 **Then STOP**, same protocol: test command (now `bash analysis/harness/run_tests.sh`) → user's
 output → git steps one at a time (`harness: generator + spec format + self-tests`) → report.
 
-## Stage 4 — tool acceptance (Zorro, user clicks) — HARNESS_DESIGN §5
+## Stage 4 — tool acceptance (Zorro, user clicks) — HARNESS_DESIGN §5; run card pre-registered 2026-11-07
 
-Reproduce H1 on SS2: 28/28 PASS, NC1 + NC2 FAIL as required.
+Stage 3 committed as `7224db9` (27/27 OK on both machines).
+
+**Pass condition (unchanged, HARNESS_DESIGN §5):** the generated script, run once in Zorro and
+evaluated by `checker.py`, gives **28/28 real checks PASS** and **NC1 + NC2 FAIL as required**,
+with no guard firing and no line starting with `Error` in the Zorro window.
+
+**Also reported, INFO only (not part of the verdict):**
+- S4.1 — sha256 of `C:/Zorro/Data/GEN_H1_SS2P_raw.csv` vs H1 run 2 (`e8ffc043…5a6f`). Same
+  logic, same Zorro, same data: (c) expected byte-identical. If not, report the first differing
+  row and column; do not interpret further.
+- S4.2 — per-check |diff| vs H1 run 2's stored actual values (`%.6f`).
+- S4.3 — D2 window lines from the checker (floor × 10 ≤ tolerance; NC margins).
+
+**Procedure (Claude Code prepares, user clicks once)**
+1. Generate `strategies/tests/GEN_H1_SuperSmoother2Pole.c` with the generator CLI from
+   `specs/H1_SuperSmoother2Pole.toml`; lint must pass; record its sha256.
+2. Give the user a run card: Zorro script folder = repo `strategies/tests/`; script to pick;
+   [Test] once; expect no `Error` line; the batch ends by itself with the quit message; output
+   file `C:/Zorro/Data/GEN_H1_SS2P_raw.csv`.
+3. After the user says done: run `checker.py` on the raw file, write
+   `analysis/harness/results/GEN_H1_SuperSmoother2Pole_<YYYYMMDD>.csv` (no overwrite), copy the raw
+   file into the results folder as `*_raw_run1.csv` with its sha256, report per CLAUDE.md §7.
+4. Stop. Git steps one at a time (`harness: stage 4 tool acceptance run`), then report to the
+   planning chat.
 
 ---
 
