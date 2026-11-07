@@ -63,3 +63,5 @@ rename_*.py
 # The Zorro "Results/" pattern above also matches "results/" because git on Windows
 # is case-insensitive, so re-include the harness results folder explicitly.
 !analysis/harness/results/
+# Raw Zorro output copies stored next to harness results (large; the sha256 is in the results file footer).
+*_raw_run*.csv
