@@ -123,10 +123,61 @@ raw CSV, run guards, measure, compare, write the results file. No Zorro run in t
 **Then STOP**, as in stage 1: test command → user's output → git steps one at a time
 (`harness: checker + self-tests`) → bring the report to the planning chat.
 
-## Stage 3 — generator (`generator.py`) — do not start before review of stage 2
+## Stage 3 — generator (`generator.py`) + spec format — criteria pre-registered 2026-11-07
 
-Spec format, Light-C batch script writer (one click), lint that rejects decimal literals and
-`PI` in harness inputs. Detailed criteria added after the stage 2 review.
+Stage 2 committed as `54be500` (18/18 OK on both machines; C3 reproduced H1 run 2).
+
+**Purpose:** turn a spec file into (1) the dict the checker uses and (2) one Zorro batch script
+(one [Test] click) that writes the raw CSV the checker reads. No Zorro run in this stage; the
+proven H1 harness `strategies/tests/H1_SuperSmoother2Pole_Harness.c` is the known answer.
+
+**Contents**
+- **Spec format: TOML**, one file per indicator in `analysis/harness/specs/`, read with the
+  standard-library `tomllib` (Python ≥ 3.11; no install). Comments allowed, so sources sit next
+  to the numbers they support. First spec: `specs/H1_SuperSmoother2Pole.toml`, reproducing H1.
+- **Spec validator** (refuses a spec, with a reason, when):
+  - an id (batch prefix, variant id, input id) contains `-` (stage 2 check-id rule
+    `<prefix>-<variantid>-<check>`) or is not a valid C identifier fragment;
+  - an expected value or tolerance has no source label (a)/(b)/(c);
+  - there is no negative control (D2 Amendment 1);
+  - a D1 literal replacement is listed without literal, exact value and source.
+  It reports, never refuses on: the D2 floor × 10 ≤ tolerance check per quantity, and the
+  per-control 10× margin, as INFO lines.
+- **Negative controls, two kinds:** `param` (same indicator, wrong parameter, e.g. H1 NC1 = P21)
+  and `inline` (a Light-C function body in the spec, written into the script, e.g. H1 NC2,
+  stage 1 NC-A / NC-B).
+- **Script writer:** H1's proven pattern (copy, cite): constants from integers at run time
+  (`11/10`, `4*atan(1)`), unconditional fixed-order calls, one row per fed bar, latch + write
+  before `quit()`, header from the spec, values `%.15f`.
+- **Script lint** (generator refuses to write a script that fails it):
+  - no `PI` token in harness code (the included indicator file may use it, D3);
+  - no decimal literal whose float32 value differs from its float64 value (gotcha 9d.1;
+    `2.0`, `180.0`, `0.5` pass, `1.1`, `0.01` fail);
+  - no `file_append` after `quit(` in the same branch (9d.4);
+  - every `#include` path resolves from `strategies/tests/` to an existing file (9d.3).
+- **Test summary runner** `analysis/harness/run_tests.sh`: runs the suite with `python -u`,
+  prints at the end one line `TOTAL n  PASS p  FAIL f  ERROR e  SKIP s`, and lists every skip
+  with its reason.
+
+**Self-test (`tests/test_generator.py`)** — acceptance criteria:
+
+| # | Check | Expected (source) | Tolerance |
+|---|---|---|---|
+| G1 | H1 spec → checker dict | equal to stage 2's hand-written H1 dict (b) | exact |
+| G2 | Call list of the generated H1 script: ordered (output slot, function, input series, parameter) tuples | parsed from the H1 harness `.c`, lines 114–155 (b) | exact, all 42 |
+| G3 | Raw CSV header written by the generated script | `checker` expected header for the same spec | exact string |
+| G4 | Input expressions in the generated script, evaluated in Python (math namespace only) for n = 0..N−1 | `checker` inputs | 1e-12 (= `TOL_X`) |
+| G5 | Inline NC function in the generated H1 script | H1 `h1_ss_deg` body, whitespace-normalised | exact |
+| G6 | Validator fires on each deliberately broken spec (one per refusal rule above) | refused, with the right reason | — |
+| G7 | Lint fires on each deliberately broken script (one per lint rule) and passes the generated H1 script | refused / passed | — |
+| G8 | Generated script is written under a new name (no overwrite of an existing `.c`); the H1 harness file is unchanged (sha256 before = after) | — | exact |
+| G9 | `run_tests.sh` on this suite | summary line counts = unittest's own counts; skips listed with reason | exact |
+
+**Not in this stage:** running the generated script in Zorro (that is stage 4), and specs for
+any indicator other than H1's SuperSmoother2Pole.
+
+**Then STOP**, same protocol: test command (now `bash analysis/harness/run_tests.sh`) → user's
+output → git steps one at a time (`harness: generator + spec format + self-tests`) → report.
 
 ## Stage 4 — tool acceptance (Zorro, user clicks) — HARNESS_DESIGN §5
 
