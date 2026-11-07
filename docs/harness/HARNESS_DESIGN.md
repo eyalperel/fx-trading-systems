@@ -1,6 +1,7 @@
 # Reusable indicator harness — design
 
-**Status:** design agreed 2026-11-05 (user). Not built yet. D1–D3 decided 2026-11-06.
+**Status:** design agreed 2026-11-05 (user). D1–D3 decided 2026-11-06. **Built and accepted
+2026-11-07** (§5 passed; branch `harness-step2`, stages per `docs/harness/STEP2_HANDOFF.md`).
 **Builds on:** H1 (`docs/preregistration/H1_SuperSmoother2Pole_Criteria.md`, results in
 `analysis/harness/results/`). H1's files stay frozen as its record.
 **Implements:** PROJECT_STATE §7, Phase 1 step 3 (the rest of the library).
@@ -144,8 +145,12 @@ a decimal literal (9d.1).
 ## 7. Order of work
 
 1. [x] Decide D1–D3 (planning chat, 2026-11-06).
-2. Build reference model, generator and checker; self-tests (Claude Code).
-3. Tool acceptance run: reproduce H1 on SS2 (§5).
+2. [x] Build reference model, generator and checker; self-tests (Claude Code). Stages 1–3:
+   `e03b026`, `54be500`, `7224db9`; 27/27 tests on both machines (`analysis/harness/run_tests.sh`).
+3. [x] Tool acceptance run (§5), 2026-11-07, `417da02`: generated `GEN_H1_SuperSmoother2Pole.c`
+   gave 28/28 PASS, NC1 + NC2 FAIL as required, no guard, no `Error` line. (b) Raw output
+   byte-identical to H1 run 2 (sha256 `e8ffc043…5a6f`). (b) Observed real-check |diff| vs H1's
+   6-decimal table: gain ≤ 9.8e-7, lag ≤ 5.5e-6 = the `PI` gap (D1/D3) plus table rounding.
 4. First article-based specs: SS2 (fidelity), SS3, HighPassFilter, RoofingFilter
    (known answer in PROJECT_STATE §5), UltimateSmootherE, Decycler — pre-registered and committed
    before the batch runs.

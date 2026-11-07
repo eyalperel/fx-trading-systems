@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-06 (Phase 1 step 3 in progress: H1 SuperSmoother2Pole passed; harness decisions D1–D3 made)
+**As of:** 2026-11-07 (Phase 1 step 3 in progress: reusable harness built and accepted; next: article-based specs)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -200,8 +200,12 @@ file's first rows exactly.
    gotchas §9d. Reusable harness design: `docs/harness/HARNESS_DESIGN.md`; its open points
    **D1–D3 decided 2026-11-06** (§6 there): exact √2/π under a literal-constant rule;
    per-quantity tolerances inside a floor×10 / ceiling÷10 window; keep Zorro `PI`.
-   Next: build reference model, generator and checker with self-tests (Claude Code), then the
-   tool acceptance run (reproduce H1 on SS2, HARNESS_DESIGN §5).
+   **Reusable harness built and accepted 2026-11-07** (`417da02`, branch `harness-step2`):
+   reference model, checker, generator + TOML spec format, 27/27 self-tests; tool acceptance run
+   reproduced H1 byte-identically (HARNESS_DESIGN §7). Run tests: `bash analysis/harness/run_tests.sh`.
+   Next: first article-based spec, SS2 source fidelity (D1 replacements; NC-A / NC-B; set the gain
+   tolerance per D2 Amendment 1, NC-A margin 9.71× at 1e-4), then SS3, HighPassFilter,
+   RoofingFilter, UltimateSmootherE, Decycler.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
