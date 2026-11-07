@@ -208,3 +208,20 @@ c2 = b1; c3 = -a1*a1; c1 = 1 - c2 - c3;`), with the D1 replacements. Relabel fro
 
 **A1.4 — negative controls.** NC-A and NC-B stay as run; both must still FAIL. Their per-check
 error/tolerance ratios are reported for the amended D2 rule (per-control detection).
+
+## Amendment 2 — 2026-11-07 (stage 3 criteria; before any stage 3 code)
+
+**Reason.** Conflict found in review: the lint rule "no `PI` token in harness code" would reject
+the generated H1 script, because H1's inline negative control `h1_ss_deg` (harness `.c` line 47)
+uses `PI`, and G5 requires that body unchanged while G7 requires the generated H1 script to pass.
+
+**A2.1 — lint scope.** "Harness code" means the script's own plumbing: constants, input
+construction, series calls, output and file writing. **Inline negative-control bodies** are
+mutated copies of indicator code and follow the indicator rule (D3: `PI` allowed). The lint
+still applies the float32-literal, `quit()` and `#include` rules to them.
+
+**A2.2 — G7 adds one case:** a script with `PI` in input construction is refused, while the same
+token inside an inline NC body is accepted.
+
+**A2.3 — test output location.** Tests write generated scripts to a temporary directory, never
+into `strategies/tests/`, so the suite can be rerun and leaves no files. G8 runs there.
