@@ -1,0 +1,304 @@
+# SS2_ArticleFidelity.toml -- SuperSmoother 2-pole, SOURCE FIDELITY (HARNESS_DESIGN §1, second question).
+# Pre-registration: this file, committed BEFORE the generated script is run (PROJECT_STATE §2 rule 2).
+# Amendments are dated and appended at the end of the file, never edited in place.
+# Format: STEP2_HANDOFF.md "Stage 3" (same as specs/H1_SuperSmoother2Pole.toml). Read with tomllib.
+# Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from H1 (H1 answered the implementation question only):
+#   * Expected values come from the ARTICLE formula (reference.ss2_article, D1 replacements), never
+#     from SuperSmoother2Pole.c. A copying error from article to .c would now FAIL.
+#   * Gain tolerance 3e-5 (was 1e-4): set per D2 + Amendment 1, decision 2026-11-07 (see [tolerances.gain]).
+#   * Negative controls: NC-A, NC-B (realistic 3rd-digit copying errors, D2 rule 4) + H1's NC1, NC2.
+#   * Periods and inputs unchanged from H1 (decision 2026-11-07).
+#
+# Decisions recorded here (planning chat 2026-11-07, user accepted each):
+#   1. gain tol 3e-5, lag tol 1e-3.  2. controls NC-A, NC-B, NC1, NC2 (8 variants).
+#   3. periods/inputs = H1, plus observation OX (real raw columns equal to H1 run 2).
+
+[batch]
+name = "SS2_ArticleFidelity"
+id_prefix = "SS2F"
+indicator = "SuperSmoother2Pole"          # Light-C function called by `param` variants
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/SS2_ArticleFidelity.toml (this file)"
+script_name = "GEN_SS2F_SuperSmoother2Pole"  # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'The Ultimate Smoother', Technical Analysis of Stocks & Commodities V.42:04 (2024), pp. 8-15"
+sidebar = "SuperSmoother Function, In EasyLanguage"
+formula = '''
+(a) a1 = expvalue(-1.414*3.14159 / Period);
+    b1 = 2*a1*Cosine(1.414*180 / Period);      Cosine takes degrees -> cos(1.414*pi/Period) radians
+    c2 = b1;  c3 = -a1*a1;  c1 = 1 - c2 - c3;
+    If CurrentBar >= 4 Then $SuperSmoother = c1*(Price + Price[1]) / 2 + c2*$SuperSmoother[1] + c3*$SuperSmoother[2];
+    If Currentbar < 4 Then $SuperSmoother = Price;
+(a) Article text: translated from an analog filter with a maximally flat Butterworth low-pass response.
+'''
+reference = "analysis/harness/reference.py ss2_article(period): the formula above with the D1 replacements below"
+seeding_note = """(b) The article seeds output = Price for CurrentBar < 4; the .c seeds Filt = Price on the INITRUN
+call only. Seeding affects only the start-up transient, which is excluded by warmup = 500 bars
+(transient decays to < 1e-9 within ~150 bars at P = 30, pole radius 0.86). Seeding is therefore
+not tested by this spec; it is not a fidelity claim either way."""
+
+# D1 literal-constant rule (HARNESS_DESIGN §6). Each literal equals a named constant to every printed digit.
+[[literal_replacements]]
+literal = "1.414"
+exact = 1.4142135623730951
+name = "sqrt(2)"
+source = "(a) TASC V.42:04 SuperSmoother sidebar, both a1 and b1 lines; D1 rule 1 (Butterworth 2-pole uses sqrt(2))"
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+source = "(a) TASC V.42:04 SuperSmoother sidebar, a1 line; D1 rule 1. The b1 line carries exact pi via degrees."
+
+# D1 rule 3: literal-vs-exact difference, INFORMATION ONLY, never PASS/FAIL.
+[literal_info]
+gain_max = 1.0720e-4
+lag_max = 1.0161e-3
+source = "(b) reference model 2026-11-09: article with literals 1.414 / 3.14159 vs article with sqrt(2) / pi, P = 10,14,20,30, sine periods 5..100. Matches D1 table (1.03e-4..1.08e-4 gain)."
+
+[zorro]
+include = "../../indicators/ehlers/SuperSmoother2Pole.c"   # resolved from strategies/tests/
+raw_file = "Data/GEN_SS2F_raw.csv"
+marker_file = "Data/GEN_SS2F_exit_marker.txt"
+clock_asset = "EUR/USD"                    # bar clock only; clock_close is exported
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # identical to H1 (decision 3)
+n_bars = 3000
+warmup = 500
+level = [11, 10]            # 1.1 = 11/10, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[tolerances.flat]
+value = 1e-9
+source = "(a) H1 criteria section 5 (unchanged)"
+[tolerances.gain]
+value = 3e-5
+source = """(b)+(c) Set 2026-11-07 per D2 + Amendment 1. Floor 1.45e-6 (see [floor]) x10 = 1.45e-5 <= 3e-5.
+NC-A gain effect 9.71e-4 / 3e-5 = 32x >= 10x (at 1e-4 it was 9.7x, under the minimum). 3e-5 is near the
+geometric centre of floor..NC-A (~3.8e-5), leaning to detection. The 10x margins are judgement (c, D2)."""
+[tolerances.lag]
+value = 1e-3
+source = "(a) H1 criteria section 5 default, kept 2026-11-07. Floor 6.0e-6 x10 = 6e-5 <= 1e-3. No lag tolerance can catch NC-A at 10x (would need <= 2.8e-5 < floor x10); NC-A is caught by gain (D2 Amendment 1)."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n])"
+
+# D2 floor per quantity: largest known accepted difference, Zorro output vs THIS spec's (article) table.
+[floor]
+gain = 1.45e-6
+lag = 6.0e-6
+flat = 2.2e-16
+source = """(b) Bound = observed Zorro vs H1 6-dp table (tool acceptance run 417da02: gain <= 9.8e-7, lag <= 5.5e-6)
++ |H1 table - article table| computed 2026-11-09 (gain <= 4.66e-7, lag <= 4.32e-7). Components: Zorro PI gap
+(reference: article vs ss2_code(PI_ZORRO) gain 5.72e-7, lag 5.43e-6) and table rounding. Flat: test_03 DC 2.2e-16."""
+
+# Expected tables: from reference.ss2_article (exact sqrt(2), exact pi). Never from the .c file.
+[expected.P10]
+flat = 0.0
+gains = [0.2241997821, 0.6950591600, 0.9661158676, 0.9970236439, 0.9997853600]
+lag = 1.8253214316
+source = "(b) analysis/harness/reference.py ss2_article(10), gain_at / ramp_lag, computed 2026-11-09"
+[expected.P14]
+flat = 0.0
+gains = [0.1169645491, 0.4467305971, 0.8942648375, 0.9915574523, 0.9996434302]
+lag = 2.7041752714
+source = "(b) analysis/harness/reference.py ss2_article(14), gain_at / ramp_lag, computed 2026-11-09"
+[expected.P20]
+flat = 0.0
+gains = [0.0576649840, 0.2384056789, 0.7041735869, 0.9691429181, 0.9990365336]
+lag = 4.0386663639
+source = "(b) analysis/harness/reference.py ss2_article(20), gain_at / ramp_lag, computed 2026-11-09"
+[expected.P30]
+flat = 0.0
+gains = [0.0256690485, 0.1085511328, 0.4044537895, 0.8706775409, 0.9958105498]
+lag = 6.2770730804
+source = "(b) analysis/harness/reference.py ss2_article(30), gain_at / ramp_lag, computed 2026-11-09"
+
+# ----------------------------------------------------------------------------- variants
+[[variants]]
+id = "P10"
+role = "real"
+label = "P=10"
+kind = "param"
+param = 10
+expected = "P10"
+
+[[variants]]
+id = "P14"
+role = "real"
+label = "P=14"
+kind = "param"
+param = 14
+expected = "P14"
+
+[[variants]]
+id = "P20"
+role = "real"
+label = "P=20"
+kind = "param"
+param = 20
+expected = "P20"
+
+[[variants]]
+id = "P30"
+role = "real"
+label = "P=30"
+kind = "param"
+param = 30
+expected = "P30"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NC-A: pole factor c1 +1 in 3rd digit vs P=20 article"
+kind = "inline"
+function = "ss2f_nc_a"
+param = 20
+expected = "P20"
+comment = """NC-A: realistic copying error (D2 rule 4). Identical to SuperSmoother2Pole.c except c1 gets +1 in
+its 3rd significant digit BEFORE b1, c3, c0 are derived (0.8008 -> 0.8018 at P = 20), so DC gain stays 1.
+The step 1/1000 equals reference.bump3(c1) at P = 20 (b: c1 = 0.800800, magnitude 1e-1 -> step 1e-3).
+Computed from integers at run time, no decimal literal (gotchas 9d.1). Defined here only."""
+body = '''
+var ss2f_nc_a(vars Price, int P)
+{
+	var c1 = exp(-sqrt(2.0) * PI / P);
+	c1 = c1 + 1.0 / 1000;
+	var b1 = 2.0 * c1 * cos(sqrt(2.0) * PI / P);
+	var c2 = b1;
+	var c3 = -c1 * c1;
+	var c0 = (1.0 - b1 + c1 * c1) / 2.0;
+	var* Filt = series(Price[0], 3);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = c0 * (Price[0] + Price[1]) + c2 * Filt[1] + c3 * Filt[2];
+	return Filt[0];
+}'''
+[variants.effect]       # error vs the P=20 article table (D2 per-control 10x margin, INFO)
+gain = 9.712484861833515e-4
+lag = 2.758274060994381e-4
+flat = 0.0
+source = "(b) reference.ss2_code(20, c1_bump=1) vs ss2_article(20), computed 2026-11-09"
+
+[[variants]]
+id = "NCB"
+role = "neg_control"
+label = "NC-B: input weight c0 +1 in 3rd digit vs P=20 article"
+kind = "inline"
+function = "ss2f_nc_b"
+param = 20
+expected = "P20"
+comment = """NC-B: realistic copying error (D2 rule 4). Identical to SuperSmoother2Pole.c except c0 gets +1 in
+its 3rd significant digit AFTER all coefficients are computed (0.039518 -> 0.039618 at P = 20); both input
+taps use c0, so DC gain != 1 and the FLAT check must fire (only control that exercises the flat guard).
+The step 1/10000 equals reference.bump3(c0) at P = 20 (b: magnitude 1e-2 -> step 1e-4). Defined here only."""
+body = '''
+var ss2f_nc_b(vars Price, int P)
+{
+	var c1 = exp(-sqrt(2.0) * PI / P);
+	var b1 = 2.0 * c1 * cos(sqrt(2.0) * PI / P);
+	var c2 = b1;
+	var c3 = -c1 * c1;
+	var c0 = (1.0 - b1 + c1 * c1) / 2.0;
+	c0 = c0 + 1.0 / 10000;
+	var* Filt = series(Price[0], 3);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = c0 * (Price[0] + Price[1]) + c2 * Filt[1] + c3 * Filt[2];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 2.5280452274326626e-3
+lag = 3.6026351040163718e-6
+flat = 2.7835344324704807e-3
+source = "(b) reference.ss2_code(20, in_bump=1) vs ss2_article(20); flat = 1.1 x |DC gain - 1|; computed 2026-11-09"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: P=21 vs P=20 article"
+kind = "param"
+param = 21
+expected = "P20"
+[variants.effect]
+gain = 0.035124677981256625
+lag = 0.22331155447401674
+flat = 0.0
+source = "(b) reference.ss2_code(21) vs ss2_article(20), computed 2026-11-09 (H1 NC1, unchanged definition)"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "NC2: cos arg in degrees vs P=20 article"
+kind = "inline"
+function = "ss2f_ss_deg"
+param = 20
+expected = "P20"
+comment = """NC2: gross units bug (gotchas §2), H1's NC2 unchanged except the function name. Identical to
+SuperSmoother2Pole.c except the cos argument is in degrees (sqrt(2)*180/P). Defined here only."""
+body = '''
+var ss2f_ss_deg(vars Price, int P)
+{
+	var c1 = exp(-sqrt(2.0) * PI / P);
+	var b1 = 2.0 * c1 * cos(sqrt(2.0) * 180.0 / P);
+	var c2 = b1;
+	var c3 = -c1 * c1;
+	var c0 = (1.0 - b1 + c1 * c1) / 2.0;
+	var* Filt = series(Price[0], 3);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = c0 * (Price[0] + Price[1]) + c2 * Filt[1] + c3 * Filt[2];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 0.17319823217566932
+lag = 1.387132267511019
+flat = 0.0
+source = "(b) reference model, degrees-cosine coefficients (PI_ZORRO in exp) vs ss2_article(20), computed 2026-11-09"
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """SS2 source fidelity PASSES only if ALL of the following hold; any other outcome is FAIL, recorded and
+kept (PROJECT_STATE §2 rule 9), and its cause found before anything is changed:
+1. All 28 real checks PASS: 4 periods (P10, P14, P20, P30) x 7 checks (flat, 5 sine gains, ramp lag),
+   against the article tables above at the tolerances above.
+2. Each of the 4 negative controls FAILS, i.e. at least one of its 7 checks FAILs. Required detecting check:
+   NCA gain; NCB gain and flat; NC1 gain and lag; NC2 gain and lag. A control that passes = harness broken.
+3. No input guard fires (x[n] vs recomputed, tol 1e-12; clock range), no row is ERROR, no NaN / infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3).
+5. The results file reports the variant count: 4 periods + 4 negative controls = 8 variants.
+Interpretation if 1 fails: per HARNESS_DESIGN §1 a FAIL can be a Zorro problem or a copying difference;
+the H1 implementation result (run 2 PASS) and observation OX separate the two."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+OX = """Raw-output equality with H1 run 2 (decision 3). Same .c, same inputs, same clock: the four real-variant
+output columns of Data/GEN_SS2F_raw.csv must equal those of
+analysis/harness/results/H1_SuperSmoother2Pole_20261105_run2.csv (P10, P14, P20, P30) value for value.
+Reported as INFO; a mismatch does not change PASS/FAIL but must be explained before the result is accepted."""
+O_LIT = "Report [literal_info] (article literals vs exact constants) in the results header. INFO, never PASS/FAIL (D1 rule 3)."
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
