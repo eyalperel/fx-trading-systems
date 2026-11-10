@@ -173,6 +173,23 @@ def validate_spec(spec):
         sh = ox.get("reference_sha256")
         if isinstance(sh, str) and sh and not re.fullmatch(r"[0-9a-f]{64}", sh):
             err.append(("OX_INCOMPLETE", "[ox] reference_sha256 is not 64 lowercase hex digits"))
+    # Amendment 2: [effect_corrections.<id>] supersedes single quantities of [variants.effect] in the
+    # INFO margin lines (reporting only; the verdict never reads these)
+    corr = spec.get("effect_corrections", {})
+    for vid, c in corr.items():
+        if vid not in ctrl:
+            err.append(("EFFECT_CORRECTION_UNKNOWN_ID",
+                        "[effect_corrections.%s]: %r is not a neg_control variant id" % (vid, vid)))
+            continue
+        qs = [q for q in c if q != "source"]
+        bad = [q for q in qs if q not in DETECT_KINDS or isinstance(c[q], bool)
+               or not isinstance(c[q], (int, float))]
+        if not qs or bad:
+            err.append(("EFFECT_CORRECTION_BAD", "[effect_corrections.%s]: need >= 1 numeric quantity in %s, "
+                        "got %s" % (vid, "/".join(DETECT_KINDS), bad if bad else "none")))
+        if not _has_label(c.get("source")):
+            err.append(("EFFECT_CORRECTION_BAD", "[effect_corrections.%s] has no (a)/(b)/(c) source label"
+                        % vid))
     if err:
         return err, info
 
@@ -191,14 +208,18 @@ def validate_spec(spec):
         if v["role"] != "neg_control":
             continue
         eff = v.get("effect")
-        if not eff:
+        fix = {q: x for q, x in corr.get(v["id"], {}).items() if q != "source"}
+        if not eff and not fix:
             info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
             continue
+        eff = dict(eff or {}, **fix)
         ratios = {q: eff[q] / tol[q] for q in ("gain", "lag", "flat") if q in eff}
         best = max(ratios, key=ratios.get)
-        info.append("INFO D2 margin %s: error/tolerance %s -> %s"
+        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in ("gain", "lag", "flat") if q in fix)
+                if fix else "")
+        info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
-                       "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met"))
+                       "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met", note))
     return err, info
 
 

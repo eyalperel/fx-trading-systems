@@ -560,6 +560,78 @@ class TestAmendment1(unittest.TestCase):
             self.assertIn("VERDICT: PASS", r.stdout)
             print("  T-CLI 'python checker.py <spec> <raw>' as a subprocess -> exit 0, VERDICT: PASS PASS")
 
+    # ------------------------------------------------------------------ Amendment 2: effect corrections
+    def test_effect_corrections(self):
+        """T-EC: [effect_corrections.<id>] supersedes single quantities of [variants.effect] in the INFO
+        margin lines (reporting only); refused when malformed; absent -> lines as before (H1)."""
+        def margin(infos, vid):
+            return [l for l in infos if l.startswith("INFO D2 margin %s:" % vid)][0]
+
+        t = toml_spec()
+        infos = G.validate_spec(t)[1]
+        ncb = margin(infos, "NCB")
+        self.assertIn("lag 3.53e+04x", ncb)
+        self.assertTrue(ncb.endswith("(corrected: lag, Amendment 2)"), ncb)
+        self.assertIn("gain 84.3x", ncb)                       # uncorrected quantities keep [variants.effect]
+        self.assertIn("flat 2.78e+06x", ncb)
+        print("  T-EC NCB: %s PASS" % ncb[len("INFO D2 margin "):])
+        want = {"NCA": "INFO D2 margin NCA: error/tolerance gain 32.4x, lag 0.276x, flat 0x -> 10x margin met (gain)",
+                "NC1": "INFO D2 margin NC1: error/tolerance gain 1.17e+03x, lag 223x, flat 0x -> 10x margin met "
+                       "(gain)",
+                "NC2": "INFO D2 margin NC2: error/tolerance gain 5.77e+03x, lag 1.39e+03x, flat 0x -> 10x margin "
+                       "met (gain)"}
+        for vid, line in want.items():
+            self.assertEqual(margin(infos, vid), line)
+        print("  T-EC NCA, NC1, NC2 lines unchanged (exact, no 'corrected') PASS")
+        # counter-check: without the correction the old (wrong) number shows, so the test can fail
+        t0 = toml_spec()
+        del t0["effect_corrections"]
+        old = margin(G.validate_spec(t0)[1], "NCB")
+        self.assertIn("lag 0.0036x", old)
+        self.assertNotIn("corrected", old)
+        print("  T-EC correction removed -> NCB shows 'lag 0.0036x', no 'corrected' text (test can fail) PASS")
+        # the INFO lines reach the checker dict and the results trailer; the verdict logic is untouched
+        d = G.to_checker_spec(toml_spec())
+        self.assertIn(ncb, d["info_lines"])
+        # refusals
+        def codes(mut):
+            x = toml_spec()
+            mut(x)
+            return [c for c, _ in G.validate_spec(x)[0]]
+
+        cases = (
+            ("unknown id", lambda x: x["effect_corrections"].update(
+                NCX=dict(lag=1.0, source="(b) test")), "EFFECT_CORRECTION_UNKNOWN_ID"),
+            ("real-variant id", lambda x: x["effect_corrections"].update(
+                P10=dict(lag=1.0, source="(b) test")), "EFFECT_CORRECTION_UNKNOWN_ID"),
+            ("bad quantity", lambda x: x["effect_corrections"]["NCB"].update(amplitude=1.0),
+             "EFFECT_CORRECTION_BAD"),
+            ("non-numeric value", lambda x: x["effect_corrections"]["NCB"].update(lag="35.3"),
+             "EFFECT_CORRECTION_BAD"),
+            ("no source", lambda x: x["effect_corrections"]["NCB"].pop("source"), "EFFECT_CORRECTION_BAD"),
+            ("source without label", lambda x: x["effect_corrections"]["NCB"].update(source="measured"),
+             "EFFECT_CORRECTION_BAD"),
+            ("no quantity", lambda x: x["effect_corrections"].update(
+                NCB=dict(source="(b) test")), "EFFECT_CORRECTION_BAD"))
+        for name, fn, want_code in cases:
+            got = codes(fn)
+            self.assertIn(want_code, got, "%s: %s" % (name, got))
+            print("  T-EC %-22s -> refused with %s PASS" % (name, want_code))
+        x = toml_spec()
+        x["effect_corrections"]["NCB"]["amplitude"] = 1.0
+        with self.assertRaises(G.SpecError):
+            G.to_checker_spec(x)
+        # H1 (no [effect_corrections]): INFO lines identical to those printed before the change
+        h1 = G.load_spec(os.path.join(HARNESS, "specs", "H1_SuperSmoother2Pole.toml"))
+        self.assertNotIn("effect_corrections", h1)
+        self.assertEqual(G.validate_spec(h1)[1], [
+            "INFO D2 floor gain: floor 6.185e-07 x10 = 6.185e-06 <= tolerance 1.000e-04 -> window ok",
+            "INFO D2 floor lag: floor 5.429e-06 x10 = 5.429e-05 <= tolerance 1.000e-03 -> window ok",
+            "INFO D2 floor flat: floor 2.200e-16 x10 = 2.200e-15 <= tolerance 1.000e-09 -> window ok",
+            "INFO D2 margin NC1: error/tolerance gain 351x, lag 223x, flat 0x -> 10x margin met (gain)",
+            "INFO D2 margin NC2: error/tolerance gain 1.73e+03x, lag 1.39e+03x, flat 0x -> 10x margin met (gain)"])
+        print("  T-EC H1 spec: 5 INFO lines identical to the pre-change output PASS")
+
 
 if __name__ == "__main__":
     unittest.main()
