@@ -302,3 +302,37 @@ O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-co
 
 # ----------------------------------------------------------------------------- amendments
 # (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-09, BEFORE any run. Base: this file as committed in eaba250 (text above unchanged).
+# Unchanged: tolerances, floors, expected tables, variants, effects, pass items 1-5 as stated.
+# Reason: Claude Code read-only audit (2026-11-09) of checker.py / generator.py against this spec.
+[amendment_1]
+date = "2026-11-09"
+base_commit = "eaba250"
+before_run = true
+changes = [
+  "A1.1 OX retargeted. [observations].OX named analysis/harness/results/H1_SuperSmoother2Pole_20261105_run2.csv, which is H1's RESULTS file (PASS/FAIL rows), not raw output, so OX could not be carried out as written. Superseded by [ox] below.",
+  "A1.2 Pass item 2 made machine-checkable: [detect.required] lists, per negative control, the check kinds that must EACH have at least one FAIL. Same meaning as the committed text of item 2.",
+  "A1.3 Item 3 clarified: an ERROR row in ANY variant, real or negative control, makes the run FAIL. This is the intended reading.",
+  "A1.4 Reporting (tool change, not a criterion change): the results file carries [literal_info] (O_LIT), the D2 floor x10 and per-control margin lines (O_MARGIN), the OX result, and the variant count split as real=4 neg_control=4; a guard-fired run states that variants were not evaluated instead of a bare variants_run=0.",
+]
+source = "(b) Claude Code audit 2026-11-09, reported in the planning chat; amendment decided by the user the same day"
+
+[detect]
+source = "(a) [pass_condition] item 2 of this spec (eaba250). (b) Each named kind has [variants.effect] >= 10x its tolerance: NCA gain 32x; NCB gain 84x, flat 2.8e6x; NC1 gain 1170x, lag 223x; NC2 gain 5770x, lag 1390x."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* | ramp-lag) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCA = ["gain"]
+NCB = ["gain", "flat"]
+NC1 = ["gain", "lag"]
+NC2 = ["gain", "lag"]
+
+[ox]
+reference_raw = "C:/Zorro/Data/H1_SS2P_raw.csv"
+reference_sha256 = "e8ffc04300e8ffb02221917d08f245aa492d410367f9f7d51ba5601b040c5a6f"
+columns = "n, clock_close, every x_<input> column, and y_<id>_<input> for id in P10, P14, P20, P30 (28 output columns); <input> = flat, s5, s10, s20, s40, s100, ramp"
+compare = "string token equality, every row (3000), each listed column; report count of differing tokens per column and the first differing row"
+if_reference_missing_or_hash_differs = "report 'OX not available' with the reason; INFO, not FAIL"
+result = "INFO only, as committed: a mismatch does not change PASS/FAIL but must be explained before the result is accepted"
+source = "(a) tests/test_checker.py lines 27-29 (path; sha256 recorded in the H1 run-2 results file line 49). (a) checker.header_of column naming. (b) H1 and this spec share variant ids P10..P30, inputs, clock and dates."
