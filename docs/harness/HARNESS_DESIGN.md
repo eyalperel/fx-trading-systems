@@ -175,4 +175,5 @@ phase/lag measurement (e.g. phase at the sine test periods), decided before thos
    (known answer in PROJECT_STATE §5), UltimateSmootherE, Decycler — pre-registered and committed
    before the batch runs.
    SS2 status 2026-11-09: spec pre-registered `eaba250`, Amendment 1 `b941c06`, Amendment 2 `02a6fca`;
-   tooling for Amendment 1/2 `c5e41dc`, `49f7fda` (40/40 tests), branch `harness-ss2f`; run pending.
+   tooling for Amendment 1/2 `c5e41dc`, `49f7fda` (40/40 tests), branch `harness-ss2f`; **run 1 PASS 2026-11-12** (`763601e`): 28/28,
+   all 4 controls detected, OX 37/37 identical to H1 raw; residual = `PI` gap (gain 5.7e-7, lag 5.4e-6).
