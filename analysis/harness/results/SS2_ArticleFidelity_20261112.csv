@@ -1,0 +1,117 @@
+check_id,indicator,params,asset,input,expected,actual,abs_diff,tolerance,ratio,result,role
+SS2F-P10-flat,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS2F-P10-gain-T5,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=5,0.2241997821,0.2241994415568623,3.405e-07,3e-05,1.135e-02,PASS,real
+SS2F-P10-gain-T10,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=10,0.69505916,0.695058599148115,5.609e-07,3e-05,1.870e-02,PASS,real
+SS2F-P10-gain-T20,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=20,0.9661158676,0.9661157759232836,9.168e-08,3e-05,3.056e-03,PASS,real
+SS2F-P10-gain-T40,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=40,0.9970236439,0.9970236376501653,6.250e-09,3e-05,2.083e-04,PASS,real
+SS2F-P10-gain-T100,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=100,0.99978536,0.9997853598474388,1.526e-10,3e-05,5.085e-06,PASS,real
+SS2F-P10-ramp-lag,SuperSmoother2Pole,P=10,synthetic (EURUSD D1 bar clock),ramp,1.8253214316,1.8253231870116964,1.755e-06,0.001,1.755e-03,PASS,real
+SS2F-P14-flat,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS2F-P14-gain-T5,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=5,0.1169645491,0.11696436337159709,1.857e-07,3e-05,6.191e-03,PASS,real
+SS2F-P14-gain-T10,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=10,0.4467305971,0.4467300250346773,5.721e-07,3e-05,1.907e-02,PASS,real
+SS2F-P14-gain-T20,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=20,0.8942648375,0.8942645581100611,2.794e-07,3e-05,9.313e-03,PASS,real
+SS2F-P14-gain-T40,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=40,0.9915574523,0.9915574286529132,2.365e-08,3e-05,7.882e-04,PASS,real
+SS2F-P14-gain-T100,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=100,0.9996434302,0.9996434295833335,6.167e-10,3e-05,2.056e-05,PASS,real
+SS2F-P14-ramp-lag,SuperSmoother2Pole,P=14,synthetic (EURUSD D1 bar clock),ramp,2.7041752714,2.7041777711540376,2.500e-06,0.001,2.500e-03,PASS,real
+SS2F-P20-flat,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS2F-P20-gain-T5,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=5,0.057664984,0.05766489131762553,9.268e-08,3e-05,3.089e-03,PASS,real
+SS2F-P20-gain-T10,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=10,0.2384056789,0.2384053167254408,3.622e-07,3e-05,1.207e-02,PASS,real
+SS2F-P20-gain-T20,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=20,0.7041735869,0.7041730186718012,5.682e-07,3e-05,1.894e-02,PASS,real
+SS2F-P20-gain-T40,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=40,0.9691429181,0.9691428260875173,9.201e-08,3e-05,3.067e-03,PASS,real
+SS2F-P20-gain-T100,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=100,0.9990365336,0.9990365310356498,2.564e-09,3e-05,8.548e-05,PASS,real
+SS2F-P20-ramp-lag,SuperSmoother2Pole,P=20,synthetic (EURUSD D1 bar clock),ramp,4.0386663639,4.038669966521958,3.603e-06,0.001,3.603e-03,PASS,real
+SS2F-P30-flat,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS2F-P30-gain-T5,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=5,0.0256690485,0.0256690071426619,4.136e-08,3e-05,1.379e-03,PASS,real
+SS2F-P30-gain-T10,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=10,0.1085511328,0.10855095977591118,1.730e-07,3e-05,5.767e-03,PASS,real
+SS2F-P30-gain-T20,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=20,0.4044537895,0.4044532443963903,5.451e-07,3e-05,1.817e-02,PASS,real
+SS2F-P30-gain-T40,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=40,0.8706775409,0.8706772031814839,3.377e-07,3e-05,1.126e-02,PASS,real
+SS2F-P30-gain-T100,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=100,0.9958105498,0.9958105368469701,1.295e-08,3e-05,4.318e-04,PASS,real
+SS2F-P30-ramp-lag,SuperSmoother2Pole,P=30,synthetic (EURUSD D1 bar clock),ramp,6.2770730804,6.277078509396672,5.429e-06,0.001,5.429e-03,PASS,real
+SS2F-NCA-flat,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS2F-NCA-gain-T5,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.057664984,0.057363329961361946,3.017e-04,3e-05,1.006e+01,FAIL,neg_control
+SS2F-NCA-gain-T10,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.2384056789,0.23746133373490394,9.443e-04,3e-05,3.148e+01,FAIL,neg_control
+SS2F-NCA-gain-T20,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=20,0.7041735869,0.704178764758544,5.178e-06,3e-05,1.726e-01,PASS,neg_control
+SS2F-NCA-gain-T40,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=40,0.9691429181,0.9701141666288684,9.712e-04,3e-05,3.237e+01,FAIL,neg_control
+SS2F-NCA-gain-T100,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=100,0.9990365336,0.9992536300397084,2.171e-04,3e-05,7.237e+00,FAIL,neg_control
+SS2F-NCA-ramp-lag,SuperSmoother2Pole,NC-A: pole factor c1 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),ramp,4.0386663639,4.038390536453763,2.758e-04,0.001,2.758e-01,PASS,neg_control
+SS2F-NCB-flat,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0027835343621509523,2.784e-03,1e-09,2.784e+06,FAIL,neg_control
+SS2F-NCB-gain-T5,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.057664984,0.057810811505329386,1.458e-04,3e-05,4.861e+00,FAIL,neg_control
+SS2F-NCB-gain-T10,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.2384056789,0.23900859799019986,6.029e-04,3e-05,2.010e+01,FAIL,neg_control
+SS2F-NCB-gain-T20,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=20,0.7041735869,0.7059549184848882,1.781e-03,3e-05,5.938e+01,FAIL,neg_control
+SS2F-NCB-gain-T40,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=40,0.9691429181,0.9715952282313133,2.452e-03,3e-05,8.174e+01,FAIL,neg_control
+SS2F-NCB-gain-T100,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=100,0.9990365336,1.0015645787748464,2.528e-03,3e-05,8.427e+01,FAIL,neg_control
+SS2F-NCB-ramp-lag,SuperSmoother2Pole,NC-B: input weight c0 +1 in 3rd digit vs P=20 article,synthetic (EURUSD D1 bar clock),ramp,4.0386663639,-31.250121677313228,3.529e+01,0.001,3.529e+04,FAIL,neg_control
+SS2F-NC1-flat,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS2F-NC1-gain-T5,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.057664984,0.05232183426165296,5.343e-03,3e-05,1.781e+02,FAIL,neg_control
+SS2F-NC1-gain-T10,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.2384056789,0.21737718514890786,2.103e-02,3e-05,7.009e+02,FAIL,neg_control
+SS2F-NC1-gain-T20,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=20,0.7041735869,0.6690489089399483,3.512e-02,3e-05,1.171e+03,FAIL,neg_control
+SS2F-NC1-gain-T40,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=40,0.9691429181,0.9630577747244079,6.085e-03,3e-05,2.028e+02,FAIL,neg_control
+SS2F-NC1-gain-T100,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=100,0.9990365336,0.9988646122443459,1.719e-04,3e-05,5.731e+00,FAIL,neg_control
+SS2F-NC1-ramp-lag,SuperSmoother2Pole,NC1: P=21 vs P=20 article,synthetic (EURUSD D1 bar clock),ramp,4.0386663639,4.261977918353122,2.233e-01,0.001,2.233e+02,FAIL,neg_control
+SS2F-NC2-flat,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS2F-NC2-gain-T5,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.057664984,0.04347575538636397,1.419e-02,3e-05,4.730e+02,FAIL,neg_control
+SS2F-NC2-gain-T10,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.2384056789,0.17484186318010145,6.356e-02,3e-05,2.119e+03,FAIL,neg_control
+SS2F-NC2-gain-T20,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=20,0.7041735869,0.5309753547455391,1.732e-01,3e-05,5.773e+03,FAIL,neg_control
+SS2F-NC2-gain-T40,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=40,0.9691429181,0.8732988335531227,9.584e-02,3e-05,3.195e+03,FAIL,neg_control
+SS2F-NC2-gain-T100,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),sine T=100,0.9990365336,0.9827905054667376,1.625e-02,3e-05,5.415e+02,FAIL,neg_control
+SS2F-NC2-ramp-lag,SuperSmoother2Pole,NC2: cos arg in degrees vs P=20 article,synthetic (EURUSD D1 bar clock),ramp,4.0386663639,5.42579863138699,1.387e+00,0.001,1.387e+03,FAIL,neg_control
+SS2F-NCA-verdict,SuperSmoother2Pole,control must FAIL at least one check of EVERY required kind,,all,DETECTED:gain,DETECTED,,,,PASS,neg_control
+SS2F-NCB-verdict,SuperSmoother2Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,flat",DETECTED,,,,PASS,neg_control
+SS2F-NC1-verdict,SuperSmoother2Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+SS2F-NC2-verdict,SuperSmoother2Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+# batch=SS2_ArticleFidelity variants_run=8 real=4 neg_control=4
+# real_checks=28 PASS=28 FAIL=0 ERROR=0
+# NC NCA fails_as_required=True margin10_met=True max_ratio gain=3.237e+01 lag=2.758e-01 flat=0.000e+00 detected gain=True lag=False flat=False required=gain
+# NC NCB fails_as_required=True margin10_met=True max_ratio gain=8.427e+01 lag=3.529e+04 flat=2.784e+06 detected gain=True lag=True flat=True required=gain,flat
+# NC NC1 fails_as_required=True margin10_met=True max_ratio gain=1.171e+03 lag=2.233e+02 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# NC NC2 fails_as_required=True margin10_met=True max_ratio gain=5.773e+03 lag=1.387e+03 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# literal_info (article literals vs exact constants; INFO, never PASS/FAIL, D1 rule 3) gain_max=0.0001072 lag_max=0.0010161 source=(b) reference model 2026-11-09: article with literals 1.414 / 3.14159 vs article with sqrt(2) / pi, P = 10,14,20,30, sine periods 5..100. Matches D1 table (1.03e-4..1.08e-4 gain).
+# INFO D2 floor gain: floor 1.450e-06 x10 = 1.450e-05 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor lag: floor 6.000e-06 x10 = 6.000e-05 <= tolerance 1.000e-03 -> window ok
+# INFO D2 floor flat: floor 2.200e-16 x10 = 2.200e-15 <= tolerance 1.000e-09 -> window ok
+# INFO D2 margin NCA: error/tolerance gain 32.4x, lag 0.276x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NCB: error/tolerance gain 84.3x, lag 3.53e+04x, flat 2.78e+06x -> 10x margin met (flat) (corrected: lag, Amendment 2)
+# INFO D2 margin NC1: error/tolerance gain 1.17e+03x, lag 223x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NC2: error/tolerance gain 5.77e+03x, lag 1.39e+03x, flat 0x -> 10x margin met (gain)
+# OX raw vs reference C:/Zorro/Data/H1_SS2P_raw.csv (sha256 e8ffc04300e8ffb02221917d08f245aa492d410367f9f7d51ba5601b040c5a6f verified): rows under test=3000 reference=3000 compared=3000
+# OX col=n differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=clock_close differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_flat differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_s5 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_s10 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_s20 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_s40 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_s100 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=x_ramp differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_flat differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_s5 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_s10 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_s20 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_s40 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_s100 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P10_ramp differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_flat differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_s5 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_s10 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_s20 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_s40 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_s100 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P14_ramp differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_flat differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_s5 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_s10 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_s20 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_s40 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_s100 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P20_ramp differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_flat differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_s5 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_s10 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_s20 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_s40 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_s100 differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX col=y_P30_ramp differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00
+# OX summary: columns=37 columns_differing=0 differing_tokens=0 (INFO only: does not change PASS/FAIL; a mismatch must be explained before the result is accepted)
+# OX note: max_abs_diff is beyond Amendment 1, reporting only
+# raw_file=C:/Zorro/Data/GEN_SS2F_raw.csv sha256=39c9ce95b778b03677d70f38b680b5f42dd6ffe66fa28cdb4c66f0d550f4a89e
+# VERDICT: PASS
