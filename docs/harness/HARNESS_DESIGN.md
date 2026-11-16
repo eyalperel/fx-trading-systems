@@ -100,6 +100,30 @@ rejected, mixes the two §1 questions and lowers detection for every check.
 3. The spec records each replacement (literal, exact value, article page) and the measured
    literal-vs-exact difference. That difference is reported as information, never as PASS/FAIL.
 
+**D1 Amendment 1 — 2026-11-15 (source's own table overrides a mistyped literal).**
+Found while sourcing SS3. (a) Ehlers, *Cybernetic Analysis for Stocks and Futures* (Wiley 2004),
+ch. 13: the 3-pole Super Smoother listing (Fig. 13.11, EasyLanguage; Fig. 13.12, EFS) and the
+3-pole Butterworth listing (Fig. 13.6) print the pole angle as `Cosine(1.738*180/Period)`.
+Table 13.4 (p. 210) gives the 3-pole Super Smoother coefficients for P = 2–40.
+(b) Max |difference| from Table 13.4 at P = 4, 10, 20, 30, 40, computing the coefficients with:
+`1.738` (as printed): 4.2e-3, 1.4e-3, 4.3e-4, 2.0e-4, 1.2e-4. `1.732`: ≤ 4.1e-6 (table rounding).
+√3 (exact): 3.7e-5, 1.3e-5, 3.9e-6, 2.2e-6, 8.3e-7. `1.738` vs √3 in filter gain, test periods
+5–100, P = 10–30: up to 3.7e-3, ~100× the SS2 gain tolerance. So the choice decides PASS/FAIL.
+(c) `1.738` is a typing error for `1.732` (√3, the Butterworth 3-pole angle factor): the book's
+own table was computed with `1.732`, and `1.738` matches neither the table nor a Butterworth pole.
+Rule 1 as written does not cover this (1.738 ≠ √3 to every digit); rule 2 would take it literally
+and target a filter the source itself does not tabulate.
+
+**Rule 4 (added):** a literal that fails rule 1 may be replaced only when **the same source's
+own numeric table** is reproduced by a rule-1 form of a named constant (here `1.732`) within the
+table's rounding, and rejects the printed literal by ≥ 10× that rounding. The replacement is then
+the exact constant, as rule 1 gives it (here √3). The spec records the literal, the rule-1 form,
+the exact value, the table reference and all three residuals. Without such a table, rule 2 applies.
+(b) SS3: table rounding ~5e-6; `1.732` ≤ 4.1e-6; `1.738` ≥ 1.2e-4 (≥ 29×). The √3-vs-table
+residual (up to 3.7e-5 at P = 4) is the table's own `1.732` rounding of √3 and is information only.
+(c) Gated on the source's own numbers so it cannot become "fix any literal that looks wrong".
+Applied first in the SS3 spec: `1.738` → √3.
+
 **D2. Tolerance policy — DECIDED 2026-11-06: one library-wide rule, per-quantity tolerances.**
 
 A tolerance must sit between a **floor** (differences already accepted) and a **ceiling** (the
@@ -177,3 +201,9 @@ phase/lag measurement (e.g. phase at the sine test periods), decided before thos
    SS2 status 2026-11-09: spec pre-registered `eaba250`, Amendment 1 `b941c06`, Amendment 2 `02a6fca`;
    tooling for Amendment 1/2 `c5e41dc`, `49f7fda` (40/40 tests), branch `harness-ss2f`; **run 1 PASS 2026-11-12** (`763601e`): 28/28,
    all 4 controls detected, OX 37/37 identical to H1 raw; residual = `PI` gap (gain 5.7e-7, lag 5.4e-6).
+   SS3 status 2026-11-16: source = Cybernetic Analysis Fig. 13.11; D1 Amendment 1 (rule 4) `9789fb5`; spec + tooling
+   (ss3 reference models, IMP replay check, floor guard; 57/57 tests) `867f952`; existing `.c` found to be a hybrid,
+   corrected `.c` + hybrid kept as `SuperSmoother3Pole_Hybrid_Superseded.c` `172fb4e`; Amendment 1 (pre-run records)
+   `a1dbce5` (65/65 tests); **run 1 PASS 2026-11-16** (`09c05ad`): 28/28, all 6 controls detected (incl. NCH = the
+   real hybrid, NCL = the book as printed), IMP <= 3.4e-14 (fire test 4.1e-3), Zorro vs book = `PI` gap (gain 9.0e-7,
+   lag 7.7e-6); 10 variants. First spec to answer both §1 questions in one run (IMP replaces an H1-style run).

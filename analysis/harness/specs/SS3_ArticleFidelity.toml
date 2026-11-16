@@ -1,0 +1,494 @@
+# SS3_ArticleFidelity.toml -- SuperSmoother 3-pole, SOURCE FIDELITY + IMPLEMENTATION (HARNESS_DESIGN §1, both questions).
+# Pre-registration: this file, committed BEFORE the corrected .c is written and BEFORE the generated script is run
+# (PROJECT_STATE §2 rule 2). Amendments are dated and appended at the end of the file, never edited in place.
+# Format: as specs/SS2_ArticleFidelity.toml (template), plus [corrected_code] and [imp] (new, see decision 4).
+# Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from SS2F:
+#   * Source is a book listing (Cybernetic Analysis 2004, Fig. 13.11), not a TASC sidebar.
+#   * D1 Amendment 1 (rule 4, 9789fb5) applied: printed 1.738 -> sqrt(3), justified by the book's own Table 13.4.
+#   * The current SuperSmoother3Pole.c is a hybrid that matches neither cited source (b, 2026-11-15). It is renamed
+#     SuperSmoother3Pole_Hybrid_Superseded.c and a corrected SuperSmoother3Pole.c is written AFTER this file is
+#     committed, to the lines pre-registered in [corrected_code]. The hybrid becomes negative control NCH.
+#   * No earlier implementation run exists (SS2 had H1), so this run answers the implementation question too:
+#     IMP replay check, pass-condition item 6.
+#
+# Decisions recorded here (planning chat 2026-11-15, user accepted each):
+#   0. Source: Cybernetic Analysis ch. 13 Fig. 13.11; 1.738 -> sqrt(3) via D1 Amendment 1 (option ii).
+#      .c fix option B: hybrid kept as SuperSmoother3Pole_Hybrid_Superseded.c, corrected file replaces it.
+#   1. gain tol 3e-5, lag tol 1e-3 (same as SS2, window re-derived for SS3 below).
+#   2. controls NCA, NCB, NCL, NCH, NC1, NC2 with [detect.required] below (10 variants).
+#   3. periods/inputs = SS2; O_PEAK observation (INFO).
+#   4. IMP replay check as pass-condition item 6, with NCH fire test.
+
+[batch]
+name = "SS3_ArticleFidelity"
+id_prefix = "SS3F"
+indicator = "SuperSmoother3Pole"          # Light-C function called by `param` variants (corrected file)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/SS3_ArticleFidelity.toml (this file)"
+script_name = "GEN_SS3F_SuperSmoother3Pole"  # generated Light-C file; the generator never overwrites
+
+[source]
+book = "Ehlers, J. F., Cybernetic Analysis for Stocks and Futures, Wiley 2004 (ISBN 978-0-471-46307-8), ch. 13 'Super Smoothers'"
+listing = "Figure 13.11 'EasyLanguage Code to Compute the Three-Pole Super Smoother Filter' (pp. 206-207); Figure 13.12 (EFS) uses the same constants"
+formula = '''
+(a) a1 = expvalue(-3.14159 / Period);
+    b1 = 2*a1*Cosine(1.738*180 / Period);       Cosine takes degrees -> cos(1.738*pi/Period) radians
+    c1 = a1*a1;
+    coef2 = b1 + c1;  coef3 = -(c1 + b1*c1);  coef4 = c1*c1;
+    coef1 = 1 - coef2 - coef3 - coef4;
+    Filt3 = coef1*Price + coef2*Filt3[1] + coef3*Filt3[2] + coef4*Filt3[3];
+    If CurrentBar < 4 then Filt3 = Price;
+(a) Book text, p. 205 (paraphrase): Super Smoothers are Butterworth filters with the numerator polynomial deleted
+    and replaced by one constant that gives unity gain at zero frequency.
+(a) Table 13.4 (p. 210): coefficients C[0], B[1], B[2], B[3] for cutoff periods 2..40.
+'''
+reference = "analysis/harness/reference.py ss3_article(period): the formula above with the D1 replacements below"
+seeding_note = """(b) The book seeds output = Price for CurrentBar < 4; the corrected .c seeds Filt = Price on the INITRUN
+call only (same pattern as SuperSmoother2Pole.c). Seeding affects only the start-up transient, excluded by
+warmup = 500 bars (transient < 1e-9 within 198 bars at P = 30, slowest pole radius exp(-pi/30) = 0.9006).
+Seeding is therefore not tested by this spec; it is not a fidelity claim either way."""
+
+# D1 literal-constant rule (HARNESS_DESIGN §6 + D1 Amendment 1, 9789fb5).
+[[literal_replacements]]
+literal = "1.738"
+exact = 1.7320508075688772
+name = "sqrt(3)"
+rule = "D1 rule 4 (Amendment 1)"
+source = """(a) Fig. 13.11 b1 line (also Fig. 13.12 EFS, Fig. 13.6). 1.738 fails rule 1. Rule 4: the book's own
+Table 13.4 is reproduced by the rule-1 form 1.732 within its rounding and rejects 1.738.
+(b) Max |coef - Table 13.4| at P = 4, 10, 20, 30, 40:
+    1.732 / pi:        4.44e-6, 1.56e-6, 9.20e-7, 2.00e-6, 1.10e-6   (table rounding ~5e-6)
+    1.738 / 3.14159:   4.21e-3, 1.43e-3, 4.33e-4, 2.05e-4, 1.18e-4   (>= 29x the rounding)
+    sqrt(3) / pi:      3.73e-5, 1.34e-5, 3.94e-6, 2.22e-6, 8.33e-7   (INFO: the table's own 1.732 rounding of sqrt(3))"""
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+rule = "D1 rule 1"
+source = "(a) Fig. 13.11 a1 line; D1 rule 1. The b1 line carries exact pi via degrees (Cosine(x*180/Period))."
+
+# D1 rule 3: literal-vs-exact difference, INFORMATION ONLY, never PASS/FAIL.
+[literal_info]
+gain_max = 3.8272e-3
+lag_max = 2.4513e-2
+source = "(b) 2026-11-15: book as printed (1.738 / 3.14159, exact pi in the degrees cosine) vs ss3_article, P = 10,14,20,30, sine periods 5..100; lag = analytic group delay. ~128x the gain tolerance: the D1 Amendment 1 choice decides PASS/FAIL (see NCL)."
+
+# Pre-registered coefficient and output lines of the corrected indicators/ehlers/SuperSmoother3Pole.c (decision 0/4).
+# The .c is written to these lines after this file is committed; a test asserts the .c contains them verbatim
+# (whitespace-normalised). reference.ss3_code(period, pi_value=PI_ZORRO) implements exactly these lines.
+[corrected_code]
+file = "indicators/ehlers/SuperSmoother3Pole.c"
+function = "var SuperSmoother3Pole(vars Price, int Period)"
+lines = '''
+var a1 = exp(-PI / Period);
+var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / Period);
+var c1 = a1 * a1;
+var coef2 = b1 + c1;
+var coef3 = -(c1 + b1 * c1);
+var coef4 = c1 * c1;
+var coef1 = 1.0 - coef2 - coef3 - coef4;
+var* Filt = series(Price[0], 4);
+if(Init) {
+	Filt[0] = Price[0];
+	return Filt[0];
+}
+Filt[0] = coef1 * Price[0] + coef2 * Filt[1] + coef3 * Filt[2] + coef4 * Filt[3];
+return Filt[0];'''
+notes = """(b) Decimal literals here (2.0, 3.0, 1.0) are exact in binary; PI is Zorro's macro (float32 3.14159, kept per D3).
+Superseded hybrid: renamed to indicators/ehlers/SuperSmoother3Pole_Hybrid_Superseded.c with its function renamed
+SuperSmoother3Pole_Hybrid_Superseded and a header stating why (real pole a1 instead of a1*a1; input
+(Price[0]+Price[1])/2 instead of Price). Docs to correct when the fix lands: docs/indicators/SuperSmoother_Notes.md:37
+('Validated'), docs/sources/NNFX_Sources.md:1063."""
+
+[zorro]
+include = "../../indicators/ehlers/SuperSmoother3Pole.c"   # resolved from strategies/tests/
+raw_file = "Data/GEN_SS3F_raw.csv"
+marker_file = "Data/GEN_SS3F_exit_marker.txt"      # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"                    # bar clock only; clock_close is exported
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # identical to SS2F / H1 (decision 3)
+n_bars = 3000
+warmup = 500
+level = [11, 10]            # 1.1 = 11/10, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[tolerances.flat]
+value = 1e-9
+source = "(a) H1 criteria section 5 (unchanged)"
+[tolerances.gain]
+value = 3e-5
+source = """(b)+(c) Decision 1, 2026-11-15, per D2 + Amendment 1. Floor 9.0e-7 (see [floor]) x10 = 9.0e-6 <= 3e-5.
+NCA gain effect 1.074e-3 / 3e-5 = 36x >= 10x. Geometric centre of floor..NCA = 3.1e-5. Same value as SS2F."""
+[tolerances.lag]
+value = 1e-3
+source = "(a) H1 default, kept. (b) Floor 7.7e-6 x10 = 7.7e-5 <= 1e-3. Unlike SS2, lag also catches NCA (11.6x): a 3-pole pole error moves group delay more."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n])"
+[tolerances.imp]
+value = 1e-9
+source = """(c) Decision 4, judgement. On output values (level ~1.1), bars n >= warmup. Double round-off of a stable
+3-pole recursion over 3000 bars ~1e-13 and %.15f print resolution 1e-15 (below); a real implementation bug
+(series slot, re-seeding, float32) >= 1e-4 (NCH fire test: 4.1e-3). ~1e4 margin each side."""
+
+# D2 floor per quantity: largest known accepted difference, Zorro output vs THIS spec's (book) table.
+[floor]
+gain = 9.0e-7
+lag = 7.7e-6
+flat = 2.2e-16
+source = """(b) 2026-11-15: Zorro PI gap only = ss3_code(PI_ZORRO) vs ss3_article, max over P = 10,14,20,30 and sine
+periods 5..100 (gain per P: 8.99e-7, 7.69e-7, 8.67e-7, 6.40e-7; lag: 2.48e-6, 3.54e-6, 5.10e-6, 7.68e-6).
+No table-rounding term (expected values are computed, not tabulated). The Zorro-side implementation residual is
+NOT yet measured for SS3 (no earlier run); it is measured by IMP in this run, and pass item 7 guards the floor."""
+
+# Expected tables: from reference.ss3_article (exact sqrt(3), exact pi). Never from the .c file.
+[expected.P10]
+flat = 0.0
+gains = [0.1515048035, 0.7429976339, 1.0046055947, 1.0029672106, 1.0004931159]
+lag = 1.7881695435
+source = "(b) ss3_article(10), analytic gain_at / ramp_lag, computed 2026-11-15 (standalone model; reference.py to reproduce)"
+[expected.P14]
+flat = 0.0
+gains = [0.0555852092, 0.3597823131, 0.9576561169, 1.0021689438, 1.0004898514]
+lag = 3.0312649816
+source = "(b) ss3_article(14), computed 2026-11-15"
+[expected.P20]
+flat = 0.0
+gains = [0.0190831718, 0.1303304354, 0.7158916696, 0.9953436668, 1.0004616040]
+lag = 4.9186008674
+source = "(b) ss3_article(20), computed 2026-11-15"
+[expected.P30]
+flat = 0.0
+gains = [0.0056549028, 0.0388902823, 0.2876177605, 0.9242108528, 1.0001291376]
+lag = 8.0842159570
+source = "(b) ss3_article(30), computed 2026-11-15"
+
+# ----------------------------------------------------------------------------- variants
+[[variants]]
+id = "P10"
+role = "real"
+label = "P=10"
+kind = "param"
+param = 10
+expected = "P10"
+
+[[variants]]
+id = "P14"
+role = "real"
+label = "P=14"
+kind = "param"
+param = 14
+expected = "P14"
+
+[[variants]]
+id = "P20"
+role = "real"
+label = "P=20"
+kind = "param"
+param = 20
+expected = "P20"
+
+[[variants]]
+id = "P30"
+role = "real"
+label = "P=30"
+kind = "param"
+param = 30
+expected = "P30"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NC-A: a1 +1 in 3rd digit vs P=20 book"
+kind = "inline"
+function = "ss3f_nc_a"
+param = 20
+expected = "P20"
+comment = """NC-A: realistic copying error (D2 rule 4), ceiling control. Identical to [corrected_code] except a1 gets +1
+in its 3rd significant digit BEFORE b1, c1 and the coefs are derived (0.854636 -> 0.855636 at P = 20); coef1 is
+recomputed from the bumped coefs, so DC gain stays 1. Step 1/1000 = bump3(a1) at P = 20. Defined here only."""
+body = '''
+var ss3f_nc_a(vars Price, int P)
+{
+	var a1 = exp(-PI / P);
+	a1 = a1 + 1.0 / 1000;
+	var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / P);
+	var c1 = a1 * a1;
+	var coef2 = b1 + c1;
+	var coef3 = -(c1 + b1 * c1);
+	var coef4 = c1 * c1;
+	var coef1 = 1.0 - coef2 - coef3 - coef4;
+	var* Filt = series(Price[0], 4);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = coef1 * Price[0] + coef2 * Filt[1] + coef3 * Filt[2] + coef4 * Filt[3];
+	return Filt[0];
+}'''
+[variants.effect]       # error vs the P=20 book table; lag = measured-check (sim_lag on the ramp), SS2F lesson
+gain = 1.0740344574e-3
+lag = 1.1553697025e-2
+flat = 0.0
+source = "(b) ss3_code(20, PI_ZORRO, a1_bump=1) vs ss3_article(20), computed 2026-11-15"
+
+[[variants]]
+id = "NCB"
+role = "neg_control"
+label = "NC-B: input weight coef1 +1 in 3rd digit vs P=20 book"
+kind = "inline"
+function = "ss3f_nc_b"
+param = 20
+expected = "P20"
+comment = """NC-B: realistic copying error (D2 rule 4). Identical to [corrected_code] except coef1 gets +1 in its 3rd
+significant digit AFTER all coefficients are computed (0.022647 -> 0.022747 at P = 20), so DC gain != 1 and the FLAT
+check must fire. On the ramp the DC error reads as lag (HARNESS_DESIGN D2 A1 correction): measured lag error 61.6 bars.
+Step 1/10000 = bump3(coef1) at P = 20. Defined here only."""
+body = '''
+var ss3f_nc_b(vars Price, int P)
+{
+	var a1 = exp(-PI / P);
+	var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / P);
+	var c1 = a1 * a1;
+	var coef2 = b1 + c1;
+	var coef3 = -(c1 + b1 * c1);
+	var coef4 = c1 * c1;
+	var coef1 = 1.0 - coef2 - coef3 - coef4;
+	coef1 = coef1 + 1.0 / 10000;
+	var* Filt = series(Price[0], 4);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = coef1 * Price[0] + coef2 * Filt[1] + coef3 * Filt[2] + coef4 * Filt[3];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 4.4176302400e-3
+lag = 6.1573578916e1
+flat = 4.8571513550e-3
+source = "(b) ss3_code(20, PI_ZORRO, in_bump=1) vs ss3_article(20); lag = sim_lag measured-check error; flat = 1.1 x |DC gain - 1|; computed 2026-11-15"
+
+[[variants]]
+id = "NCL"
+role = "neg_control"
+label = "NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi"
+kind = "inline"
+function = "ss3f_nc_l"
+param = 20
+expected = "P20"
+comment = """NC-L: the listing exactly as printed (D1 Amendment 1 evidence). Exponent constant 314159/100000 and cosine factor
+1738/1000, both built from integers at run time (gotchas 9d.1: no decimal literals). The cosine keeps Zorro PI (the
+book's degrees form carries exact pi; difference ~1e-6, negligible vs the 3.7e-3 effect). Defined here only."""
+body = '''
+var ss3f_nc_l(vars Price, int P)
+{
+	var piLit = 314159.0 / 100000;
+	var kLit = 1738.0 / 1000;
+	var a1 = exp(-piLit / P);
+	var b1 = 2.0 * a1 * cos(kLit * PI / P);
+	var c1 = a1 * a1;
+	var coef2 = b1 + c1;
+	var coef3 = -(c1 + b1 * c1);
+	var coef4 = c1 * c1;
+	var coef1 = 1.0 - coef2 - coef3 - coef4;
+	var* Filt = series(Price[0], 4);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = coef1 * Price[0] + coef2 * Filt[1] + coef3 * Filt[2] + coef4 * Filt[3];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 3.6844201236e-3
+lag = 1.6337814580e-2
+flat = 0.0
+source = "(b) book-as-printed coefficients (314159/100000 in exp, 1738/1000 * PI_ZORRO in cos) vs ss3_article(20), computed 2026-11-15"
+
+[[variants]]
+id = "NCH"
+role = "neg_control"
+label = "NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book"
+kind = "inline"
+function = "ss3f_nc_h"
+param = 20
+expected = "P20"
+comment = """NC-H: the real historical copying error. Body = indicators/ehlers/SuperSmoother3Pole.c as of main 5821335
+(lines 13-42, comments removed), function renamed only. Before the run Claude Code verifies it against
+SuperSmoother3Pole_Hybrid_Superseded.c (diff = name line only) and records that file's git blob hash in Amendment 1.
+Real pole a1 (book: a1*a1); input (Price[0]+Price[1])/2 (book: Price). Uses Price[1]: series_len 3 suffices."""
+body = '''
+var ss3f_nc_h(vars Price, int Period)
+{
+	var a1 = exp(-PI / Period);
+	var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / Period);
+	var c1 = b1 + a1;
+	var c2 = -(b1 * a1 + a1 * a1);
+	var c3 = a1 * a1 * a1;
+	var c0 = (1.0 - c1 - c2 - c3) / 2.0;
+	var* Filt = series(Price[0], 4);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = c0 * (Price[0] + Price[1])
+	        + c1 * Filt[1]
+	        + c2 * Filt[2]
+	        + c3 * Filt[3];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 2.6869021840e-1
+lag = 3.6700541500
+flat = 0.0
+source = "(b) hybrid coefficients (PI_ZORRO) vs ss3_article(20), computed 2026-11-15"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: P=21 vs P=20 book"
+kind = "param"
+param = 21
+expected = "P20"
+[variants.effect]
+gain = 5.4064029346e-2
+lag = 3.1581600517e-1
+flat = 0.0
+source = "(b) ss3_code(21, PI_ZORRO) vs ss3_article(20), computed 2026-11-15 (H1 NC1 definition)"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "NC2: cos arg in degrees vs P=20 book"
+kind = "inline"
+function = "ss3f_ss_deg"
+param = 20
+expected = "P20"
+comment = """NC2: gross units bug (gotchas §2). Identical to [corrected_code] except the cos argument is in degrees
+(sqrt(3)*180/P). Defined here only."""
+body = '''
+var ss3f_ss_deg(vars Price, int P)
+{
+	var a1 = exp(-PI / P);
+	var b1 = 2.0 * a1 * cos(sqrt(3.0) * 180.0 / P);
+	var c1 = a1 * a1;
+	var coef2 = b1 + c1;
+	var coef3 = -(c1 + b1 * c1);
+	var coef4 = c1 * c1;
+	var coef1 = 1.0 - coef2 - coef3 - coef4;
+	var* Filt = series(Price[0], 4);
+	if(Init) {
+		Filt[0] = Price[0];
+		return Filt[0];
+	}
+	Filt[0] = coef1 * Price[0] + coef2 * Filt[1] + coef3 * Filt[2] + coef4 * Filt[3];
+	return Filt[0];
+}'''
+[variants.effect]
+gain = 3.7633674554e-1
+lag = 3.1307050398
+flat = 0.0
+source = "(b) degrees-cosine coefficients (PI_ZORRO in exp) vs ss3_article(20), computed 2026-11-15"
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance: NCA gain 36x, lag 11.6x; NCB gain 147x, lag 6.2e4x, flat 4.9e6x; NCL gain 123x, lag 16x; NCH gain 8956x, lag 3670x; NC1 gain 1802x, lag 316x; NC2 gain 12545x, lag 3131x."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* | ramp-lag) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCA = ["gain", "lag"]
+NCB = ["gain", "lag", "flat"]
+NCL = ["gain", "lag"]
+NCH = ["gain", "lag"]
+NC1 = ["gain", "lag"]
+NC2 = ["gain", "lag"]
+
+# ----------------------------------------------------------------------------- IMP (decision 4)
+[imp]
+what = """Implementation check (HARNESS_DESIGN §1, first question). For each listed variant, replay the recursion in
+Python (reference.simulate) with the named coefficient model on the x columns EXPORTED by Zorro (not recomputed
+inputs), and report max |y_Zorro - y_replay| over bars n >= warmup, per input and overall."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { P10 = "ss3_code(10, PI_ZORRO)", P14 = "ss3_code(14, PI_ZORRO)", P20 = "ss3_code(20, PI_ZORRO)", P30 = "ss3_code(30, PI_ZORRO)", NCH = "ss3_hybrid(20, PI_ZORRO)" }
+must_fail = { NCH = "ss3_code(20, PI_ZORRO)" }
+fire_test_effect = "(b) NCH output vs ss3_code(20) replay, n >= 500: flat 1.1e-14, s5 1.4e-4, s10 7.9e-4, s20 3.8e-3, s40 4.1e-3, s100 2.1e-3, ramp 3.7e-4; overall 4.1e-3 = 4e6x tol. Same filter replayed with its own (hybrid) coefficients: 0 in the standalone model."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs
+book). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable.
+NCH is expected to show FIDELITY FAIL + IMP PASS (own coefficients): the copying-error signature on a real bug."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """SS3 source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL,
+recorded and kept (PROJECT_STATE §2 rule 9), and its cause found before anything is changed:
+1. All 28 real checks PASS: 4 periods (P10, P14, P20, P30) x 7 checks (flat, 5 sine gains, ramp lag), against the
+   book tables above at the tolerances above.
+2. Each of the 6 negative controls FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant, real or control,
+   no NaN / infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check
+   (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 4 real + 6 negative controls = 10 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9, and the [imp].must_fail replay > 1e-9 (guard seen to fire).
+7. Floor guard: for every real variant, max gain |Zorro - book| <= 3e-6 and lag |Zorro - book| <= 1e-4
+   (= tolerance / 10, D2 rule 3 floor side). If exceeded, the tolerance window is invalid: the result is NOT accepted
+   until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done by Claude Code before the [Test] click and recorded in Amendment 1:
+   (i) the corrected .c contains [corrected_code].lines verbatim (whitespace-normalised);
+   (ii) NCH body vs SuperSmoother3Pole_Hybrid_Superseded.c: diff = function-name line only; blob hash recorded;
+   (iii) reference.py ss3_article / ss3_code / ss3_hybrid reproduce this file's expected tables and effects to
+        <= 1e-9, and ss3_article reproduces Table 13.4 within the residuals in [[literal_replacements]];
+   (iv) generator --lint-only passes on this file."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_LIT = "Report [literal_info] (book literals vs exact constants) in the results header. INFO, never PASS/FAIL (D1 rule 3)."
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_PEAK = """(b) Passband overshoot: the book formula's gain exceeds 1 (P10: 1.0046 at T=20, 1.0030 at T=40; P14: 1.0022 at
+T=40; all P: ~1.0005 at T=100). Report the measured maximum gain per real variant. INFO: the expected tables include it.
+(c) Deleting the Butterworth numerator removes the zeros that keep the response maximally flat. Book text (p. 205,
+paraphrase) says the 3-pole passband equals the 2-pole filters'; SS2 never exceeds 1. Article-claim vs behaviour item
+(PROJECT_STATE §2 rule 7), to be carried into docs/indicators/SuperSmoother_Notes.md."""
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-book gain/lag residual per real variant; the latter is the measured SS3 floor (expected ~ the PI gap, 9e-7 / 7.7e-6)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-15, BEFORE any run. Base: 172fb4e (spec 867f952 + corrected .c + superseded hybrid). Text above unchanged.
+# Unchanged: tolerances, floors (incl. [floor].lag = 7.7e-6), expected tables, variants, effects, [detect.required],
+# [imp], pass items 1-7, [corrected_code], [observations].
+[amendment_1]
+date = "2026-11-15"
+base_commit = "172fb4e"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below.",
+  "A1.2 Correction, descriptive only, no criterion changed: [floor].source lists the per-P lag for P = 20 as 5.10e-6. The computed value is 5.094998e-6, which rounds to 5.09e-6 (not 5.10e-6). [floor].lag = 7.7e-6 is the maximum over P and is unchanged (it is the P = 30 value 7.68e-6).",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_ss3_corrected_code.py: indicators/ehlers/SuperSmoother3Pole.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var SuperSmoother3Pole(vars Price, int Period)'. Guard seen to fire: a1*a1 -> a1 in a temp-file copy, sqrt(3.0) -> 1.738, wrong function name, lines only in comments: all reported not-ok."
+cond_ii = "PASS. Same test file: NCH inline body (variant NCH) equals SuperSmoother3Pole_Hybrid_Superseded.c token by token, comments stripped; only difference is the function name (ss3f_nc_h vs SuperSmoother3Pole_Hybrid_Superseded). Guard seen to fire: c3 = a1*a1*a1 -> a1*a1 and dropping '/ 2.0' in a copy: both reported not-ok."
+cond_iii = "PASS. test_reference_ss3.py (expected tables, variant effects, floor, literal_info, Table 13.4 residuals, IMP fire-test numbers, registry vs spec models) passes in the full suite."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/SS3_ArticleFidelity.toml --lint-only: 'lint clean; nothing written'; every D2 floor window ok, every D2 margin >= 10x."
+tests_before = 57
+tests_after = 65
+tests_added = 8
+suite = "bash analysis/harness/run_tests.sh: TOTAL 65  PASS 65  FAIL 0  ERROR 0  SKIP 0"
+blob_SuperSmoother3Pole_Hybrid_Superseded_c = "5a858f69f9a78fbb7c81f7087205fdb62bcf173b"
+blob_SuperSmoother3Pole_c = "2af622e9282e253be35cfd8b67ba637c500921bf"
+blob_source = "(b) git rev-parse HEAD:<path> at HEAD = 172fb4e, 2026-11-15"

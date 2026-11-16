@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-12 (Phase 1 step 3 in progress: SS2 source fidelity verified; next: SS3 spec)
+**As of:** 2026-11-16 (Phase 1 step 3 in progress: SS2 and SS3 source fidelity verified; next: HARNESS_DESIGN D4, then HighPassFilter / RoofingFilter)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -21,7 +21,8 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 | Group | Indicators | Week 14 review status |
 |---|---|---|
 | Smoothers | SuperSmoother 2-pole | **Implementation verified** (H1 run 2 PASS, f59f6e4) **and source fidelity verified** (SS2F run 1 PASS, 763601e, 2026-11-12): Zorro output matches Ehlers' TASC V.42:04 formula (√2 and π exact per D1) within gain 5.7e-7 / lag 5.4e-6 bars, which is the Zorro `PI` gap (D3); tolerances 3e-5 / 1e-3; 4 negative controls detected; 8 variants. Not tested: start-up seeding (article: output = Price for the first 3 bars; excluded by warmup) |
-| Smoothers | SuperSmoother 3-pole, UltimateSmootherE | **Reviewed** |
+| Smoothers | SuperSmoother 3-pole | **Corrected and verified 2026-11-16.** The previous file was a hybrid matching neither cited source (real pole a1 instead of a1², 2-pole input average); it had been listed as "Validated". Kept as `SuperSmoother3Pole_Hybrid_Superseded.c`. Corrected to *Cybernetic Analysis* (2004) Fig. 13.11 with √3 (D1 Amendment 1: the printed 1.738 is a typo, the book's Table 13.4 uses 1.732). SS3F run 1 PASS (`09c05ad`): 28/28, 6 controls detected, IMP replay ≤ 3.4e-14, Zorro vs book = `PI` gap (gain 9.0e-7, lag 7.7e-6); 10 variants. Passband overshoot to gain 1.0046 (P = 10) |
+| Smoothers | UltimateSmootherE | **Reviewed** |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter, RoofingFilter | **Reviewed** — code correct; tests cannot fail |
 | High-pass family | Decycler | Not reviewed — may be identical to UltimateSmootherE |
@@ -111,6 +112,7 @@ indicators through the new test harness — not settled answers.
 | — | `SuperSmoother2Pole.c` "First bar" comments are misleading: `Init` is `is(INITRUN)`, not the first bar (b, `include/variables.h:182`; gotchas 9d.5) | Comment only; output unaffected (H1 run 2) |
 | — | Generated scripts' EXITRUN `printf` + marker file never fire (gotchas 9d.4; no marker from any run, re-confirmed SS2F run 1) | Dead code presented as a check; run cards must not rely on it. Remove or replace with a check written before `quit()` |
 | — | Harness ramp-lag check assumes DC gain 1: a DC-gain error reads as lag ((x − y)/s = (1 − G)·x/s + G·τ; NC-B 35 bars) | Invalid for HighPassFilter / RoofingFilter (DC gain 0). HARNESS_DESIGN D4, open |
+| — | `docs/indicators/SuperSmoother_Notes.md`: SS3 sections dated before 2026-11-16 describe the superseded hybrid (Key Finding 2, coefficients, SS3 table rows, SS3 Period column) | Flagged by a notice in the file; not re-measured for the corrected SS3 |
 | — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). **Decided 2026-11-06 (HARNESS_DESIGN D3): keep `PI`**; each spec records the gap in its tolerance floor |
 
 **Inference:** given that every test script reviewed so far could not fail, the
@@ -211,8 +213,16 @@ file's first rows exactly.
    kinds; OX: 37/37 raw columns identical to H1 run 2 raw; 8 variants. Tooling 40/40 tests (checker CLI:
    `python analysis/harness/checker.py <spec.toml> <raw.csv>`). Raw sha256 `39c9ce95…a89e` (copy kept
    locally, `*_raw_run*.csv` is gitignored).
-   Next: SS3, then HighPassFilter and RoofingFilter (need HARNESS_DESIGN D4 first: the ramp-lag check
-   assumes DC gain 1), UltimateSmootherE, Decycler.
+   **SS3 source fidelity + implementation: run 1 PASS, 2026-11-16** (`09c05ad`, branch `harness-ss3f`). Source
+   *Cybernetic Analysis* Fig. 13.11; D1 Amendment 1 (rule 4, `9789fb5`): printed `1.738` → √3, justified by the
+   book's own Table 13.4. The existing `SuperSmoother3Pole.c` was a hybrid matching neither cited source; corrected
+   (`172fb4e`), hybrid kept as `SuperSmoother3Pole_Hybrid_Superseded.c` and used as negative control NCH. Spec
+   `analysis/harness/specs/SS3_ArticleFidelity.toml` (`867f952` + Amendment 1 `a1dbce5`); gain tol 3e-5, lag 1e-3.
+   New in this spec: IMP replay check (implementation question answered in the same run, no H1-style run needed)
+   and floor guard (pass item 7). 28/28; NCA, NCB, NCL, NCH, NC1, NC2 detected on required kinds; IMP ≤ 3.4e-14;
+   10 variants. Tooling 65/65 tests. Raw sha256 `eacb27cc…88f5` (local copy).
+   Next: HighPassFilter and RoofingFilter (need HARNESS_DESIGN D4 first: the ramp-lag check assumes DC gain 1),
+   UltimateSmootherE, Decycler.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.

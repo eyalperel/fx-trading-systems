@@ -102,6 +102,68 @@ def ss2_code(period, pi_value=PI_ZORRO, c1_scale=None, c1_bump=0, in_bump=0):
     return Filter(b=(c0, c0), a=(c2, c3))
 
 
+def _ss3_filter(a1, arg, in_bump=0):
+    """3-pole coefficient block shared by ss3_*: a1 = pole factor, arg = cosine argument (radians)."""
+    b1 = 2.0 * a1 * math.cos(arg)
+    c1 = a1 * a1
+    coef2 = b1 + c1
+    coef3 = -(c1 + b1 * c1)
+    coef4 = c1 * c1
+    coef1 = 1.0 - coef2 - coef3 - coef4
+    if in_bump:
+        coef1 = bump3(coef1, in_bump)
+    return Filter(b=(coef1,), a=(coef2, coef3, coef4))
+
+
+def ss3_article(period):
+    """SuperSmoother 3-pole, Cybernetic Analysis Fig. 13.11 with the SS3 spec replacements
+    (1.738 -> sqrt(3) by D1 Amendment 1 rule 4; 3.14159 -> exact pi). (a) source:
+      a1 = expvalue(-3.14159/Period); b1 = 2*a1*Cosine(1.738*180/Period); c1 = a1*a1;
+      coef2 = b1 + c1; coef3 = -(c1 + b1*c1); coef4 = c1*c1; coef1 = 1 - coef2 - coef3 - coef4;
+      Filt3 = coef1*Price + coef2*Filt3[1] + coef3*Filt3[2] + coef4*Filt3[3].
+    Cosine takes degrees: cos(sqrt(3)*180/P deg) = cos(sqrt(3)*pi/P rad)."""
+    pi = math.pi
+    return _ss3_filter(math.exp(-pi / period), math.sqrt(3.0) * pi / period)
+
+
+def ss3_code(period, pi_value=PI_ZORRO, a1_bump=0, in_bump=0, deg=False):
+    """The [corrected_code] lines of the SS3 spec (indicators/ehlers/SuperSmoother3Pole.c after the fix):
+        var a1 = exp(-PI / Period);
+        var b1 = 2.0 * a1 * cos(sqrt(3.0) * PI / Period);  c1 = a1*a1; coef2..coef4, coef1 as above.
+    Negative-control hooks (default off): a1_bump = NCA (+units in 3rd digit of a1 BEFORE b1, c1, coefs);
+    in_bump = NCB (+units in 3rd digit of coef1 AFTER the coefs); deg = NC2 (cos argument sqrt(3)*180/P)."""
+    a1 = math.exp(-pi_value / period)
+    if a1_bump:
+        a1 = bump3(a1, a1_bump)
+    arg = math.sqrt(3.0) * 180.0 / period if deg else math.sqrt(3.0) * pi_value / period
+    return _ss3_filter(a1, arg, in_bump)
+
+
+def ss3_printed(period):
+    """NCL: the book listing as printed, constants 314159/100000 (exp) and 1738/1000 (cosine factor,
+    with Zorro's PI). For the NCL effect only; the exact-pi-in-cosine 'degrees' form is a test helper."""
+    a1 = math.exp(-(314159.0 / 100000) / period)
+    return _ss3_filter(a1, (1738.0 / 1000) * PI_ZORRO / period)
+
+
+def ss3_hybrid(period, pi_value=PI_ZORRO):
+    """NCH: the superseded hybrid SuperSmoother3Pole.c body (spec [[variants]] NCH):
+        c1 = b1 + a1; c2 = -(b1*a1 + a1*a1); c3 = a1*a1*a1; c0 = (1 - c1 - c2 - c3)/2;
+        Filt = c0*(Price[0]+Price[1]) + c1*Filt[1] + c2*Filt[2] + c3*Filt[3]  (real pole a1, averaged input)."""
+    a1 = math.exp(-pi_value / period)
+    b1 = 2.0 * a1 * math.cos(math.sqrt(3.0) * pi_value / period)
+    c1 = b1 + a1
+    c2 = -(b1 * a1 + a1 * a1)
+    c3 = a1 * a1 * a1
+    c0 = (1.0 - c1 - c2 - c3) / 2.0
+    return Filter(b=(c0, c0), a=(c1, c2, c3))
+
+
+# [imp] model strings (spec) -> filter. Explicit registry, no eval.
+IMP_MODELS = {"ss3_code(%d, PI_ZORRO)" % p: (lambda p=p: ss3_code(p)) for p in (10, 14, 20, 30)}
+IMP_MODELS["ss3_hybrid(20, PI_ZORRO)"] = lambda: ss3_hybrid(20)
+
+
 def bump3(v, units=1):
     """Add `units` to the 3rd significant digit of v (e.g. 0.8007 -> 0.8017)."""
     step = 10.0 ** (math.floor(math.log10(abs(v))) - 2)

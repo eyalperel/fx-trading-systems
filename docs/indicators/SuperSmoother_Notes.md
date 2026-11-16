@@ -1,7 +1,7 @@
 # SuperSmoother Family — Implementation Notes
 **Week:** 5 (implementation) — reviewed Week 14
 **Articles:** Moving Averages and Smoothing Filters (Ehlers TASC) + The Ultimate Smoother (Ehlers TASC)
-**Last Updated:** 2026-09-10 (Week 14 Session 1, part 3)
+**Last Updated:** 2026-11-16 (SS3 corrected and verified; see the SS3 notice below the indicator table)
 
 > **This file has no single family status.** Status is per indicator and per
 > claim, because the evidence differs between them. See the table below.
@@ -34,9 +34,22 @@ small committed data slices.
 | Indicator | File | Status | Evidence |
 |---|---|---|---|
 | SuperSmoother 2-pole | `indicators/ehlers/SuperSmoother2Pole.c` | **Validated** | Frequency response (notebook cells 11-12, independently reproduced); ramp lag 4.04 bars (`Test_USLag.c`) |
-| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | **Validated, with a narrower advantage than originally claimed** | Frequency response; ramp lag 5.17 bars. See Key Finding 2 |
+| SuperSmoother 3-pole | `indicators/ehlers/SuperSmoother3Pole.c` | **Source fidelity and implementation verified** (SS3F run 1 PASS, 2026-11-16, `09c05ad`) | Cybernetic Analysis (2004) Fig. 13.11 with sqrt(3) (D1 Amendment 1); 28/28 checks, 6 negative controls detected, IMP replay <= 3.4e-14; Zorro vs book = `PI` gap (gain 9.0e-7, lag 7.7e-6). Ramp lag 4.92 bars at P = 20. Spec `analysis/harness/specs/SS3_ArticleFidelity.toml` |
+| SuperSmoother 3-pole (hybrid) | `indicators/ehlers/SuperSmoother3Pole_Hybrid_Superseded.c` | **SUPERSEDED — matches neither cited source** | Was `SuperSmoother3Pole.c` until `172fb4e`: real pole a1 (source: a1*a1), input (Price+Price[1])/2 (source: Price). Previously listed as "Validated". Kept as negative control NCH (detected in SS3F run 1) |
 | Ultimate Smoother (published) | `indicators/ehlers/UltimateSmootherE.c` | **Ramp lag verified 0.0000 bars — exact on straight lines only** | `Test_USLag.c`; verified against independent scipy computation to 4 dp. Lag on curves is **unmeasured** (GAP-1.16) |
 | Ultimate Smoother (Week 5) | `indicators/ehlers/UltimateSmoother_W5_Superseded.c` | **SUPERSEDED — does not implement its cited article** | Ramp lag 3.87 bars vs SS2's 4.04, i.e. removes 4.1% of the lag. See Key Finding 5 |
+
+> **SS3 notice (2026-11-16).** (b) Every SS3 statement in this file dated before 2026-11-16 describes
+> the **superseded hybrid**, not the corrected filter: the 3-Pole Coefficients section, Key Finding 2
+> (cutoff ~1.57x Period, ramp lag 5.17 bars, the SS2-vs-SS3 comparison), the SS3 rows of the SNR /
+> smoothing tables, and the SS3 Period column of the cross-asset table. They are kept as the record and
+> have NOT been re-measured for the corrected filter. Measured for the corrected filter (SS3F run 1 and
+> spec): gain at T = Period is 0.716 at P = 20 (about -2.9 dB, so the cutoff sits near Period, not 1.57x);
+> ramp lag 1.79 / 3.03 / 4.92 / 8.08 bars at P = 10 / 14 / 20 / 30.
+> (b) **Passband overshoot (O_PEAK):** gain exceeds 1, up to 1.0046 at P = 10, T = 20, confirmed in Zorro.
+> The corrected SS3 is therefore not maximally flat, unlike SS2 and unlike the Butterworth description in
+> "Butterworth Design" below. (c) Removing the Butterworth numerator removes the zeros that keep the
+> response flat.
 
 ---
 
@@ -368,4 +381,5 @@ straight-line input (GAP-1.16). Treat the role assignment as provisional.
 | 2026-08-31 | 191404b | 3-pole coefficient line corrected to PI (GAP-1.11) |
 | 2026-08-31 | b93df97 | SS3 "beats SS2 at all frequencies" claim corrected (GAP-1.9) |
 | 2026-08-31 | 758aa4b | Week 13's UltimateSmoother finding propagated into this file (GAP-1.15) |
-| 2026-09-10 | *this commit* | Family status replaced with per-indicator status and named evidence; validation caveats relocated to the tables they describe; Key Finding 3 withdrawn and Key Finding 4 narrowed; GAP-1.28 recorded; cross-asset notes caveated; changelog added |
+| 2026-09-10 | (Week 14 S1 p3) | Family status replaced with per-indicator status and named evidence; validation caveats relocated to the tables they describe; Key Finding 3 withdrawn and Key Finding 4 narrowed; GAP-1.28 recorded; cross-asset notes caveated; changelog added |
+| 2026-11-16 | *this commit* | SS3 status: hybrid superseded, corrected file verified (SS3F run 1 PASS, `09c05ad`); SS3 notice added (pre-2026-11-16 SS3 sections describe the hybrid; O_PEAK overshoot) |
