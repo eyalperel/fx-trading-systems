@@ -1,0 +1,125 @@
+check_id,indicator,params,asset,input,expected,actual,abs_diff,tolerance,ratio,result,role
+SS3F-P10-flat,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS3F-P10-gain-T5,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=5,0.1515048035,0.15150444237479138,3.611e-07,3e-05,1.204e-02,PASS,real
+SS3F-P10-gain-T10,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=10,0.7429976339,0.7429967345256424,8.994e-07,3e-05,2.998e-02,PASS,real
+SS3F-P10-gain-T20,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=20,1.0046055947,1.0046055573130328,3.739e-08,3e-05,1.246e-03,PASS,real
+SS3F-P10-gain-T40,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=40,1.0029672106,1.0029672100440983,5.559e-10,3e-05,1.853e-05,PASS,real
+SS3F-P10-gain-T100,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),sine T=100,1.0004931159,1.0004931158855974,1.440e-11,3e-05,4.801e-07,PASS,real
+SS3F-P10-ramp-lag,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),ramp,1.7881695435,1.7881720268156043,2.483e-06,0.001,2.483e-03,PASS,real
+SS3F-P14-flat,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS3F-P14-gain-T5,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=5,0.0555852092,0.05558507489300402,1.343e-07,3e-05,4.477e-03,PASS,real
+SS3F-P14-gain-T10,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=10,0.3597823131,0.3597815442325894,7.689e-07,3e-05,2.563e-02,PASS,real
+SS3F-P14-gain-T20,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=20,0.9576561169,0.9576558728260443,2.441e-07,3e-05,8.136e-03,PASS,real
+SS3F-P14-gain-T40,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=40,1.0021689438,1.0021689393104813,4.490e-09,3e-05,1.497e-04,PASS,real
+SS3F-P14-gain-T100,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),sine T=100,1.0004898514,1.0004898513415383,5.846e-11,3e-05,1.949e-06,PASS,real
+SS3F-P14-ramp-lag,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),ramp,3.0312649816,3.0312685171069322,3.536e-06,0.001,3.536e-03,PASS,real
+SS3F-P20-flat,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),flat,0.0,5.995204332975845e-15,5.995e-15,1e-09,5.995e-06,PASS,real
+SS3F-P20-gain-T5,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.019083125601945264,4.620e-08,3e-05,1.540e-03,PASS,real
+SS3F-P20-gain-T10,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.13033012469227592,3.107e-07,3e-05,1.036e-02,PASS,real
+SS3F-P20-gain-T20,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.7158908030417821,8.666e-07,3e-05,2.889e-02,PASS,real
+SS3F-P20-gain-T40,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9953436297405536,3.706e-08,3e-05,1.235e-03,PASS,real
+SS3F-P20-gain-T100,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,1.0004616037983791,2.016e-10,3e-05,6.721e-06,PASS,real
+SS3F-P20-ramp-lag,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,4.9186059624140475,5.095e-06,0.001,5.095e-03,PASS,real
+SS3F-P30-flat,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+SS3F-P30-gain-T5,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=5,0.0056549028,0.0056548890949691035,1.371e-08,3e-05,4.568e-04,PASS,real
+SS3F-P30-gain-T10,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=10,0.0388902823,0.03889018827689946,9.402e-08,3e-05,3.134e-03,PASS,real
+SS3F-P30-gain-T20,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=20,0.2876177605,0.28761712035764014,6.401e-07,3e-05,2.134e-02,PASS,real
+SS3F-P30-gain-T40,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=40,0.9242108528,0.9242105147071278,3.381e-07,3e-05,1.127e-02,PASS,real
+SS3F-P30-gain-T100,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),sine T=100,1.0001291376,1.0001291358223596,1.778e-09,3e-05,5.925e-05,PASS,real
+SS3F-P30-ramp-lag,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),ramp,8.084215957,8.08422363476271,7.678e-06,0.001,7.678e-03,PASS,real
+SS3F-NCA-flat,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),flat,0.0,5.995204332975845e-15,5.995e-15,1e-09,5.995e-06,PASS,neg_control
+SS3F-NCA-gain-T5,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.018884139669941555,1.990e-04,3e-05,6.634e+00,FAIL,neg_control
+SS3F-NCA-gain-T10,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.12925640084895784,1.074e-03,3e-05,3.580e+01,FAIL,neg_control
+SS3F-NCA-gain-T20,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.7158910837608956,5.858e-07,3e-05,1.953e-02,PASS,neg_control
+SS3F-NCA-gain-T40,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9958522500774293,5.086e-04,3e-05,1.695e+01,FAIL,neg_control
+SS3F-NCA-gain-T100,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,1.0004765760735017,1.497e-05,3e-05,4.991e-01,PASS,neg_control
+SS3F-NCA-ramp-lag,SuperSmoother3Pole,NC-A: a1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,4.93015456498862,1.155e-02,0.001,1.155e+01,FAIL,neg_control
+SS3F-NCB-flat,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),flat,0.0,0.004857151232265933,4.857e-03,1e-09,4.857e+06,FAIL,neg_control
+SS3F-NCB-gain-T5,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.01916738889923433,8.422e-05,3e-05,2.807e+00,FAIL,neg_control
+SS3F-NCB-gain-T10,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.13090560935195938,5.752e-04,3e-05,1.917e+01,FAIL,neg_control
+SS3F-NCB-gain-T20,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.7190518847658166,3.160e-03,3e-05,1.053e+02,FAIL,neg_control
+SS3F-NCB-gain-T40,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9997386611391141,4.395e-03,3e-05,1.465e+02,FAIL,neg_control
+SS3F-NCB-gain-T100,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,1.0048792340817232,4.418e-03,3e-05,1.473e+02,FAIL,neg_control
+SS3F-NCB-ramp-lag,SuperSmoother3Pole,NC-B: input weight coef1 +1 in 3rd digit vs P=20 book,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,-56.65497649340835,6.157e+01,0.001,6.157e+04,FAIL,neg_control
+SS3F-NCL-flat,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS3F-NCL-gain-T5,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.019187846301994733,1.047e-04,3e-05,3.489e+00,FAIL,neg_control
+SS3F-NCL-gain-T10,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.13115904371740608,8.286e-04,3e-05,2.762e+01,FAIL,neg_control
+SS3F-NCL-gain-T20,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.7195761114220182,3.684e-03,3e-05,1.228e+02,FAIL,neg_control
+SS3F-NCL-gain-T40,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9957319889640669,3.883e-04,3e-05,1.294e+01,FAIL,neg_control
+SS3F-NCL-gain-T100,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,1.0004695890414015,7.985e-06,3e-05,2.662e-01,PASS,neg_control
+SS3F-NCL-ramp-lag,SuperSmoother3Pole,"NC-L: book as printed (1.738, 3.14159) vs P=20 book with sqrt(3), pi",synthetic (EURUSD D1 bar clock),ramp,4.9186008674,4.9022628982129826,1.634e-02,0.001,1.634e+01,FAIL,neg_control
+SS3F-NCH-flat,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS3F-NCH-gain-T5,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.00789745390938833,1.119e-02,3e-05,3.729e+02,FAIL,neg_control
+SS3F-NCH-gain-T10,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.06722616775602717,6.310e-02,3e-05,2.103e+03,FAIL,neg_control
+SS3F-NCH-gain-T20,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.44720145120144317,2.687e-01,3e-05,8.956e+03,FAIL,neg_control
+SS3F-NCH-gain-T40,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.7844653006590082,2.109e-01,3e-05,7.029e+03,FAIL,neg_control
+SS3F-NCH-gain-T100,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,0.9468342907796307,5.363e-02,3e-05,1.788e+03,FAIL,neg_control
+SS3F-NCH-ramp-lag,SuperSmoother3Pole,NC-H: the superseded hybrid SuperSmoother3Pole.c vs P=20 book,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,8.58865501743753,3.670e+00,0.001,3.670e+03,FAIL,neg_control
+SS3F-NC1-flat,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS3F-NC1-gain-T5,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.01648523204905688,2.598e-03,3e-05,8.660e+01,FAIL,neg_control
+SS3F-NC1-gain-T10,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.11280449206799222,1.753e-02,3e-05,5.842e+02,FAIL,neg_control
+SS3F-NC1-gain-T20,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.6618276402546492,5.406e-02,3e-05,1.802e+03,FAIL,neg_control
+SS3F-NC1-gain-T40,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9927498527621833,2.594e-03,3e-05,8.646e+01,FAIL,neg_control
+SS3F-NC1-gain-T100,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,1.0004507165442467,1.089e-05,3e-05,3.629e-01,PASS,neg_control
+SS3F-NC1-ramp-lag,SuperSmoother3Pole,NC1: P=21 vs P=20 book,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,5.234416872574376,3.158e-01,0.001,3.158e+02,FAIL,neg_control
+SS3F-NC2-flat,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+SS3F-NC2-gain-T5,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=5,0.0190831718,0.39541991732891274,3.763e-01,3e-05,1.254e+04,FAIL,neg_control
+SS3F-NC2-gain-T10,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=10,0.1303304354,0.5024722867054172,3.721e-01,3e-05,1.240e+04,FAIL,neg_control
+SS3F-NC2-gain-T20,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=20,0.7158916696,0.727770908395064,1.188e-02,3e-05,3.960e+02,FAIL,neg_control
+SS3F-NC2-gain-T40,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=40,0.9953436668,0.9008736416215144,9.447e-02,3e-05,3.149e+03,FAIL,neg_control
+SS3F-NC2-gain-T100,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),sine T=100,1.000461604,0.9817071884170544,1.875e-02,3e-05,6.251e+02,FAIL,neg_control
+SS3F-NC2-ramp-lag,SuperSmoother3Pole,NC2: cos arg in degrees vs P=20 book,synthetic (EURUSD D1 bar clock),ramp,4.9186008674,1.7878958276392964,3.131e+00,0.001,3.131e+03,FAIL,neg_control
+SS3F-P10-imp-pass,SuperSmoother3Pole,"IMP must_pass: ss3_code(10, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",0.0,3.9968028886505635e-15,3.997e-15,1e-09,3.997e-06,PASS,imp
+SS3F-P14-imp-pass,SuperSmoother3Pole,"IMP must_pass: ss3_code(14, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",0.0,7.327471962526033e-15,7.327e-15,1e-09,7.327e-06,PASS,imp
+SS3F-P20-imp-pass,SuperSmoother3Pole,"IMP must_pass: ss3_code(20, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",0.0,1.6431300764452317e-14,1.643e-14,1e-09,1.643e-05,PASS,imp
+SS3F-P30-imp-pass,SuperSmoother3Pole,"IMP must_pass: ss3_code(30, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",0.0,3.441691376337985e-14,3.442e-14,1e-09,3.442e-05,PASS,imp
+SS3F-NCH-imp-pass,SuperSmoother3Pole,"IMP must_pass: ss3_hybrid(20, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",0.0,2.531308496145357e-14,2.531e-14,1e-09,2.531e-05,PASS,imp
+SS3F-NCH-imp-fail,SuperSmoother3Pole,"IMP must_fail: ss3_code(20, PI_ZORRO)",synthetic (EURUSD D1 bar clock),"replay residual n>=500, overall",1e-09,0.004082021747370934,4.082e-03,1e-09,4.082e+06,PASS,imp
+SS3F-P10-floor-gain,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,8.993743575436142e-07,8.994e-07,3e-06,2.998e-01,PASS,floor
+SS3F-P10-floor-lag,SuperSmoother3Pole,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,2.483315604262515e-06,2.483e-06,0.0001,2.483e-02,PASS,floor
+SS3F-P14-floor-gain,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,7.688674105721383e-07,7.689e-07,3e-06,2.563e-01,PASS,floor
+SS3F-P14-floor-lag,SuperSmoother3Pole,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,3.535506932106358e-06,3.536e-06,0.0001,3.536e-02,PASS,floor
+SS3F-P20-floor-gain,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,8.665582178490894e-07,8.666e-07,3e-06,2.889e-01,PASS,floor
+SS3F-P20-floor-lag,SuperSmoother3Pole,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,5.095014047107327e-06,5.095e-06,0.0001,5.095e-02,PASS,floor
+SS3F-P30-floor-gain,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,6.401423598423328e-07,6.401e-07,3e-06,2.134e-01,PASS,floor
+SS3F-P30-floor-lag,SuperSmoother3Pole,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,7.6777627100455e-06,7.678e-06,0.0001,7.678e-02,PASS,floor
+SS3F-NCA-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+SS3F-NCB-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag,flat",DETECTED,,,,PASS,neg_control
+SS3F-NCL-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+SS3F-NCH-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+SS3F-NC1-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+SS3F-NC2-verdict,SuperSmoother3Pole,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,lag",DETECTED,,,,PASS,neg_control
+# batch=SS3_ArticleFidelity variants_run=10 real=4 neg_control=6
+# real_checks=28 PASS=28 FAIL=0 ERROR=0
+# NC NCA fails_as_required=True margin10_met=True max_ratio gain=3.580e+01 lag=1.155e+01 flat=5.995e-06 detected gain=True lag=True flat=False required=gain,lag
+# NC NCB fails_as_required=True margin10_met=True max_ratio gain=1.473e+02 lag=6.157e+04 flat=4.857e+06 detected gain=True lag=True flat=True required=gain,lag,flat
+# NC NCL fails_as_required=True margin10_met=True max_ratio gain=1.228e+02 lag=1.634e+01 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# NC NCH fails_as_required=True margin10_met=True max_ratio gain=8.956e+03 lag=3.670e+03 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# NC NC1 fails_as_required=True margin10_met=True max_ratio gain=1.802e+03 lag=3.158e+02 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# NC NC2 fails_as_required=True margin10_met=True max_ratio gain=1.254e+04 lag=3.131e+03 flat=0.000e+00 detected gain=True lag=True flat=False required=gain,lag
+# literal_info (article literals vs exact constants; INFO, never PASS/FAIL, D1 rule 3) gain_max=0.0038272 lag_max=0.024513 source=(b) 2026-11-15: book as printed (1.738 / 3.14159, exact pi in the degrees cosine) vs ss3_article, P = 10,14,20,30, sine periods 5..100; lag = analytic group delay. ~128x the gain tolerance: the D1 Amendment 1 choice decides PASS/FAIL (see NCL).
+# INFO D2 floor gain: floor 9.000e-07 x10 = 9.000e-06 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor lag: floor 7.700e-06 x10 = 7.700e-05 <= tolerance 1.000e-03 -> window ok
+# INFO D2 floor flat: floor 2.200e-16 x10 = 2.200e-15 <= tolerance 1.000e-09 -> window ok
+# INFO D2 margin NCA: error/tolerance gain 35.8x, lag 11.6x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NCB: error/tolerance gain 147x, lag 6.16e+04x, flat 4.86e+06x -> 10x margin met (flat)
+# INFO D2 margin NCL: error/tolerance gain 123x, lag 16.3x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NCH: error/tolerance gain 8.96e+03x, lag 3.67e+03x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NC1: error/tolerance gain 1.8e+03x, lag 316x, flat 0x -> 10x margin met (gain)
+# INFO D2 margin NC2: error/tolerance gain 1.25e+04x, lag 3.13e+03x, flat 0x -> 10x margin met (gain)
+# IMP SS3F-P10-imp-pass residual overall=3.997e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=2.887e-15 s10=3.109e-15 s20=3.109e-15 s40=3.331e-15 s100=2.887e-15 ramp=3.997e-15
+# IMP SS3F-P14-imp-pass residual overall=7.327e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=6.217e-15 s10=6.883e-15 s20=7.327e-15 s40=5.773e-15 s100=4.219e-15 ramp=7.327e-15
+# IMP SS3F-P20-imp-pass residual overall=1.643e-14 tol=1e-09 PASS per_input: flat=4.441e-16 s5=9.326e-15 s10=1.132e-14 s20=4.441e-16 s40=4.441e-16 s100=1.643e-14 ramp=1.177e-14
+# IMP SS3F-P30-imp-pass residual overall=3.442e-14 tol=1e-09 PASS per_input: flat=0.000e+00 s5=4.441e-16 s10=4.441e-16 s20=4.441e-16 s40=4.441e-16 s100=3.109e-14 ramp=3.442e-14
+# IMP SS3F-NCH-imp-pass residual overall=2.531e-14 tol=1e-09 PASS per_input: flat=0.000e+00 s5=2.531e-14 s10=1.821e-14 s20=4.441e-16 s40=4.441e-16 s100=4.441e-16 ramp=2.132e-14
+# IMP SS3F-NCH-imp-fail residual overall=4.082e-03 tol=1e-09 PASS per_input: flat=5.773e-15 s5=1.397e-04 s10=7.908e-04 s20=3.771e-03 s40=4.082e-03 s100=2.144e-03 ramp=3.670e-04
+# O_PEAK P10 max_measured_gain=1.0046055573130328 (INFO)
+# O_PEAK P14 max_measured_gain=1.0021689393104813 (INFO)
+# O_PEAK P20 max_measured_gain=1.0004616037983791 (INFO)
+# O_PEAK P30 max_measured_gain=1.0001291358223596 (INFO)
+# O_IMP_RESIDUAL P10 imp=3.997e-15 zorro_vs_book_gain_max=8.994e-07 zorro_vs_book_lag=2.483e-06 (INFO)
+# O_IMP_RESIDUAL P14 imp=7.327e-15 zorro_vs_book_gain_max=7.689e-07 zorro_vs_book_lag=3.536e-06 (INFO)
+# O_IMP_RESIDUAL P20 imp=1.643e-14 zorro_vs_book_gain_max=8.666e-07 zorro_vs_book_lag=5.095e-06 (INFO)
+# O_IMP_RESIDUAL P30 imp=3.442e-14 zorro_vs_book_gain_max=6.401e-07 zorro_vs_book_lag=7.678e-06 (INFO)
+# raw_file=analysis/harness/results/SS3_ArticleFidelity_20261116_raw_run1.csv sha256=eacb27cc0905305f376a95539fa00b06db1ec7c9158cca0d87627a28b3b388f5
+# VERDICT: PASS
