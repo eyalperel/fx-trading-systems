@@ -65,3 +65,4 @@ rename_*.py
 !analysis/harness/results/
 # Raw Zorro output copies stored next to harness results (large; the sha256 is in the results file footer).
 *_raw_run*.csv
+.claude/
