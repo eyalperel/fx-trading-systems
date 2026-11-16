@@ -1060,7 +1060,7 @@ Stonehill tested these indicators that are already in our library, or close rela
 | Stonehill test | Role tested | Our library | Match |
 |---|---|---|---|
 | Super Smoother | Baseline | SuperSmoother2Pole | Same family (a)/(c) |
-| Ehlers 3-Pole Butterworth | Baseline | SuperSmoother3Pole | Related (c) |
+| Ehlers 3-Pole Butterworth | Baseline | SuperSmoother3Pole | Related (c): same 3-pole Butterworth pole set; the library file is the Super Smoother variant (numerator replaced by a constant, Cybernetic Analysis Fig. 13.11; corrected 2026-11-16, `172fb4e`). Whether Stonehill's MT4 code keeps the Butterworth numerator is unchecked |
 | FRAMA | Baseline | FRAMA | Same |
 | Fisher | Confirmation | FisherTransform | Same family |
 | Reflex | Confirmation | Reflex | Same |

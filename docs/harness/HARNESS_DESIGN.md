@@ -201,3 +201,9 @@ phase/lag measurement (e.g. phase at the sine test periods), decided before thos
    SS2 status 2026-11-09: spec pre-registered `eaba250`, Amendment 1 `b941c06`, Amendment 2 `02a6fca`;
    tooling for Amendment 1/2 `c5e41dc`, `49f7fda` (40/40 tests), branch `harness-ss2f`; **run 1 PASS 2026-11-12** (`763601e`): 28/28,
    all 4 controls detected, OX 37/37 identical to H1 raw; residual = `PI` gap (gain 5.7e-7, lag 5.4e-6).
+   SS3 status 2026-11-16: source = Cybernetic Analysis Fig. 13.11; D1 Amendment 1 (rule 4) `9789fb5`; spec + tooling
+   (ss3 reference models, IMP replay check, floor guard; 57/57 tests) `867f952`; existing `.c` found to be a hybrid,
+   corrected `.c` + hybrid kept as `SuperSmoother3Pole_Hybrid_Superseded.c` `172fb4e`; Amendment 1 (pre-run records)
+   `a1dbce5` (65/65 tests); **run 1 PASS 2026-11-16** (`09c05ad`): 28/28, all 6 controls detected (incl. NCH = the
+   real hybrid, NCL = the book as printed), IMP <= 3.4e-14 (fire test 4.1e-3), Zorro vs book = `PI` gap (gain 9.0e-7,
+   lag 7.7e-6); 10 variants. First spec to answer both §1 questions in one run (IMP replaces an H1-style run).
