@@ -23,6 +23,8 @@ import struct
 import sys
 import tomllib
 
+import reference as R
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
@@ -190,6 +192,40 @@ def validate_spec(spec):
         if not _has_label(c.get("source")):
             err.append(("EFFECT_CORRECTION_BAD", "[effect_corrections.%s] has no (a)/(b)/(c) source label"
                         % vid))
+    # SS3: `rule` key of [[literal_replacements]], [corrected_code], [imp] + [tolerances.imp]
+    for r in spec.get("literal_replacements", []):
+        if "rule" in r and (not isinstance(r["rule"], str) or not r["rule"].strip()):
+            err.append(("LITERAL_INCOMPLETE", "literal replacement %r: rule must be a non-empty string"
+                        % r.get("literal")))
+    cc = spec.get("corrected_code")
+    if cc is not None:
+        for k in ("file", "function", "lines"):
+            if not isinstance(cc.get(k), str) or not cc.get(k).strip():
+                err.append(("CORRECTED_CODE_BAD", "[corrected_code] missing or empty %s" % k))
+    imp = spec.get("imp")
+    if imp is not None:
+        ti = spec["tolerances"].get("imp")
+        if not isinstance(ti, dict) or isinstance(ti.get("value"), bool) \
+                or not isinstance(ti.get("value"), (int, float)) or ti["value"] <= 0:
+            err.append(("IMP_TOL_MISSING", "[imp] needs [tolerances.imp] with a positive numeric value"))
+        elif not _has_label(ti.get("source")):
+            err.append(("SOURCE_MISSING", "tolerance imp has no (a)/(b)/(c) source label"))
+        vids = [v.get("id") for v in spec["variants"]]
+        n_listed = 0
+        for lst in ("must_pass", "must_fail"):
+            tab = imp.get(lst)
+            if not isinstance(tab, dict):
+                err.append(("IMP_BAD", "[imp].%s must be a table {variant id = model}" % lst))
+                continue
+            for vid, model in tab.items():
+                n_listed += 1
+                if vid not in vids:
+                    err.append(("IMP_UNKNOWN_ID", "[imp].%s key %r is not a variant id" % (lst, vid)))
+                if model not in R.IMP_MODELS:
+                    err.append(("IMP_UNKNOWN_MODEL", "[imp].%s %s = %r is not in the model registry "
+                                "(reference.IMP_MODELS)" % (lst, vid, model)))
+        if not n_listed:
+            err.append(("IMP_BAD", "[imp] lists no variant"))
     if err:
         return err, info
 
@@ -250,6 +286,9 @@ def to_checker_spec(spec):
                        reference_sha256=spec["ox"]["reference_sha256"])
     if "literal_info" in spec:
         d["literal_info"] = dict(spec["literal_info"])
+    if "imp" in spec:
+        d["imp"] = dict(must_pass=dict(spec["imp"]["must_pass"]), must_fail=dict(spec["imp"]["must_fail"]),
+                        tol=t["imp"]["value"])
     if "detect" in spec or "ox" in spec or "literal_info" in spec:
         d["info_lines"] = list(infos)
         d["extended_report"] = True

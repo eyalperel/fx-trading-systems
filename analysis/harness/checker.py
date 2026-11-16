@@ -30,6 +30,8 @@ import re
 
 import numpy as np
 
+import reference as R
+
 RESULT_FIELDS = ["check_id", "indicator", "params", "asset", "input", "expected", "actual",
                  "abs_diff", "tolerance", "ratio", "result", "role"]
 
@@ -262,6 +264,69 @@ def validate(spec, raw):
     return errs
 
 
+# ----------------------------------------------------------------------------- IMP + floor guard (SS3)
+def imp_rows(spec, raw, x=None):
+    """[imp] (SS3 spec decision 4, pass item 6). For every variant in must_pass / must_fail: replay the
+    recursion with the named model (reference.IMP_MODELS, explicit registry, no eval) on the x columns
+    EXPORTED in the raw file; residual = max |y_Zorro - y_replay| over n >= warmup, per input and overall.
+    One row per listed variant and list (role "imp"). must_pass: residual <= tol; must_fail: residual > tol.
+    An unknown model string or a non-finite residual is an ERROR row. Per-input residuals are kept in
+    row["detail"] (not written to the CSV columns)."""
+    imp, w, p = spec["imp"], spec["w"], spec["id_prefix"]
+    tol = imp["tol"]
+    rows = []
+    for kind, table in (("pass", imp["must_pass"]), ("fail", imp["must_fail"])):
+        for vid, mstr in table.items():
+            per, res = {}, None
+            maker = R.IMP_MODELS.get(mstr)
+            if maker is None:
+                res = "ERROR"
+            else:
+                model = maker()
+                for i in input_names(spec):
+                    xi = raw.cols["x_" + i]
+                    yi = raw.cols["y_%s_%s" % (vid, i)]
+                    per[i] = float(np.max(np.abs(yi[w:] - R.simulate(model, xi)[w:])))
+                overall = max(per.values())
+                if not math.isfinite(overall):
+                    res = "ERROR"
+            if res == "ERROR":
+                overall = float("nan")
+            elif kind == "pass":
+                res = "PASS" if overall <= tol else "FAIL"
+            else:
+                res = "PASS" if overall > tol else "FAIL"
+            fin = math.isfinite(overall)
+            rows.append(dict(check_id="%s-%s-imp-%s" % (p, vid, kind), indicator=spec["indicator"],
+                             params="IMP must_%s: %s" % (kind, mstr),
+                             asset=spec["asset"], input="replay residual n>=%d, overall" % w,
+                             expected=0.0 if kind == "pass" else tol, actual=overall,
+                             abs_diff=overall, tolerance=tol, ratio=(overall / tol) if fin else float("nan"),
+                             result=res, role="imp", detail=per))
+    return rows
+
+
+def floor_rows(spec, rows):
+    """Pass item 7: per REAL variant max gain |Zorro - book| <= tol_gain/10 and lag <= tol_lag/10
+    (D2 rule 3 floor side). A failing row means the tolerance window is invalid (see the trailer)."""
+    out = []
+    for v in spec["variants"]:
+        if v["role"] != "real":
+            continue
+        pre = "%s-%s-" % (spec["id_prefix"], v["id"])
+        rs = [r for r in rows if r["role"] == "real" and r["check_id"].startswith(pre)]
+        for q, tol in (("gain", spec["tol_gain"] / 10), ("lag", spec["tol_lag"] / 10)):
+            ds = [r["abs_diff"] for r in rs if _kind(r["check_id"]) == q]
+            a = max(ds) if ds else float("nan")
+            fin = math.isfinite(a)
+            out.append(dict(check_id="%sfloor-%s" % (pre, q), indicator=spec["indicator"],
+                            params=v["params"], asset=spec["asset"], input="max |Zorro - book| " + q,
+                            expected=0.0, actual=a, abs_diff=a, tolerance=tol,
+                            ratio=(a / tol) if fin else float("nan"),
+                            result=("ERROR" if not fin else ("PASS" if a <= tol else "FAIL")), role="floor"))
+    return out
+
+
 def evaluate(spec, raw):
     """Assumes validate() found nothing. Returns (rows, nc_report)."""
     x = make_inputs(spec)
@@ -269,7 +334,10 @@ def evaluate(spec, raw):
     for v in spec["variants"]:
         yv = {i: raw.cols["y_%s_%s" % (v["id"], i)] for i in input_names(spec)}
         rows += check_rows(spec, v, x, yv)
-    return rows, nc_report(spec, rows)
+    nc = nc_report(spec, rows)
+    if spec.get("imp"):
+        rows += imp_rows(spec, raw, x) + floor_rows(spec, rows)
+    return rows, nc
 
 
 # ----------------------------------------------------------------------------- verdict, writer
@@ -285,7 +353,8 @@ def verdict(spec, rows, nc, errs):
     n_real_variants = sum(v["role"] == "real" for v in spec["variants"])
     expect_real = n_real_variants * (2 + len(spec["ts"]))
     ok = (c["n_real"] == expect_real and c["n_pass"] == expect_real and c["n_err"] == 0
-          and all(d["fails_as_required"] for d in nc.values()) and len(nc) > 0)
+          and all(d["fails_as_required"] for d in nc.values()) and len(nc) > 0
+          and all(r["result"] == "PASS" for r in rows if r["role"] in ("imp", "floor")))
     return ok, c
 
 
@@ -309,6 +378,40 @@ def _fmt(v):
     return repr(float(v))
 
 
+def imp_trailer(spec, rows):
+    """Trailer lines for specs with [imp]: IMP per-input residuals, O_PEAK, O_IMP_RESIDUAL, and the floor
+    guard message. Empty list without [imp] (H1 / SS2 output unchanged)."""
+    if not spec.get("imp") or not rows:
+        return []
+    p = spec["id_prefix"]
+    out = []
+    for r in rows:
+        if r["role"] == "imp":
+            out.append("# IMP %s residual overall=%.3e tol=%g %s per_input: %s" % (
+                r["check_id"], r["actual"], r["tolerance"], r["result"],
+                " ".join("%s=%.3e" % kv for kv in r.get("detail", {}).items())))
+    for v in spec["variants"]:
+        if v["role"] != "real":
+            continue
+        pre = "%s-%s-" % (p, v["id"])
+        gains = [r["actual"] for r in rows if r["role"] == "real" and r["check_id"].startswith(pre)
+                 and _kind(r["check_id"]) == "gain"]
+        out.append("# O_PEAK %s max_measured_gain=%r (INFO)" % (v["id"], max(gains)))
+    for v in spec["variants"]:
+        if v["role"] != "real":
+            continue
+        pre = "%s-%s-" % (p, v["id"])
+        imp = [r["actual"] for r in rows if r["role"] == "imp" and r["check_id"] == pre + "imp-pass"]
+        fl = {q: [r["actual"] for r in rows if r["check_id"] == pre + "floor-" + q][0] for q in ("gain", "lag")}
+        out.append("# O_IMP_RESIDUAL %s imp=%s zorro_vs_book_gain_max=%.3e zorro_vs_book_lag=%.3e (INFO)" % (
+            v["id"], "%.3e" % imp[0] if imp else "n/a", fl["gain"], fl["lag"]))
+    bad = sorted(r["check_id"] for r in rows if r["role"] == "floor" and r["result"] != "PASS")
+    if bad:
+        out.append("# FLOOR_GUARD FAIL: tolerance window invalid (item 7; not accepted until explained): "
+                   + ",".join(bad))
+    return out
+
+
 def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
     """Exclusive create (mode 'x'): refuses with FileExistsError to overwrite.
 
@@ -325,9 +428,10 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
                             asset="", input="raw csv", expected="guard clean", actual=m,
                             tolerance="", result="ERROR", role="guard"))
         for r in rows:
-            w.writerow(dict(r, expected=_fmt(r["expected"]), actual=_fmt(r["actual"]),
-                            abs_diff="%.3e" % r["abs_diff"], tolerance="%g" % r["tolerance"],
-                            ratio="%.3e" % r["ratio"]))
+            full = dict(r, expected=_fmt(r["expected"]), actual=_fmt(r["actual"]),
+                        abs_diff="%.3e" % r["abs_diff"], tolerance="%g" % r["tolerance"],
+                        ratio="%.3e" % r["ratio"])
+            w.writerow({k: v for k, v in full.items() if k in RESULT_FIELDS})
         for vid, d in nc.items():
             if d["required"] is None:
                 w.writerow(dict(check_id="%s-%s-verdict" % (p, vid), indicator=spec["indicator"],
@@ -376,6 +480,8 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
                         % (li.get("gain_max"), li.get("lag_max"), li.get("source", "")))
             for line in spec.get("info_lines", []):
                 f.write("# %s\n" % line)
+            for line in imp_trailer(spec, rows):
+                f.write(line + "\n")
             for line in (ox_lines or []):
                 f.write(line + "\n")
         f.write("# raw_file=%s sha256=%s\n" % (raw_path, raw_sha))
