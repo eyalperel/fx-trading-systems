@@ -466,3 +466,29 @@ O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-book
 
 # ----------------------------------------------------------------------------- amendments
 # (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-15, BEFORE any run. Base: 172fb4e (spec 867f952 + corrected .c + superseded hybrid). Text above unchanged.
+# Unchanged: tolerances, floors (incl. [floor].lag = 7.7e-6), expected tables, variants, effects, [detect.required],
+# [imp], pass items 1-7, [corrected_code], [observations].
+[amendment_1]
+date = "2026-11-15"
+base_commit = "172fb4e"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below.",
+  "A1.2 Correction, descriptive only, no criterion changed: [floor].source lists the per-P lag for P = 20 as 5.10e-6. The computed value is 5.094998e-6, which rounds to 5.09e-6 (not 5.10e-6). [floor].lag = 7.7e-6 is the maximum over P and is unchanged (it is the P = 30 value 7.68e-6).",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_ss3_corrected_code.py: indicators/ehlers/SuperSmoother3Pole.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var SuperSmoother3Pole(vars Price, int Period)'. Guard seen to fire: a1*a1 -> a1 in a temp-file copy, sqrt(3.0) -> 1.738, wrong function name, lines only in comments: all reported not-ok."
+cond_ii = "PASS. Same test file: NCH inline body (variant NCH) equals SuperSmoother3Pole_Hybrid_Superseded.c token by token, comments stripped; only difference is the function name (ss3f_nc_h vs SuperSmoother3Pole_Hybrid_Superseded). Guard seen to fire: c3 = a1*a1*a1 -> a1*a1 and dropping '/ 2.0' in a copy: both reported not-ok."
+cond_iii = "PASS. test_reference_ss3.py (expected tables, variant effects, floor, literal_info, Table 13.4 residuals, IMP fire-test numbers, registry vs spec models) passes in the full suite."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/SS3_ArticleFidelity.toml --lint-only: 'lint clean; nothing written'; every D2 floor window ok, every D2 margin >= 10x."
+tests_before = 57
+tests_after = 65
+tests_added = 8
+suite = "bash analysis/harness/run_tests.sh: TOTAL 65  PASS 65  FAIL 0  ERROR 0  SKIP 0"
+blob_SuperSmoother3Pole_Hybrid_Superseded_c = "5a858f69f9a78fbb7c81f7087205fdb62bcf173b"
+blob_SuperSmoother3Pole_c = "2af622e9282e253be35cfd8b67ba637c500921bf"
+blob_source = "(b) git rev-parse HEAD:<path> at HEAD = 172fb4e, 2026-11-15"
