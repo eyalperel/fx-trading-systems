@@ -29,6 +29,7 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
+DETECT_KINDS = ("flat", "gain", "lag")      # checker._kind values
 
 
 class SpecError(Exception):
@@ -145,6 +146,50 @@ def validate_spec(spec):
         elif not _has_label(r.get("source")):
             err.append(("LITERAL_INCOMPLETE", "literal replacement %r without (a)/(b)/(c) source"
                         % r["literal"]))
+    # Amendment 1: [detect] (G1) and [ox] (G2) sections
+    ctrl = [v.get("id") for v in spec["variants"] if v.get("role") == "neg_control"]
+    det = spec.get("detect")
+    if det is not None:
+        req = det.get("required")
+        if not isinstance(req, dict):
+            err.append(("DETECT_MISSING", "[detect] without a [detect.required] table"))
+        else:
+            for vid, kinds in req.items():
+                if vid not in ctrl:
+                    err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
+                                % vid))
+                if (not isinstance(kinds, list) or not kinds
+                        or any(k not in DETECT_KINDS for k in kinds)):
+                    err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of %s"
+                                % (vid, kinds, "/".join(DETECT_KINDS))))
+            for vid in ctrl:
+                if vid not in req:
+                    err.append(("DETECT_MISSING", "neg_control %s has no entry in [detect.required]" % vid))
+    ox = spec.get("ox")
+    if ox is not None:
+        for k in ("reference_raw", "reference_sha256"):
+            if not isinstance(ox.get(k), str) or not ox.get(k):
+                err.append(("OX_INCOMPLETE", "[ox] missing %s" % k))
+        sh = ox.get("reference_sha256")
+        if isinstance(sh, str) and sh and not re.fullmatch(r"[0-9a-f]{64}", sh):
+            err.append(("OX_INCOMPLETE", "[ox] reference_sha256 is not 64 lowercase hex digits"))
+    # Amendment 2: [effect_corrections.<id>] supersedes single quantities of [variants.effect] in the
+    # INFO margin lines (reporting only; the verdict never reads these)
+    corr = spec.get("effect_corrections", {})
+    for vid, c in corr.items():
+        if vid not in ctrl:
+            err.append(("EFFECT_CORRECTION_UNKNOWN_ID",
+                        "[effect_corrections.%s]: %r is not a neg_control variant id" % (vid, vid)))
+            continue
+        qs = [q for q in c if q != "source"]
+        bad = [q for q in qs if q not in DETECT_KINDS or isinstance(c[q], bool)
+               or not isinstance(c[q], (int, float))]
+        if not qs or bad:
+            err.append(("EFFECT_CORRECTION_BAD", "[effect_corrections.%s]: need >= 1 numeric quantity in %s, "
+                        "got %s" % (vid, "/".join(DETECT_KINDS), bad if bad else "none")))
+        if not _has_label(c.get("source")):
+            err.append(("EFFECT_CORRECTION_BAD", "[effect_corrections.%s] has no (a)/(b)/(c) source label"
+                        % vid))
     if err:
         return err, info
 
@@ -163,20 +208,24 @@ def validate_spec(spec):
         if v["role"] != "neg_control":
             continue
         eff = v.get("effect")
-        if not eff:
+        fix = {q: x for q, x in corr.get(v["id"], {}).items() if q != "source"}
+        if not eff and not fix:
             info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
             continue
+        eff = dict(eff or {}, **fix)
         ratios = {q: eff[q] / tol[q] for q in ("gain", "lag", "flat") if q in eff}
         best = max(ratios, key=ratios.get)
-        info.append("INFO D2 margin %s: error/tolerance %s -> %s"
+        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in ("gain", "lag", "flat") if q in fix)
+                if fix else "")
+        info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
-                       "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met"))
+                       "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met", note))
     return err, info
 
 
 def to_checker_spec(spec):
     """The dict analysis/harness/checker.py consumes (checker.h1_spec() has the same shape)."""
-    errs, _ = validate_spec(spec)
+    errs, infos = validate_spec(spec)
     if errs:
         raise SpecError(errs)
     inp, b, t = spec["inputs"], spec["batch"], spec["tolerances"]
@@ -185,13 +234,26 @@ def to_checker_spec(spec):
         e = spec["expected"][v["expected"]]
         variants.append(dict(id=v["id"], params=v["label"], role=v["role"],
                              expected=(e["flat"], list(e["gains"]), e["lag"])))
-    return dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
-                asset=b["asset_label"],
-                n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]),
-                amp=_frac(inp["amp"]), slope=_frac(inp["slope"]), ts=tuple(inp["sine_periods"]),
-                clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
-                tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t["lag"]["value"],
-                tol_x=t["x"]["value"], variants=variants)
+    d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
+             asset=b["asset_label"],
+             n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]),
+             amp=_frac(inp["amp"]), slope=_frac(inp["slope"]), ts=tuple(inp["sine_periods"]),
+             clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
+             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t["lag"]["value"],
+             tol_x=t["x"]["value"], variants=variants)
+    # Amendment 1 keys, added ONLY when the spec has the section: a spec without them (H1) gives the
+    # dict checker.h1_spec() has (test_g1) and the pre-amendment results format.
+    if "detect" in spec:
+        d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
+    if "ox" in spec:
+        d["ox"] = dict(reference_raw=spec["ox"]["reference_raw"],
+                       reference_sha256=spec["ox"]["reference_sha256"])
+    if "literal_info" in spec:
+        d["literal_info"] = dict(spec["literal_info"])
+    if "detect" in spec or "ox" in spec or "literal_info" in spec:
+        d["info_lines"] = list(infos)
+        d["extended_report"] = True
+    return d
 
 
 # ----------------------------------------------------------------------------- script

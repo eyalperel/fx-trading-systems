@@ -336,3 +336,24 @@ compare = "string token equality, every row (3000), each listed column; report c
 if_reference_missing_or_hash_differs = "report 'OX not available' with the reason; INFO, not FAIL"
 result = "INFO only, as committed: a mismatch does not change PASS/FAIL but must be explained before the result is accepted"
 source = "(a) tests/test_checker.py lines 27-29 (path; sha256 recorded in the H1 run-2 results file line 49). (a) checker.header_of column naming. (b) H1 and this spec share variant ids P10..P30, inputs, clock and dates."
+
+# ============================================================================ Amendment 2
+# 2026-11-09, BEFORE any run. Base: b941c06 (eaba250 + Amendment 1), tooling c5e41dc. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, detect.required, pass items 1-5, OX.
+[amendment_2]
+date = "2026-11-09"
+base_commit = "b941c06"
+before_run = true
+changes = [
+  "A2.1 NCB [variants.effect].lag = 3.6026351040163718e-6 is WRONG as a prediction of the ramp-lag check. It is the analytic group delay (reference.ramp_lag), which normalises out DC gain. The check measures mean (x - y)/slope over the last 100 ramp bars, which also picks up NCB's DC-gain error. Corrected value in [effect_corrections.NCB]. INFO only: lag is not in detect.required for NCB, so the verdict is unaffected.",
+  "A2.2 NCA, NC1, NC2 effects stand: their DC gain is 1, and measured-check lag equals group delay to < 3e-12 (b).",
+]
+derivation = """(b) y ~ G*(x - tau*s) on a ramp, so (x - y)/s = (1 - G)*x/s + G*tau.
+NCB, P = 20: G = 1.0025304858 (DC gain), s = 1e-4, x ~ 1.395 near the ramp end, tau = 4.04.
+(1 - G)*x/s = -0.00253 * 1.395 / 0.0001 = -35.3 bars;  G*tau = +4.05 bars;  sum = -31.25 bars.
+Article P = 20 lag 4.0387 -> |measured - expected| = 35.29 bars (ratio 3.5e4 at tol 1e-3)."""
+source = "(b) reference.sim_lag(ss2_code(20, in_bump=1)) = -31.25012256878607 vs ramp_lag(ss2_article(20)) = 4.038666363882958, computed 2026-11-09; found by Claude Code (T-Spec2 dry run, c5e41dc)."
+
+[effect_corrections.NCB]
+lag = 35.28878893266903
+source = "(b) measured-check lag error, reference.sim_lag, 2026-11-09; supersedes [variants.effect].lag of NCB (A2.1)"

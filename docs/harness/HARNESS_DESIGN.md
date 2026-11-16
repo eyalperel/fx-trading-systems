@@ -132,6 +132,21 @@ Status: NC-A is caught by gain at 9.7× (just under 10×). The gain tolerance st
 and is set in the SS2 spec once the Zorro-side floor is measured at `%.3e` (H1 stored `%.6f`, so
 Zorro's residual below 1e-6 is not yet visible). (c) Likely outcome ~2e-5.
 
+**D2 Amendment 1, correction — 2026-11-09.** (b) The NC-B "lag err 3.97e-6" above is the analytic
+group delay (`reference.ramp_lag`), not what the harness lag check measures. The check (mean
+(x − y)/slope over the last 100 ramp bars) also picks up a DC-gain error:
+(x − y)/s = (1 − G)·x/s + G·τ. For NC-B (G = 1.00253, x ≈ 1.395, s = 1e-4) the measured lag error is
+35.3 bars (ratio 3.5e4 at tol 1e-3). Found by Claude Code in the SS2F dry run (`c5e41dc`); recorded in
+`SS2_ArticleFidelity.toml` Amendment 2 (`02a6fca`). "NC-B barely moves lag by construction" holds for
+group delay only. The per-control rule still stands on NC-A alone: lag 2.76e-4 = 0.28× tolerance, so
+only gain can catch it.
+
+**D2 Amendment 2 — 2026-11-09 (SS2 gain tolerance set).** `SS2_ArticleFidelity.toml` (`eaba250`) sets
+gain tolerance **3e-5**, lag 1e-3. (b) Floor, Zorro vs the article table: 9.8e-7 observed vs H1's 6-dp
+table + 4.66e-7 table-vs-article = 1.45e-6; ×10 = 1.45e-5 ≤ 3e-5. NC-A 9.71e-4 / 3e-5 = 32× ≥ 10×.
+(c) 3e-5 sits near the geometric centre of floor..NC-A (~3.8e-5), leaning to detection. The rule-1
+default (1e-4) is unchanged; each spec sets its own tolerance inside its measured window.
+
 **D3. Exact π in the library — DECIDED 2026-11-06: keep Zorro's `PI`; no library change.**
 
 (b) Zorro's `PI` is 3.14159 (9d.2). With D1 = (ii) the reference uses true π; the library's `PI`
@@ -141,6 +156,11 @@ Self-monitoring: under D2 every spec records the `PI` gap in its floor. If an in
 π-sensitive enough to break the window condition, that spec must fix it.
 If an exact π is ever adopted: compute it at run time (`4*atan(1)`) in a shared include, never as
 a decimal literal (9d.1).
+
+**D4 (open, 2026-11-09). Lag measurement for filters whose DC gain is not 1.** (b) The ramp-lag check
+assumes DC gain = 1 (D2 Amendment 1 correction). HighPassFilter and RoofingFilter have DC gain 0 by
+design; (c) on a ramp the check would report roughly level/slope, not lag. Their specs need a different
+phase/lag measurement (e.g. phase at the sine test periods), decided before those specs are written.
 
 ## 7. Order of work
 
@@ -154,3 +174,6 @@ a decimal literal (9d.1).
 4. First article-based specs: SS2 (fidelity), SS3, HighPassFilter, RoofingFilter
    (known answer in PROJECT_STATE §5), UltimateSmootherE, Decycler — pre-registered and committed
    before the batch runs.
+   SS2 status 2026-11-09: spec pre-registered `eaba250`, Amendment 1 `b941c06`, Amendment 2 `02a6fca`;
+   tooling for Amendment 1/2 `c5e41dc`, `49f7fda` (40/40 tests), branch `harness-ss2f`; **run 1 PASS 2026-11-12** (`763601e`): 28/28,
+   all 4 controls detected, OX 37/37 identical to H1 raw; residual = `PI` gap (gain 5.7e-7, lag 5.4e-6).

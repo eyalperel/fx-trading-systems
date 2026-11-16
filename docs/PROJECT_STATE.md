@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-07 (Phase 1 step 3 in progress: reusable harness built and accepted; next: article-based specs)
+**As of:** 2026-11-12 (Phase 1 step 3 in progress: SS2 source fidelity verified; next: SS3 spec)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -20,7 +20,7 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 
 | Group | Indicators | Week 14 review status |
 |---|---|---|
-| Smoothers | SuperSmoother 2-pole | **Implementation verified by harness H1** (run 2 PASS, f59f6e4): Zorro computes the filter its `.c` coefficients define. **Source fidelity not yet checked**: the `.c` uses `sqrt(2)` and `PI`, Ehlers' code uses `1.414` and `3.14159`; per D1 (`docs/harness/HARNESS_DESIGN.md` §6) the fidelity check uses exact √2 and π |
+| Smoothers | SuperSmoother 2-pole | **Implementation verified** (H1 run 2 PASS, f59f6e4) **and source fidelity verified** (SS2F run 1 PASS, 763601e, 2026-11-12): Zorro output matches Ehlers' TASC V.42:04 formula (√2 and π exact per D1) within gain 5.7e-7 / lag 5.4e-6 bars, which is the Zorro `PI` gap (D3); tolerances 3e-5 / 1e-3; 4 negative controls detected; 8 variants. Not tested: start-up seeding (article: output = Price for the first 3 bars; excluded by warmup) |
 | Smoothers | SuperSmoother 3-pole, UltimateSmootherE | **Reviewed** |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter, RoofingFilter | **Reviewed** — code correct; tests cannot fail |
@@ -109,6 +109,8 @@ indicators through the new test harness — not settled answers.
 | — | `CyberCycle.c` statics may lack `cc_` prefix | Unconfirmed after four sittings |
 | — | Decycler vs UltimateSmootherE — possibly the same filter | Unchecked |
 | — | `SuperSmoother2Pole.c` "First bar" comments are misleading: `Init` is `is(INITRUN)`, not the first bar (b, `include/variables.h:182`; gotchas 9d.5) | Comment only; output unaffected (H1 run 2) |
+| — | Generated scripts' EXITRUN `printf` + marker file never fire (gotchas 9d.4; no marker from any run, re-confirmed SS2F run 1) | Dead code presented as a check; run cards must not rely on it. Remove or replace with a check written before `quit()` |
+| — | Harness ramp-lag check assumes DC gain 1: a DC-gain error reads as lag ((x − y)/s = (1 − G)·x/s + G·τ; NC-B 35 bars) | Invalid for HighPassFilter / RoofingFilter (DC gain 0). HARNESS_DESIGN D4, open |
 | — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). **Decided 2026-11-06 (HARNESS_DESIGN D3): keep `PI`**; each spec records the gap in its tolerance floor |
 
 **Inference:** given that every test script reviewed so far could not fail, the
@@ -203,9 +205,14 @@ file's first rows exactly.
    **Reusable harness built and accepted 2026-11-07** (`417da02`, branch `harness-step2`):
    reference model, checker, generator + TOML spec format, 27/27 self-tests; tool acceptance run
    reproduced H1 byte-identically (HARNESS_DESIGN §7). Run tests: `bash analysis/harness/run_tests.sh`.
-   Next: first article-based spec, SS2 source fidelity (D1 replacements; NC-A / NC-B; set the gain
-   tolerance per D2 Amendment 1, NC-A margin 9.71× at 1e-4), then SS3, HighPassFilter,
-   RoofingFilter, UltimateSmootherE, Decycler.
+   **SS2 source fidelity: run 1 PASS, 2026-11-12** (`763601e`, branch `harness-ss2f`). Spec
+   `analysis/harness/specs/SS2_ArticleFidelity.toml` (`eaba250` + Amendment 1 `b941c06` + Amendment 2
+   `02a6fca`); gain tol 3e-5, lag 1e-3. 28/28 real checks; NC-A, NC-B, NC1, NC2 detected on their required
+   kinds; OX: 37/37 raw columns identical to H1 run 2 raw; 8 variants. Tooling 40/40 tests (checker CLI:
+   `python analysis/harness/checker.py <spec.toml> <raw.csv>`). Raw sha256 `39c9ce95…a89e` (copy kept
+   locally, `*_raw_run*.csv` is gitignored).
+   Next: SS3, then HighPassFilter and RoofingFilter (need HARNESS_DESIGN D4 first: the ramp-lag check
+   assumes DC gain 1), UltimateSmootherE, Decycler.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.

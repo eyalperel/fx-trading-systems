@@ -144,8 +144,15 @@ def _kind(check_id):
 
 def nc_report(spec, rows):
     """Per negative control (D2 Amendment 1): every check's error/tolerance ratio and two
-    separate fields. Returns {variant_id: dict}."""
+    separate fields. Returns {variant_id: dict}.
+
+    Amendment 1 / G1: if spec has "detect_required" ({control id: [kinds]}), a kind is detected when at
+    least one of the control's checks of that kind is FAIL, and fails_as_required needs EVERY listed
+    kind detected (a control missing from the dict, or with an empty list, is NOT detected: strict).
+    Without "detect_required" (H1) fails_as_required = any check FAILs, as before.
+    `detected` (kind -> bool) is always computed; `required` is None without detect_required."""
     out = {}
+    req_all = spec.get("detect_required")
     for v in spec["variants"]:
         if v["role"] != "neg_control":
             continue
@@ -156,9 +163,17 @@ def nc_report(spec, rows):
         for r in rs:
             k = _kind(r["check_id"])
             mx[k] = max(mx.get(k, 0.0), r["ratio"])
-        out[v["id"]] = dict(ratios=ratios, max_ratio=mx,
-                            fails_as_required=any(r["result"] == "FAIL" for r in rs),
-                            margin10_met=any(r["ratio"] >= 10 for r in rs))
+        detected = {k: any(r["result"] == "FAIL" and _kind(r["check_id"]) == k for r in rs)
+                    for k in ("flat", "gain", "lag")}
+        if req_all is None:
+            req = None
+            far = any(r["result"] == "FAIL" for r in rs)
+        else:
+            req = list(req_all.get(v["id"], []))
+            far = bool(req) and all(detected.get(k, False) for k in req)
+        out[v["id"]] = dict(ratios=ratios, max_ratio=mx, fails_as_required=far,
+                            margin10_met=any(r["ratio"] >= 10 for r in rs),
+                            detected=detected, required=req)
     return out
 
 
@@ -294,8 +309,12 @@ def _fmt(v):
     return repr(float(v))
 
 
-def write_results(path, spec, rows, nc, errs, raw_path, raw_sha):
-    """Exclusive create (mode 'x'): refuses with FileExistsError to overwrite."""
+def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
+    """Exclusive create (mode 'x'): refuses with FileExistsError to overwrite.
+
+    spec["extended_report"] (set by generator.to_checker_spec when the spec has [detect], [ox] or
+    [literal_info], Amendment 1 A1.4) switches on the extended trailer: variant-count split, literal_info,
+    D2 lines, OX block. Without it the output is exactly the pre-amendment format (H1)."""
     ok, c = verdict(spec, rows, nc, errs)
     p = spec["id_prefix"]
     with open(path, "x", newline="", encoding="utf-8") as f:
@@ -310,34 +329,202 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha):
                             abs_diff="%.3e" % r["abs_diff"], tolerance="%g" % r["tolerance"],
                             ratio="%.3e" % r["ratio"]))
         for vid, d in nc.items():
-            w.writerow(dict(check_id="%s-%s-verdict" % (p, vid), indicator=spec["indicator"],
-                            params="control must FAIL at least one check", asset="", input="all",
-                            expected="FAILS_AS_REQUIRED",
-                            actual="FAILS_AS_REQUIRED" if d["fails_as_required"] else "DID_NOT_FAIL",
-                            result="PASS" if d["fails_as_required"] else "FAIL", role="neg_control"))
-        f.write("# batch=%s variants_run=%d\n" % (spec["batch"], len(spec["variants"]) if not errs
-                                                   else 0))
+            if d["required"] is None:
+                w.writerow(dict(check_id="%s-%s-verdict" % (p, vid), indicator=spec["indicator"],
+                                params="control must FAIL at least one check", asset="", input="all",
+                                expected="FAILS_AS_REQUIRED",
+                                actual="FAILS_AS_REQUIRED" if d["fails_as_required"] else "DID_NOT_FAIL",
+                                result="PASS" if d["fails_as_required"] else "FAIL", role="neg_control"))
+            else:
+                miss = [k for k in d["required"] if not d["detected"].get(k, False)]
+                w.writerow(dict(check_id="%s-%s-verdict" % (p, vid), indicator=spec["indicator"],
+                                params="control must FAIL at least one check of EVERY required kind",
+                                asset="", input="all",
+                                expected="DETECTED:" + ",".join(d["required"]),
+                                actual="DETECTED" if d["fails_as_required"] else
+                                "NOT_DETECTED:" + (",".join(miss) if miss else "no required kind listed"),
+                                result="PASS" if d["fails_as_required"] else "FAIL", role="neg_control"))
+        ext = bool(spec.get("extended_report"))
+        nreal = sum(v["role"] == "real" for v in spec["variants"])
+        nneg = sum(v["role"] == "neg_control" for v in spec["variants"])
+        if not ext:
+            f.write("# batch=%s variants_run=%d\n" % (spec["batch"], len(spec["variants"]) if not errs
+                                                       else 0))
+        elif not errs:
+            f.write("# batch=%s variants_run=%d real=%d neg_control=%d\n"
+                    % (spec["batch"], len(spec["variants"]), nreal, nneg))
+        else:
+            gids = sorted(set(g for g, _ in errs))
+            f.write("# batch=%s variants NOT evaluated (guard fired: %s) variants_defined=%d real=%d "
+                    "neg_control=%d\n" % (spec["batch"], ",".join(gids), len(spec["variants"]), nreal, nneg))
         f.write("# real_checks=%d PASS=%d FAIL=%d ERROR=%d\n"
                 % (c["n_real"], c["n_pass"], c["n_fail"], c["n_err"]))
         for vid, d in nc.items():
-            f.write("# NC %s fails_as_required=%s margin10_met=%s max_ratio gain=%.3e lag=%.3e flat=%.3e\n"
+            f.write("# NC %s fails_as_required=%s margin10_met=%s max_ratio gain=%.3e lag=%.3e flat=%.3e"
                     % (vid, d["fails_as_required"], d["margin10_met"], d["max_ratio"].get("gain", 0.0),
                        d["max_ratio"].get("lag", 0.0), d["max_ratio"].get("flat", 0.0)))
+            if d["required"] is not None:
+                f.write(" detected gain=%s lag=%s flat=%s required=%s"
+                        % (d["detected"]["gain"], d["detected"]["lag"], d["detected"]["flat"],
+                           ",".join(d["required"])))
+            f.write("\n")
+        if ext:
+            li = spec.get("literal_info")
+            if li:
+                f.write("# literal_info (article literals vs exact constants; INFO, never PASS/FAIL, "
+                        "D1 rule 3) gain_max=%s lag_max=%s source=%s\n"
+                        % (li.get("gain_max"), li.get("lag_max"), li.get("source", "")))
+            for line in spec.get("info_lines", []):
+                f.write("# %s\n" % line)
+            for line in (ox_lines or []):
+                f.write(line + "\n")
         f.write("# raw_file=%s sha256=%s\n" % (raw_path, raw_sha))
         f.write("# VERDICT: %s\n" % ("PASS" if ok else "FAIL"))
     return ok, c
 
 
-def run_check(spec, raw_path, out_dir, date_str):
+# ----------------------------------------------------------------------------- OX (Amendment 1, G2)
+def ox_columns(spec):
+    """Columns compared by OX, derived (A2): n, clock_close, every x_<input>, and y_<id>_<input> for
+    each role == 'real' variant."""
+    ins = input_names(spec)
+    return (["n", "clock_close"] + ["x_" + i for i in ins]
+            + ["y_%s_%s" % (v["id"], i) for v in spec["variants"] if v["role"] == "real" for i in ins])
+
+
+def _read_tokens(blob):
+    """-> (header, {col: [token strings]}). Tokens stay strings (no float conversion). A short row
+    gets '<missing>' for absent fields."""
+    rd = csv.reader(io.StringIO(blob.decode("utf-8", errors="replace")))
+    header = next(rd)
+    cols = {h: [] for h in header}
+    for rec in rd:
+        if not rec:
+            continue
+        for k, h in enumerate(header):
+            cols[h].append(rec[k] if k < len(rec) else "<missing>")
+    return header, cols
+
+
+def ox_compare(spec, raw_blob, reference_path=None):
+    """OX: compare the raw output (bytes) with the registered reference raw file by string-token
+    equality on ox_columns(spec). INFO only: returns '# OX ...' lines, never raises, never touches
+    the verdict. The reference sha256 is checked first; a missing / different reference or a
+    missing column gives '# OX not available: <reason>'.
+
+    max_abs_diff per column is "beyond Amendment 1, reporting only" (A7): the largest |a - b| over the
+    tokens that differ as strings and parse as numbers."""
+    try:
+        ox = spec["ox"]
+        ref = reference_path or ox["reference_raw"]
+        if not os.path.isfile(ref):
+            return ["# OX not available: reference file not found: %s" % ref]
+        with open(ref, "rb") as fh:
+            rblob = fh.read()
+        rsha = hashlib.sha256(rblob).hexdigest()
+        if rsha != ox["reference_sha256"]:
+            return ["# OX not available: reference sha256 %s differs from registered %s (%s)"
+                    % (rsha, ox["reference_sha256"], ref)]
+        gh, gc = _read_tokens(raw_blob)
+        rh, rc = _read_tokens(rblob)
+        cols = ox_columns(spec)
+        for c in cols:
+            if c not in gc:
+                return ["# OX not available: column %s missing in the raw file under test" % c]
+            if c not in rc:
+                return ["# OX not available: column %s missing in the reference file" % c]
+        ng, nr = len(gc[cols[0]]), len(rc[cols[0]])
+        m = min(ng, nr)
+        out = ["# OX raw vs reference %s (sha256 %s verified): rows under test=%d reference=%d compared=%d"
+               % (ref, rsha, ng, nr, m)]
+        if ng != nr:
+            out.append("# OX row count differs: under test %d, reference %d (compared the first %d)"
+                       % (ng, nr, m))
+        n_col_diff, n_tok_diff = 0, 0
+        for c in cols:
+            a, b = gc[c][:m], rc[c][:m]
+            idx = [i for i in range(m) if a[i] != b[i]]
+            mx = 0.0
+            for i in idx:
+                try:
+                    mx = max(mx, abs(float(a[i]) - float(b[i])))
+                except ValueError:
+                    mx = float("nan")
+                    break
+            n_tok_diff += len(idx)
+            n_col_diff += bool(idx)
+            if idx:
+                out.append("# OX col=%s differing_tokens=%d first_diff_row=%d under_test=%s reference=%s "
+                           "max_abs_diff=%.3e" % (c, len(idx), idx[0], a[idx[0]], b[idx[0]], mx))
+            else:
+                out.append("# OX col=%s differing_tokens=0 first_diff_row=none max_abs_diff=0.000e+00" % c)
+        out.append("# OX summary: columns=%d columns_differing=%d differing_tokens=%d (INFO only: does not "
+                   "change PASS/FAIL; a mismatch must be explained before the result is accepted)"
+                   % (len(cols), n_col_diff, n_tok_diff))
+        out.append("# OX note: max_abs_diff is beyond Amendment 1, reporting only")
+        return out
+    except Exception as e:                       # OX must never break the run (INFO only)
+        return ["# OX not available: %s: %s" % (type(e).__name__, e)]
+
+
+def run_check(spec, raw_path, out_dir, date_str, ox_reference=None):
     """Read the raw file in place, guard, measure, write the results file. A firing guard
-    writes ERROR rows; checks are computed only when no guard fired (as H1)."""
+    writes ERROR rows; checks are computed only when no guard fired (as H1).
+    If spec has "ox" the OX block is computed (also when a guard fired, A4) and written; ox_reference
+    overrides the registered reference path (tests)."""
     with open(raw_path, "rb") as fh:
         blob = fh.read()
     sha = hashlib.sha256(blob).hexdigest()
     raw = load_raw(io.StringIO(blob.decode("utf-8", errors="replace")))
     errs = validate(spec, raw)
     rows, nc = ([], {}) if errs else evaluate(spec, raw)
+    ox_lines = ox_compare(spec, blob, ox_reference) if spec.get("ox") else None
     os.makedirs(out_dir, exist_ok=True)
     path, k = next_results_path(out_dir, spec["batch"], date_str)
-    ok, c = write_results(path, spec, rows, nc, errs, raw_path, sha)
-    return dict(path=path, run=k, ok=ok, counts=c, errs=errs, rows=rows, nc=nc, sha256=sha)
+    ok, c = write_results(path, spec, rows, nc, errs, raw_path, sha, ox_lines)
+    return dict(path=path, run=k, ok=ok, counts=c, errs=errs, rows=rows, nc=nc, sha256=sha,
+                ox=ox_lines)
+
+
+# ----------------------------------------------------------------------------- CLI (A6)
+def main(argv=None):
+    """python analysis/harness/checker.py <spec.toml> <raw.csv> [--out-dir DIR] [--date YYYYMMDD]
+    Exit code: 0 verdict PASS, 1 verdict FAIL, 2 refused (spec refused by generator.validate_spec,
+    or raw file missing). The results file is created exclusively (never overwritten)."""
+    import argparse
+    import datetime
+    import sys
+    import generator as G
+    ap = argparse.ArgumentParser(description="Check a Zorro raw CSV against a harness spec.")
+    ap.add_argument("spec")
+    ap.add_argument("raw")
+    ap.add_argument("--out-dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
+    ap.add_argument("--date", default=datetime.date.today().strftime("%Y%m%d"))
+    a = ap.parse_args(argv)
+    if not os.path.isfile(a.raw):
+        print("REFUSED: raw file not found: %s" % a.raw)
+        return 2
+    try:
+        tspec = G.load_spec(a.spec)
+    except Exception as e:
+        print("REFUSED: cannot read spec %s: %s: %s" % (a.spec, type(e).__name__, e))
+        return 2
+    errs, infos = G.validate_spec(tspec)
+    if errs:
+        for code, msg in errs:
+            print("SPEC REFUSED %s: %s" % (code, msg))
+        return 2
+    for line in infos:
+        print(line)
+    res = run_check(G.to_checker_spec(tspec), a.raw, a.out_dir, a.date)
+    print("VERDICT: %s  (real checks PASS=%d FAIL=%d ERROR=%d)" % (
+        "PASS" if res["ok"] else "FAIL", res["counts"]["n_pass"], res["counts"]["n_fail"],
+        res["counts"]["n_err"]))
+    print("results: %s" % res["path"])
+    sys.stdout.flush()
+    return 0 if res["ok"] else 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
