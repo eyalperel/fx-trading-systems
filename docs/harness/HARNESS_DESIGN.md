@@ -186,6 +186,34 @@ assumes DC gain = 1 (D2 Amendment 1 correction). HighPassFilter and RoofingFilte
 design; (c) on a ramp the check would report roughly level/slope, not lag. Their specs need a different
 phase/lag measurement (e.g. phase at the sine test periods), decided before those specs are written.
 
+**D4 - DECIDED 2026-11-16 (planning chat, user): sine phase + ramp residual; ramp lag only at DC gain 1.**
+
+Worked example (b): first difference y = x - x[1] (DC gain 0). Ramp x = 5 + 2n gives y = 2 on every bar, so
+(x - y)/s = 2.5, 3.5, 4.5, ... grows by 1 per bar: the ramp-lag check measures position on the ramp, not lag.
+Sine T = 4 (x = sin(pi*n/2)): the least-squares fit y = a*sin + b*cos gives a = b = 1, gain sqrt(2), phase
+pi/4 rad, delay = -phase/omega = -0.5 bars (the output leads). Matches H(e^jw) = 1 - e^-jw = 1 + j at w = pi/2.
+(b) Found while reading `checker.py`: `m_flat` also assumes DC gain 1 (it measures |y - level|).
+
+Rules (apply to every spec from HighPassFilter on):
+1. **Ramp lag** (existing check): only when the spec's reference DC gain = 1.
+2. **Flat:** expected output = reference DC gain x level (0 for DC gain 0). `m_flat` is generalised accordingly.
+3. **Sine phase** (new quantity): phase = atan2 of the existing least-squares fit (sin, cos, constant columns,
+   `checker.m_gain`), compared with arg H(e^jw) from the reference model; the difference is wrapped to (-pi, pi];
+   tolerance in **radians**; checked only at test periods where the reference gain >= a gate the spec
+   pre-registers (phase is undefined at gain 0, e.g. RoofingFilter at T = 2).
+4. **Ramp residual** (specs with DC gain 0): steady-state output on the ramp vs the reference model's value
+   (-s * sum k*h_k; 0 when the numerator has a double zero at DC). A known-answer check, not a lag.
+5. The phase tolerance default is set in the first spec that uses it (HighPassFilter) from its measured floor
+   and recorded here (D2 rule 1). D2 per-control detection (Amendment 1) is unchanged.
+
+Why radians (b): a phase error d_phi is d_phi * T/(2*pi) bars, so one tolerance in bars would be loose at long
+periods and strict at short ones. Rejected: group delay from phases at two nearby periods (differences two noisy
+estimates; a high-pass has no meaningful group delay near DC); gain only (a pole-angle error barely moves gain,
+and timing is what the NNFX slots depend on).
+Sourcing note (a)/(b), 2026-11-16: Ehlers published three different high-pass filters: 2-pole with `.707`
+(TASC V.32:1 2014; also V.33:09, V.36:03), 1-pole (V.34:09 2016), 2-pole Butterworth-type with zero start-up
+(V.42:04 2024). `HighPassFilter.c` implements the first (read 2026-11-16); details in the HighPassFilter spec.
+
 ## 7. Order of work
 
 1. [x] Decide D1–D3 (planning chat, 2026-11-06).
