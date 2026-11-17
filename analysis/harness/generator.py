@@ -31,7 +31,9 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
-DETECT_KINDS = ("flat", "gain", "lag")      # checker._kind values
+DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup")      # checker._kind values (D4 adds the last three)
+IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
+SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate)
 
 
 class SpecError(Exception):
@@ -62,6 +64,26 @@ def _frac(pair):
 
 def _has_label(s):
     return isinstance(s, str) and LABEL_RE.match(s) is not None
+
+
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def dc_gain_of(spec):
+    """[checks].dc_gain, default 1 (a spec without [checks] behaves exactly as H1 / SS2 / SS3)."""
+    return spec.get("checks", {}).get("dc_gain", 1.0)
+
+
+def phase_periods(table):
+    """expected.<P>.phases as {int period: radians}; TOML keys arrive as strings, fixtures may use ints."""
+    out = {}
+    for k, v in table.get("phases", {}).items():
+        try:
+            out[int(k)] = v
+        except (TypeError, ValueError):
+            out[k] = v
+    return out
 
 
 def validate_spec(spec):
@@ -103,7 +125,27 @@ def validate_spec(spec):
         seen.add(v.get("id"))
 
     # source labels on every tolerance and expected table
-    for q in ("flat", "gain", "lag", "x"):
+    chk = spec.get("checks", {})
+    if not isinstance(chk, dict):
+        err.append(("CHECKS_BAD", "[checks] must be a table"))
+        chk = {}
+    dc = chk.get("dc_gain", 1.0)
+    if not _is_num(dc):
+        err.append(("CHECKS_BAD", "[checks].dc_gain %r is not a number" % (dc,)))
+        dc = 1.0
+    gate = chk.get("phase_gate")
+    if gate is not None and (not _is_num(gate) or gate <= 0):
+        err.append(("CHECKS_BAD", "[checks].phase_gate %r must be a positive number" % (gate,)))
+    sin = chk.get("startup_inputs")
+    if sin is not None:
+        ids_ok = input_ids(spec)
+        if not isinstance(sin, list) or not sin or any(i not in ids_ok for i in sin):
+            err.append(("STARTUP_BAD", "[checks].startup_inputs %r: need a non-empty list of %s" % (sin, ids_ok)))
+    has_lag = dc == 1
+    any_phases = any(phase_periods(t) for t in spec["expected"].values() if isinstance(t, dict))
+    need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) + (["phase"] if any_phases else []) \
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+    for q in need_tol:
         t = spec["tolerances"].get(q)
         if not isinstance(t, dict) or "value" not in t:
             err.append(("STRUCT", "[tolerances.%s] missing or without value" % q))
@@ -116,8 +158,35 @@ def validate_spec(spec):
             err.append(("STRUCT", "expected table %s: %d gains for %d sine periods"
                         % (name, len(t.get("gains", [])), len(ts))))
         for k in ("flat", "lag"):
+            if k == "lag" and not has_lag:
+                if "lag" in t:
+                    err.append(("LAG_NOT_APPLICABLE", "expected table %s: lag given but [checks].dc_gain is %g "
+                                "(ramp lag only at DC gain 1, D4 rule 1)" % (name, dc)))
+                continue
             if not isinstance(t.get(k), (int, float)):
                 err.append(("STRUCT", "expected table %s: %s missing" % (name, k)))
+        if has_lag:
+            if "resid" in t:
+                err.append(("RESID_NOT_APPLICABLE", "expected table %s: resid given at dc_gain 1" % name))
+        elif not _is_num(t.get("resid")):
+            err.append(("STRUCT", "expected table %s: resid missing (required at dc_gain != 1, D4 rule 4)" % name))
+        ph = phase_periods(t)
+        if ph and gate is None:
+            err.append(("PHASE_GATE_MISSING", "expected table %s lists phases but [checks].phase_gate is missing "
+                        "(D4 rule 3: the spec pre-registers the gate)" % name))
+        for T, val in ph.items():
+            if T not in ts or not _is_num(val) or not (-math.pi < val <= math.pi):
+                err.append(("PHASE_BAD", "expected table %s: phase for period %r = %r (period must be one of the "
+                            "sine periods, value a number in (-pi, pi])" % (name, T, val)))
+            elif gate is not None and _is_num(gate) and len(t.get("gains", [])) == len(ts):
+                g = t["gains"][ts.index(T)]
+                if g < gate:
+                    err.append(("PHASE_GATE", "expected table %s: phase listed at T=%d where the reference gain "
+                                "%.4g < phase_gate %g (phase undefined near gain 0)" % (name, T, g, gate)))
+        if sin:
+            if not isinstance(t.get("article"), str) or R.article_model(t.get("article")) is None:
+                err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
+                            "reference.article_model (needed by the start-up check)" % (name, t.get("article"))))
 
     # variants
     roles = [v.get("role") for v in spec["variants"]]
@@ -127,6 +196,8 @@ def validate_spec(spec):
             err.append(("STRUCT", "variant %s: role must be real or neg_control" % vid))
         if v.get("expected") not in spec["expected"]:
             err.append(("STRUCT", "variant %s: expected table %r not defined" % (vid, v.get("expected"))))
+        if "seed" in v and v["seed"] not in SEEDS:
+            err.append(("SEED_BAD", "variant %s: seed %r must be one of %s" % (vid, v["seed"], "/".join(SEEDS))))
         if not isinstance(v.get("param"), int):
             err.append(("STRUCT", "variant %s: param must be an integer" % vid))
         if v.get("kind") == "inline":
@@ -135,6 +206,7 @@ def validate_spec(spec):
                 err.append(("STRUCT", "variant %s: inline needs function and a body defining it" % vid))
         elif v.get("kind") != "param":
             err.append(("STRUCT", "variant %s: kind must be param or inline" % vid))
+        err.extend(_lint_allow_errors(v))
     if "neg_control" not in roles:
         err.append(("NO_NEG_CONTROL", "no negative control (D2 Amendment 1: a control that is "
                                       "never seen to fail means the harness could be broken)"))
@@ -160,10 +232,12 @@ def validate_spec(spec):
                 if vid not in ctrl:
                     err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
                                 % vid))
+                applicable = ["flat", "gain"] + (["lag"] if has_lag else ["resid"]) \
+                    + (["phase"] if any_phases else []) + (["startup"] if sin else [])
                 if (not isinstance(kinds, list) or not kinds
-                        or any(k not in DETECT_KINDS for k in kinds)):
-                    err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of %s"
-                                % (vid, kinds, "/".join(DETECT_KINDS))))
+                        or any(k not in DETECT_KINDS or k not in applicable for k in kinds)):
+                    err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the "
+                                "spec actually checks (%s)" % (vid, kinds, "/".join(applicable))))
             for vid in ctrl:
                 if vid not in req:
                     err.append(("DETECT_MISSING", "neg_control %s has no entry in [detect.required]" % vid))
@@ -226,13 +300,59 @@ def validate_spec(spec):
                                 "(reference.IMP_MODELS)" % (lst, vid, model)))
         if not n_listed:
             err.append(("IMP_BAD", "[imp] lists no variant"))
+    # Amendment 2 mechanism: [imp_corrections.<id>] supersedes ONE pre-registered [imp] model string; [imp] itself
+    # stays as the record (precedent: [effect_corrections]). One INFO line per correction, appended after the margins.
+    corr_info = []
+    ic = spec.get("imp_corrections")
+    if ic is not None:
+        imp_ok = isinstance(imp, dict) and all(isinstance(imp.get(k), dict) for k in ("must_pass", "must_fail"))
+        if not isinstance(ic, dict) or not all(isinstance(c, dict) for c in ic.values()):
+            err.append(("IMP_CORRECTION_BAD", "[imp_corrections] must be a table of tables, one per variant id"))
+        elif not imp_ok:
+            err.append(("IMP_CORRECTION_BAD", "[imp_corrections] needs an [imp] section with must_pass and "
+                        "must_fail tables"))
+        else:
+            for vid, c in ic.items():
+                where = "[imp_corrections.%s]" % vid
+                miss = [k for k in IMP_CORRECTION_FIELDS if k not in c]
+                extra = [k for k in c if k not in IMP_CORRECTION_FIELDS]
+                if miss or extra:
+                    err.append(("IMP_CORRECTION_BAD", "%s: missing %s, unexpected %s (fields: %s)"
+                                % (where, miss or "none", extra or "none", "/".join(IMP_CORRECTION_FIELDS))))
+                    continue
+                bad = []
+                if c["list"] not in ("must_pass", "must_fail"):
+                    bad.append("list must be must_pass or must_fail, got %r" % (c["list"],))
+                for k in ("replaces", "model", "amendment"):
+                    if not isinstance(c[k], str) or not c[k].strip():
+                        bad.append("%s must be a non-empty string" % k)
+                if not _has_label(c["source"]):
+                    bad.append("source has no (a)/(b)/(c) label")
+                if bad:
+                    err.append(("IMP_CORRECTION_BAD", "%s: %s" % (where, "; ".join(bad))))
+                    continue
+                tab = imp[c["list"]]
+                if vid not in tab:
+                    err.append(("IMP_CORRECTION_UNKNOWN_ID", "%s: %r is not a key of [imp].%s"
+                                % (where, vid, c["list"])))
+                    continue
+                if tab[vid] != c["replaces"]:
+                    err.append(("IMP_CORRECTION_REPLACES_MISMATCH", "%s: replaces %r but [imp].%s.%s is %r"
+                                % (where, c["replaces"], c["list"], vid, tab[vid])))
+                if c["model"] not in R.IMP_MODELS:
+                    err.append(("IMP_CORRECTION_UNKNOWN_MODEL", "%s: model %r is not in the model registry "
+                                "(reference.IMP_MODELS)" % (where, c["model"])))
+                corr_info.append("INFO IMP correction applied: %s %s: %s -> %s (Amendment %s)"
+                                 % (vid, c["list"], c["replaces"], c["model"], c["amendment"]))
     if err:
         return err, info
 
     # INFO only: D2 floor x 10 <= tolerance per quantity; per-control 10x margin
-    tol = {q: spec["tolerances"][q]["value"] for q in ("flat", "gain", "lag")}
+    kinds_on = ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else []) \
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+    tol = {q: spec["tolerances"][q]["value"] for q in kinds_on}
     fl = spec.get("floor")
-    for q in ("gain", "lag", "flat"):
+    for q in kinds_on:
         if fl and q in fl:
             ok = fl[q] * 10 <= tol[q]
             info.append("INFO D2 floor %s: floor %.3e x10 = %.3e %s tolerance %.3e -> %s"
@@ -249,13 +369,17 @@ def validate_spec(spec):
             info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
             continue
         eff = dict(eff or {}, **fix)
-        ratios = {q: eff[q] / tol[q] for q in ("gain", "lag", "flat") if q in eff}
+        ratios = {q: eff[q] / tol[q] for q in kinds_on if q in eff}
+        if not ratios:
+            info.append("INFO D2 margin %s: no measured effect for a checked quantity (not checked)" % v["id"])
+            continue
         best = max(ratios, key=ratios.get)
-        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in ("gain", "lag", "flat") if q in fix)
+        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in kinds_on if q in fix)
                 if fix else "")
         info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
                        "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met", note))
+    info.extend(corr_info)
     return err, info
 
 
@@ -268,17 +392,34 @@ def to_checker_spec(spec):
     variants = []
     for v in spec["variants"]:
         e = spec["expected"][v["expected"]]
-        variants.append(dict(id=v["id"], params=v["label"], role=v["role"],
-                             expected=(e["flat"], list(e["gains"]), e["lag"])))
+        vd = dict(id=v["id"], params=v["label"], role=v["role"],
+                  expected=(e["flat"], list(e["gains"]), e.get("lag")))
+        # D4 keys, added ONLY when the spec / table / variant carries them (old specs: dict unchanged)
+        if "seed" in v:
+            vd["seed"] = v["seed"]
+        if "article" in e:
+            vd["article"] = e["article"]
+        if "resid" in e:
+            vd["resid"] = e["resid"]
+        if "phases" in e:
+            vd["phases"] = phase_periods(e)
+        variants.append(vd)
     d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
              asset=b["asset_label"],
              n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]),
              amp=_frac(inp["amp"]), slope=_frac(inp["slope"]), ts=tuple(inp["sine_periods"]),
              clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
-             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t["lag"]["value"],
+             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t.get("lag", {}).get("value"),
              tol_x=t["x"]["value"], variants=variants)
     # Amendment 1 keys, added ONLY when the spec has the section: a spec without them (H1) gives the
     # dict checker.h1_spec() has (test_g1) and the pre-amendment results format.
+    if "checks" in spec:
+        d["dc_gain"] = spec["checks"].get("dc_gain", 1.0)
+        if spec["checks"].get("startup_inputs"):
+            d["startup"] = list(spec["checks"]["startup_inputs"])
+        for q in ("phase", "resid", "startup"):
+            if q in t:
+                d["tol_" + q] = t[q]["value"]
     if "detect" in spec:
         d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
     if "ox" in spec:
@@ -289,7 +430,11 @@ def to_checker_spec(spec):
     if "imp" in spec:
         d["imp"] = dict(must_pass=dict(spec["imp"]["must_pass"]), must_fail=dict(spec["imp"]["must_fail"]),
                         tol=t["imp"]["value"])
-    if "detect" in spec or "ox" in spec or "literal_info" in spec:
+        # [imp_corrections] (validated above): the amendment's model replaces the pre-registered string; the spec's
+        # own [imp] tables are copies here, so the record in the spec is not touched.
+        for vid, c in spec.get("imp_corrections", {}).items():
+            d["imp"][c["list"]][vid] = c["model"]
+    if "detect" in spec or "ox" in spec or "literal_info" in spec or "imp_corrections" in spec:
         d["info_lines"] = list(infos)
         d["extended_report"] = True
     return d
@@ -298,6 +443,52 @@ def to_checker_spec(spec):
 # ----------------------------------------------------------------------------- script
 def _chunks(items, size):
     return [items[i:i + size] for i in range(0, len(items), size)]
+
+
+def _decimal_tokens(text):
+    return [m.group(1) for m in _DECIMAL_RE.finditer(_strip(text))]
+
+
+def _lint_allow_errors(v):
+    """Validation of the scoped float32 exemption fields on one variant (code LINT_ALLOW)."""
+    vid = v.get("id")
+    has_l, has_r = "lint_allow_float32" in v, "lint_allow_reason" in v
+    if not has_l and not has_r:
+        return []
+    e = []
+    lits, reason = v.get("lint_allow_float32"), v.get("lint_allow_reason")
+    if has_l and not has_r:
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_float32 without lint_allow_reason" % vid))
+    if has_r and not has_l:
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_reason without lint_allow_float32" % vid))
+    if has_r and (not isinstance(reason, str) or not reason.strip()):
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_reason must be a non-empty string" % vid))
+    if v.get("kind") != "inline":
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_* is only valid on an inline variant" % vid))
+    if has_l:
+        if not isinstance(lits, list) or not lits or not all(isinstance(x, str) and x for x in lits):
+            e.append(("LINT_ALLOW", "variant %s: lint_allow_float32 must be a non-empty list of literal strings" % vid))
+        elif v.get("kind") == "inline" and isinstance(v.get("body"), str):
+            present = _decimal_tokens(v["body"])
+            for x in lits:
+                if x not in present:
+                    e.append(("LINT_ALLOW", "variant %s: exempted literal %s does not occur as a decimal literal "
+                              "in its body (stale exemption)" % (vid, x)))
+    return e
+
+
+def lint_allowances(spec):
+    """[(variant id, body text as emitted, [literals], reason)] for every variant that carries an exemption."""
+    out = []
+    for v in spec["variants"]:
+        if v.get("kind") == "inline" and v.get("lint_allow_float32"):
+            out.append((v["id"], v["body"].rstrip("\n"), list(v["lint_allow_float32"]), v["lint_allow_reason"]))
+    return out
+
+
+def lint_infos(allow):
+    return ["INFO L_FLOAT32 exemption used: variant %s, literal %s, reason: %s" % (vid, lit, reason)
+            for vid, _, lits, reason in allow for lit in lits]
 
 
 def _fn_of(spec, v):
@@ -467,7 +658,7 @@ def _f32_exact(x):
         return False
 
 
-def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
+def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT, allow=()):
     """Returns a list of (rule, message); empty = clean.
     L_PI        no `PI` token in harness plumbing (comments, strings and the inline negative-control
                 bodies excluded: they are mutated indicator copies, D3 allows PI; Amendment 2).
@@ -475,7 +666,10 @@ def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
                 9d.1). Applies to the whole script including inline bodies.
     L_QUIT      no file_append after quit( in the same block (9d.4).
     L_INCLUDE   every #include "path" resolves from include_base (strategies/tests/) to an
-                existing file (9d.3). <angle> includes are not checked."""
+                existing file (9d.3). <angle> includes are not checked.
+    allow       [(variant id, body, [literals], reason)] from lint_allowances(spec): each listed literal is
+                exempt from L_FLOAT32 inside that variant's inline body only (first occurrence of the body
+                in the text); everywhere else, including the generated main script, it is still refused."""
     issues = []
     plumbing = text
     for body in inline_bodies:
@@ -484,12 +678,19 @@ def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
         issues.append(("L_PI", "PI token in harness code (line %d of the plumbing text)"
                        % (_strip(plumbing)[:m.start()].count("\n") + 1)))
         break
-    clean = _strip(text)
-    for m in _DECIMAL_RE.finditer(clean):
+    ftext = text
+    for _, body, lits, _r in allow:
+        i = ftext.find(body)
+        if i >= 0:
+            new_body = _DECIMAL_RE.sub(lambda m: "0" if m.group(1) in lits else m.group(0), body)
+            ftext = ftext[:i] + new_body + ftext[i + len(body):]
+    fclean = _strip(ftext)
+    for m in _DECIMAL_RE.finditer(fclean):
         tok = m.group(1)
         if not _f32_exact(float(tok)):
             issues.append(("L_FLOAT32", "decimal literal %s is not float32-exact (line %d)"
-                           % (tok, clean[:m.start()].count("\n") + 1)))
+                           % (tok, fclean[:m.start()].count("\n") + 1)))
+    clean = _strip(text)
     for m in re.finditer(r"\bquit\s*\(", clean):
         depth = 0
         for ch_i in range(m.end(), len(clean)):
@@ -516,7 +717,7 @@ def write_script(spec, out_dir, include_base=DEFAULT_OUT):
     """Lint, then write <out_dir>/<script_name>.c with exclusive create (FileExistsError if the
     file exists: an existing .c is never overwritten). Returns the path."""
     text, bodies = build_script(spec)
-    issues = lint_script(text, bodies, include_base)
+    issues = lint_script(text, bodies, include_base, allow=lint_allowances(spec))
     if issues:
         raise LintError(issues)
     path = os.path.join(out_dir, spec["batch"]["script_name"] + ".c")
@@ -540,7 +741,10 @@ def main():
     if errs:
         sys.exit(2)
     text, bodies = build_script(spec)
-    issues = lint_script(text, bodies)
+    allow = lint_allowances(spec)
+    issues = lint_script(text, bodies, allow=allow)
+    for i in lint_infos(allow):
+        print(i)
     for r, m in issues:
         print("LINT REFUSED %s: %s" % (r, m))
     if issues:

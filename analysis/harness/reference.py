@@ -12,6 +12,7 @@ Filter form (direct form):   y[n] = sum_k b[k]*x[n-k]  +  sum_k a[k-1]*y[n-k]   
 Labels: (a) source states; (b) measured/verified here; (c) inference.
 """
 import math
+import re
 from collections import namedtuple
 
 import numpy as np
@@ -159,9 +160,113 @@ def ss3_hybrid(period, pi_value=PI_ZORRO):
     return Filter(b=(c0, c0), a=(c1, c2, c3))
 
 
+def _hp_filter(alpha1, in_bump=0, fb2_bump=0, num="2nd"):
+    """High-pass coefficient block shared by hp_*: alpha1 -> (b, a).
+        input weight c = (1 - alpha1/2)^2;  fb1 = 2(1 - alpha1);  fb2 = (1 - alpha1)^2
+        HP[n] = c*(x - 2x[1] + x[2]) + fb1*HP[1] - fb2*HP[2]      (num = "2nd")
+        HP[n] = c*(x - x[1])         + fb1*HP[1] - fb2*HP[2]      (num = "1st")
+    in_bump / fb2_bump: bump3 on c / on fb2 after alpha1 is final."""
+    c = (1.0 - alpha1 / 2.0) * (1.0 - alpha1 / 2.0)
+    if in_bump:
+        c = bump3(c, in_bump)
+    fb1 = 2.0 * (1.0 - alpha1)
+    fb2 = (1.0 - alpha1) * (1.0 - alpha1)
+    if fb2_bump:
+        fb2 = bump3(fb2, fb2_bump)
+    if num == "2nd":
+        b = (c, -2.0 * c, c)
+    elif num == "1st":
+        b = (c, -c)
+    else:
+        raise ValueError("num must be '2nd' or '1st', got %r" % (num,))
+    return Filter(b=b, a=(fb1, -fb2))
+
+
+def hp_article(period):
+    """HighPassFilter, HP-A: TASC V.32:1 2014 / V.33:09 2015. (a) EasyLanguage, degrees:
+        alpha1 = (Cosine(.707*360/P) + Sine(.707*360/P) - 1) / Cosine(.707*360/P);
+        HP = (1 - alpha1/2)*(1 - alpha1/2)*(x - 2*x[1] + x[2]) + 2*(1 - alpha1)*HP[1] - (1 - alpha1)*(1 - alpha1)*HP[2];
+    EasyLanguage Vars HP(0): the source's HP history starts at 0 (simulate(..., seed='zero')).
+    D1 rule 1: .707 -> 1/sqrt(2) (equals the named constant to every printed digit), exact pi (degrees form:
+    360/P deg = 2*pi/P rad). Same (b, a) representation as the ss2/ss3 models."""
+    arg = (1.0 / math.sqrt(2.0)) * 2.0 * math.pi / period
+    alpha1 = (math.cos(arg) + math.sin(arg) - 1.0) / math.cos(arg)
+    return _hp_filter(alpha1)
+
+
+# the float32 value of the decimal literal 0.707 as Zorro stores it (gotchas 9d.1, b)
+K_F32_0707 = float(np.float32(0.707))
+
+# The old HighPassFilter.c writes 0.707*2.0*PI / HPPeriod with all-literal factors. Zorro 3.11 folds the product
+# 0.707*2.0*PI at compile time to this float32 value; the division, trig and recursion are plain double.
+# (b) measured: strategies/tests/PROBE_LiteralEval_20261117.c, label L04 (= L17), results/PROBE_LiteralEval_20261117.csv,
+#     commit ba54022. (c) The rule that produces this value is unknown: no standard rounding of float32(0.707) x
+#     float32(PI) reproduces it (3-4 float32 ulps off), so it is a measured constant, not a derived one.
+ZORRO_FOLD_0707x2xPI = 4.44221019744873047
+
+
+def hp_theta(period, k=K_F32_0707, pi_value=PI_ZORRO, deg=False, theta_const=None):
+    """The trig argument of hp_code: theta_const / period when theta_const is given (the folded literal product,
+    ZORRO_FOLD_0707x2xPI), else k*360/period (deg) or k*2*pi_value/period."""
+    if theta_const is not None:
+        return theta_const / period
+    return k * 360.0 / period if deg else k * 2.0 * pi_value / period
+
+
+def hp_alpha(period, k=K_F32_0707, pi_value=PI_ZORRO, deg=False, theta_const=None):
+    """alpha1 of hp_code, before any negative-control bump."""
+    arg = hp_theta(period, k=k, pi_value=pi_value, deg=deg, theta_const=theta_const)
+    return (math.cos(arg) + math.sin(arg) - 1.0) / math.cos(arg)
+
+
+def hp_code(period, k=K_F32_0707, pi_value=PI_ZORRO, alpha_bump=0, in_bump=0, fb2_bump=0, deg=False, num="2nd",
+            theta_const=None):
+    """HighPassFilter as indicators/ehlers/HighPassFilter.c computes it (b: read 2026-11-16):
+        var alpha1 = (cos(0.707*2.0*PI / HPPeriod) + sin(0.707*2.0*PI / HPPeriod) - 1.0) / cos(0.707*2.0*PI / HPPeriod);
+        HP[0] = (1.0 - alpha1/2.0)*(1.0 - alpha1/2.0)*(Price[0] - 2.0*Price[1] + Price[2])
+                + 2.0*(1.0 - alpha1)*HP[1] - (1.0 - alpha1)*(1.0 - alpha1)*HP[2];   HP = series(Price[0], 3)
+    k defaults to float32(0.707): the decimal literal 0.707 is float32 in this Zorro build (9d.1, b).
+    k = sqrt(2)/2 (double) is the corrected line. Seeding is a property of the run (simulate seed='price' is
+    series(Price[0], 3), the current .c), not of the coefficients.
+    Negative-control hooks (default off): alpha_bump = bump3 on alpha1 BEFORE the coefficients; in_bump = bump3 on
+    (1-alpha1/2)^2; fb2_bump = bump3 on (1-alpha1)^2; deg = trig arguments in degrees (k*360/P); num = '1st' uses
+    the first-difference numerator x - x[1] (the 1-pole form, V.34:09).
+    theta_const (default None): the trig argument is theta_const / period, k and pi_value unused. With
+    theta_const = ZORRO_FOLD_0707x2xPI this is the OLD .c as Zorro 3.11 compiles it (Amendment 2, NCH must_pass)."""
+    alpha1 = hp_alpha(period, k=k, pi_value=pi_value, deg=deg, theta_const=theta_const)
+    if alpha_bump:
+        alpha1 = bump3(alpha1, alpha_bump)
+    return _hp_filter(alpha1, in_bump=in_bump, fb2_bump=fb2_bump, num=num)
+
+
+_ARTICLE_RE = re.compile(r"hp_article\((\d{1,4})\)")
+
+
+def article_model(name):
+    """Resolve a spec's article-model string ('hp_article(48)') to a Filter. Restricted grammar, no eval;
+    unknown -> None. Used by the checker's start-up check (reference model for expected values)."""
+    m = _ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
+    return hp_article(int(m.group(1))) if m and int(m.group(1)) > 0 else None
+
+
 # [imp] model strings (spec) -> filter. Explicit registry, no eval.
 IMP_MODELS = {"ss3_code(%d, PI_ZORRO)" % p: (lambda p=p: ss3_code(p)) for p in (10, 14, 20, 30)}
 IMP_MODELS["ss3_hybrid(20, PI_ZORRO)"] = lambda: ss3_hybrid(20)
+# HighPassFilter (c: names chosen here, the HP spec may extend this table): corrected line (k = sqrt(2)/2, Zorro PI)
+# for the four filter periods, and the current .c (k = float32(0.707)) at P = 48 for the seed-price control NCH.
+for _p in (20, 30, 48, 125):
+    IMP_MODELS["hp_code(%d, PI_ZORRO, SQRT_HALF)" % _p] = (lambda p=_p: hp_code(p, k=math.sqrt(2.0) / 2.0))
+IMP_MODELS["hp_code(48, PI_ZORRO, F32_0707)"] = lambda: hp_code(48)
+# The old .c as Zorro 3.11 compiles it (all-literal product folded at compile time; probe ba54022, L04): Amendment 2.
+IMP_MODELS["hp_code(48, ZORRO_FOLD_0707x2xPI)"] = lambda: hp_code(48, theta_const=ZORRO_FOLD_0707x2xPI)
+# HP negative controls, own models (c: names chosen here). Explicit entries, no eval; k = sqrt(2)/2, Zorro PI.
+_SQRT_HALF = math.sqrt(2.0) / 2.0
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, alpha_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, alpha_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, in_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, in_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, fb2_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, fb2_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, num=1st)"] = lambda: hp_code(48, k=_SQRT_HALF, num="1st")
+IMP_MODELS["hp_code(49, PI_ZORRO, SQRT_HALF)"] = lambda: hp_code(49, k=_SQRT_HALF)
+IMP_MODELS["hp_code(20, PI_ZORRO, SQRT_HALF, deg)"] = lambda: hp_code(20, k=_SQRT_HALF, deg=True)
 
 
 def bump3(v, units=1):
@@ -197,6 +302,35 @@ def gain_at(f, t):
     return float(abs(_hz(f, 2.0 * math.pi / t)))
 
 
+def phase_at(f, t):
+    """arg H(exp(-j*w)), w = 2*pi/t, in (-pi, pi]. Sign convention = the checker's fit: x = level + amp*sin(w n),
+    fit y = a*sin + b*cos + c, phase = atan2(b, a) = arg H (positive = output leads). (b: test_03 compares the
+    analytic value with an lstsq fit of a simulated sine.) Undefined where the gain is 0."""
+    return float(np.angle(_hz(f, 2.0 * math.pi / t)))
+
+
+def _poly(coefs, q):
+    return sum(c * q ** k for k, c in enumerate(coefs))
+
+
+def _dpoly(coefs, q):
+    return sum(k * c * q ** (k - 1) for k, c in enumerate(coefs) if k)
+
+
+def ramp_residual(f, level, slope, n=0):
+    """Steady-state output of f on the ramp x[n] = level + slope*n (HARNESS_DESIGN D4 rule 4).
+    With H(q) = B(q)/D(q), q = z^-1, B = sum b_k q^k, D = 1 - sum a_k q^k:  sum_k h_k (n-k) = n*H(1) - H'(1), so
+        y_ss(n) = H(1)*(level + slope*n) - slope*H'(1),   H' = (B'D - B D')/D^2 at q = 1.
+    For DC gain 0 this is the constant -slope*H'(1) (n is then irrelevant; 0 for a double zero at DC).
+    Reduces to x[n] - slope*ramp_lag(f) at DC gain 1. (b: simulation cross-checks in test_reference_hp.py.)"""
+    bq = list(f.b)
+    dq = [1.0] + [-a for a in f.a]
+    B, D, dB, dD = _poly(bq, 1.0), _poly(dq, 1.0), _dpoly(bq, 1.0), _dpoly(dq, 1.0)
+    h1 = B / D
+    dh1 = (dB * D - B * dD) / (D * D)
+    return float(h1 * (level + slope * n) - slope * dh1)
+
+
 def ramp_lag(f):
     """Ramp lag = group delay at w -> 0, closed form (bars).
 
@@ -223,17 +357,24 @@ AMP = 0.01              # h1_check.AMP
 RAMP_SLOPE = 0.0001     # h1_check.RAMP_SLOPE
 
 
-def simulate(f, x):
-    """Run the recursion on array x. Seeds y[-k] = x[0], x[-k] = x[0] (as h1_check.simulate)."""
+def simulate(f, x, seed=None):
+    """Run the recursion on array x. Input history before n = 0 is x[0] (Zorro series seeding, gotchas 9d.6).
+    Output history before n = 0 (`seed`):
+        None or "price"  y[-k] = x[0]  (as h1_check.simulate; = series(Price[0], n) in the .c). Default: SS2/SS3
+                         behaviour byte-identical.
+        "zero"           y[-k] = 0     (the article's EasyLanguage `Vars: HP(0)`, HP-A)."""
+    if seed not in (None, "price", "zero"):
+        raise ValueError("seed must be None, 'price' or 'zero', got %r" % (seed,))
     x = np.asarray(x, dtype=float)
     y = np.empty(len(x))
     nb, na = len(f.b), len(f.a)
+    y_hist = 0.0 if seed == "zero" else x[0]
     for n in range(len(x)):
         acc = 0.0
         for k in range(nb):
             acc += f.b[k] * (x[n - k] if n - k >= 0 else x[0])
         for k in range(na):
-            acc += f.a[k] * (y[n - k - 1] if n - k - 1 >= 0 else x[0])
+            acc += f.a[k] * (y[n - k - 1] if n - k - 1 >= 0 else y_hist)
         y[n] = acc
     return y
 

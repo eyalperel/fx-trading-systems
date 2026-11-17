@@ -86,19 +86,56 @@ def make_inputs(spec):
 
 
 # ----------------------------------------------------------------------------- measurements
+def dc_gain_of(spec):
+    """Reference DC gain of the spec's filter (D4). Default 1 = H1 / SS2 / SS3 behaviour."""
+    return spec.get("dc_gain", 1.0)
+
+
 def m_flat(spec, y):
-    """h1_check.m_flat."""
-    return float(np.max(np.abs(y[spec["w"]:] - spec["level"])))
+    """h1_check.m_flat, generalised (D4 rule 2): max |y - dc_gain*level| over n >= warmup.
+    dc_gain defaults to 1 (1.0*level == level exactly: H1 / SS2 / SS3 results unchanged)."""
+    return float(np.max(np.abs(y[spec["w"]:] - dc_gain_of(spec) * spec["level"])))
 
 
-def m_gain(spec, y, t):
-    """Least-squares sine gain, h1_check.m_gain."""
+def _fit(spec, y, t):
+    """The least-squares fit y = a*sin(w n) + b*cos(w n) + c over n >= warmup (h1_check.m_gain). One fit
+    feeds both the gain and the phase (D4 rule 3). Returns coef (a, b, c)."""
     w0 = spec["w"]
     n = np.arange(spec["n_bars"], dtype=float)[w0:]
     w = 2 * math.pi * n / t
     A = np.column_stack([np.sin(w), np.cos(w), np.ones_like(w)])
     coef, *_ = np.linalg.lstsq(A, y[w0:], rcond=None)
+    return coef
+
+
+def m_gain(spec, y, t):
+    """Least-squares sine gain, h1_check.m_gain."""
+    coef = _fit(spec, y, t)
     return float(math.hypot(coef[0], coef[1]) / spec["amp"])
+
+
+def m_phase(spec, y, t):
+    """Sine phase (rad) = atan2(b, a) of the SAME fit as m_gain = arg H(e^jw) (output leads when > 0).
+    Convention shared with reference.phase_at (test_03 in test_reference_hp.py)."""
+    coef = _fit(spec, y, t)
+    return float(math.atan2(coef[1], coef[0]))
+
+
+def wrap_phase(d):
+    """Wrap an angle difference to (-pi, pi]; callers compare abs() with the tolerance."""
+    w = (d + math.pi) % (2 * math.pi) - math.pi
+    return math.pi if w == -math.pi else w
+
+
+def m_ramp_res(spec, y, expected):
+    """Ramp residual (D4 rule 4): max |y - expected| over the last 100 ramp bars."""
+    return float(np.max(np.abs(y[-100:] - expected)))
+
+
+def m_startup(spec, y, y_ref):
+    """Start-up (D4): max |y - y_ref| over 0 <= n < warmup."""
+    w = spec["w"]
+    return float(np.max(np.abs(y[:w] - y_ref[:w])))
 
 
 def m_lag(spec, x, y):
@@ -113,35 +150,88 @@ def measure(spec, x, yv):
 
 
 # ----------------------------------------------------------------------------- checks
-def check_rows(spec, variant, x, yv):
-    """One row per check for one variant (h1_check.check_rows, floats kept unformatted)."""
-    flat, gains, lag = measure(spec, x, yv)
+def _has_lag(spec):
+    return dc_gain_of(spec) == 1
+
+
+def _has_resid(spec, variant):
+    return dc_gain_of(spec) != 1 and variant.get("resid") is not None
+
+
+def n_checks(spec, variant):
+    """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups.
+    For specs without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3)."""
+    return (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
+            + len(variant.get("phases", {})) + len(spec.get("startup", [])))
+
+
+def check_rows(spec, variant, x, yv, xe=None):
+    """One row per check for one variant (h1_check.check_rows, floats kept unformatted).
+    D4 additions, all opt-in from spec / variant keys: ramp-lag only at dc_gain 1, else ramp-res; phase-T<t> at the
+    periods in variant["phases"]; startup-<input> for spec["startup"]. xe = the EXPORTED x columns (default: x)."""
     ef, eg, el = variant["expected"]
     rows = []
 
-    def row(cid, inp, e, a, tol, is_flat=False):
+    def add(cid, inp, e, a, tol, d, res=None):
         fin = math.isfinite(a)
-        if not fin:
-            res = "ERROR"
-        elif is_flat:
-            res = "PASS" if a <= tol else "FAIL"
-        else:
-            res = "PASS" if abs(a - e) <= tol else "FAIL"
-        d = abs(a - e) if fin else float("nan")
+        if res is None:
+            res = "ERROR" if not fin else ("PASS" if d <= tol else "FAIL")
         rows.append(dict(check_id="%s-%s-%s" % (spec["id_prefix"], variant["id"], cid),
                          indicator=spec["indicator"], params=variant["params"], asset=spec["asset"],
                          input=inp, expected=e, actual=a, abs_diff=d, tolerance=tol,
-                         ratio=(d / tol) if fin else float("nan"), result=res, role=variant["role"]))
-    row("flat", "flat", ef, flat, spec["tol_flat"], is_flat=True)
-    for t, e, a in zip(spec["ts"], eg, gains):
-        row("gain-T%d" % t, "sine T=%d" % t, e, a, spec["tol_gain"])
-    row("ramp-lag", "ramp", el, lag, spec["tol_lag"])
+                         ratio=(d / tol) if math.isfinite(d) else float("nan"), result=res, role=variant["role"]))
+
+    def row(cid, inp, e, a, tol, is_flat=False):
+        fin = math.isfinite(a)
+        d = abs(a - e) if fin else float("nan")
+        res = None if not is_flat else ("ERROR" if not fin else ("PASS" if a <= tol else "FAIL"))
+        add(cid, inp, e, a, tol, d, res=res)
+
+    row("flat", "flat", ef, m_flat(spec, yv["flat"]), spec["tol_flat"], is_flat=True)
+    for t, e in zip(spec["ts"], eg):
+        row("gain-T%d" % t, "sine T=%d" % t, e, m_gain(spec, yv["s%d" % t], t), spec["tol_gain"])
+    if _has_lag(spec):
+        row("ramp-lag", "ramp", el, m_lag(spec, x["ramp"], yv["ramp"]), spec["tol_lag"])
+    if _has_resid(spec, variant):
+        yr = yv["ramp"]
+        d = m_ramp_res(spec, yr, variant["resid"])
+        a = float(np.mean(yr[-100:]))
+        add("ramp-res", "ramp (last 100 bars)", variant["resid"], a, spec["tol_resid"], d,
+            res=None if math.isfinite(a) else "ERROR")
+    for t, e in sorted(variant.get("phases", {}).items()):
+        a = m_phase(spec, yv["s%d" % t], t)
+        d = abs(wrap_phase(a - e)) if math.isfinite(a) else float("nan")
+        add("phase-T%d" % t, "sine T=%d" % t, e, a, spec["tol_phase"], d)
+    if spec.get("startup"):
+        model = R.article_model(variant.get("article"))
+        xs = x if xe is None else xe
+        for i in spec["startup"]:
+            if model is None:
+                add("startup-%s" % i, "%s, n < %d" % (i, spec["w"]), 0.0, float("nan"), spec["tol_startup"],
+                    float("nan"), res="ERROR")
+                continue
+            yref = R.simulate(model, np.asarray(xs[i], dtype=float)[:spec["w"]], seed="zero")
+            a = m_startup(spec, yv[i], yref)
+            add("startup-%s" % i, "%s, n < %d" % (i, spec["w"]), 0.0, a, spec["tol_startup"], a)
     return rows
 
 
 def _kind(check_id):
     tail = check_id.split("-", 2)[2]
-    return "gain" if tail.startswith("gain") else ("lag" if tail.startswith("ramp") else "flat")
+    if tail.startswith("gain"):
+        return "gain"
+    if tail.startswith("phase"):
+        return "phase"
+    if tail.startswith("ramp-res"):
+        return "resid"
+    if tail.startswith("startup"):
+        return "startup"
+    return "lag" if tail.startswith("ramp") else "flat"
+
+
+def _extra_kinds(spec):
+    """D4 kinds enabled by the spec (tolerance present), in report order."""
+    return [k for k in ("phase", "resid", "startup") if spec.get("tol_" + k) is not None]
 
 
 def nc_report(spec, rows):
@@ -166,7 +256,7 @@ def nc_report(spec, rows):
             k = _kind(r["check_id"])
             mx[k] = max(mx.get(k, 0.0), r["ratio"])
         detected = {k: any(r["result"] == "FAIL" and _kind(r["check_id"]) == k for r in rs)
-                    for k in ("flat", "gain", "lag")}
+                    for k in ("flat", "gain", "lag") + tuple(_extra_kinds(spec))}
         if req_all is None:
             req = None
             far = any(r["result"] == "FAIL" for r in rs)
@@ -274,10 +364,14 @@ def imp_rows(spec, raw, x=None):
     row["detail"] (not written to the CSV columns)."""
     imp, w, p = spec["imp"], spec["w"], spec["id_prefix"]
     tol = imp["tol"]
+    seeds = {v["id"]: v.get("seed") for v in spec["variants"]}        # None = price (old behaviour); D4
     rows = []
     for kind, table in (("pass", imp["must_pass"]), ("fail", imp["must_fail"])):
         for vid, mstr in table.items():
             per, res = {}, None
+            # D4: a variant that DECLARES a seed is replayed over the whole run (n >= 0): the seed only differs in
+            # the start-up transient, which n >= warmup cannot see. No declared seed: n >= warmup (H1/SS2/SS3).
+            lo = 0 if seeds.get(vid) is not None else w
             maker = R.IMP_MODELS.get(mstr)
             if maker is None:
                 res = "ERROR"
@@ -286,7 +380,7 @@ def imp_rows(spec, raw, x=None):
                 for i in input_names(spec):
                     xi = raw.cols["x_" + i]
                     yi = raw.cols["y_%s_%s" % (vid, i)]
-                    per[i] = float(np.max(np.abs(yi[w:] - R.simulate(model, xi)[w:])))
+                    per[i] = float(np.max(np.abs(yi[lo:] - R.simulate(model, xi, seed=seeds.get(vid))[lo:])))
                 overall = max(per.values())
                 if not math.isfinite(overall):
                     res = "ERROR"
@@ -299,23 +393,32 @@ def imp_rows(spec, raw, x=None):
             fin = math.isfinite(overall)
             rows.append(dict(check_id="%s-%s-imp-%s" % (p, vid, kind), indicator=spec["indicator"],
                              params="IMP must_%s: %s" % (kind, mstr),
-                             asset=spec["asset"], input="replay residual n>=%d, overall" % w,
+                             asset=spec["asset"], input="replay residual n>=%d, overall" % lo,
                              expected=0.0 if kind == "pass" else tol, actual=overall,
                              abs_diff=overall, tolerance=tol, ratio=(overall / tol) if fin else float("nan"),
                              result=res, role="imp", detail=per))
     return rows
 
 
+def floor_quantities(spec):
+    """(kind, tolerance/10) the floor guard checks per real variant: gain, lag (dc_gain 1 only), then the D4 kinds
+    enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged."""
+    q = [("gain", spec["tol_gain"] / 10)]
+    if _has_lag(spec):
+        q.append(("lag", spec["tol_lag"] / 10))
+    return q + [(k, spec["tol_" + k] / 10) for k in _extra_kinds(spec)]
+
+
 def floor_rows(spec, rows):
-    """Pass item 7: per REAL variant max gain |Zorro - book| <= tol_gain/10 and lag <= tol_lag/10
-    (D2 rule 3 floor side). A failing row means the tolerance window is invalid (see the trailer)."""
+    """Pass item 7: per REAL variant max |Zorro - book| <= tolerance/10 per quantity (D2 rule 3 floor side):
+    gain, lag (dc_gain 1), phase, resid, startup. A failing row means the tolerance window is invalid."""
     out = []
     for v in spec["variants"]:
         if v["role"] != "real":
             continue
         pre = "%s-%s-" % (spec["id_prefix"], v["id"])
         rs = [r for r in rows if r["role"] == "real" and r["check_id"].startswith(pre)]
-        for q, tol in (("gain", spec["tol_gain"] / 10), ("lag", spec["tol_lag"] / 10)):
+        for q, tol in floor_quantities(spec):
             ds = [r["abs_diff"] for r in rs if _kind(r["check_id"]) == q]
             a = max(ds) if ds else float("nan")
             fin = math.isfinite(a)
@@ -330,10 +433,11 @@ def floor_rows(spec, rows):
 def evaluate(spec, raw):
     """Assumes validate() found nothing. Returns (rows, nc_report)."""
     x = make_inputs(spec)
+    xe = {i: raw.cols["x_" + i] for i in input_names(spec)}          # EXPORTED inputs (start-up reference)
     rows = []
     for v in spec["variants"]:
         yv = {i: raw.cols["y_%s_%s" % (v["id"], i)] for i in input_names(spec)}
-        rows += check_rows(spec, v, x, yv)
+        rows += check_rows(spec, v, x, yv, xe=xe)
     nc = nc_report(spec, rows)
     if spec.get("imp"):
         rows += imp_rows(spec, raw, x) + floor_rows(spec, rows)
@@ -350,8 +454,7 @@ def counts(spec, rows, errs):
 
 def verdict(spec, rows, nc, errs):
     c = counts(spec, rows, errs)
-    n_real_variants = sum(v["role"] == "real" for v in spec["variants"])
-    expect_real = n_real_variants * (2 + len(spec["ts"]))
+    expect_real = sum(n_checks(spec, v) for v in spec["variants"] if v["role"] == "real")
     ok = (c["n_real"] == expect_real and c["n_pass"] == expect_real and c["n_err"] == 0
           and all(d["fails_as_required"] for d in nc.values()) and len(nc) > 0
           and all(r["result"] == "PASS" for r in rows if r["role"] in ("imp", "floor")))
@@ -402,9 +505,15 @@ def imp_trailer(spec, rows):
             continue
         pre = "%s-%s-" % (p, v["id"])
         imp = [r["actual"] for r in rows if r["role"] == "imp" and r["check_id"] == pre + "imp-pass"]
-        fl = {q: [r["actual"] for r in rows if r["check_id"] == pre + "floor-" + q][0] for q in ("gain", "lag")}
-        out.append("# O_IMP_RESIDUAL %s imp=%s zorro_vs_book_gain_max=%.3e zorro_vs_book_lag=%.3e (INFO)" % (
-            v["id"], "%.3e" % imp[0] if imp else "n/a", fl["gain"], fl["lag"]))
+        fl = {q: [r["actual"] for r in rows if r["check_id"] == pre + "floor-" + q][0]
+              for q, _ in floor_quantities(spec)}
+        txt = "# O_IMP_RESIDUAL %s imp=%s zorro_vs_book_gain_max=%.3e" % (
+            v["id"], "%.3e" % imp[0] if imp else "n/a", fl["gain"])
+        if "lag" in fl:
+            txt += " zorro_vs_book_lag=%.3e" % fl["lag"]
+        for k in _extra_kinds(spec):
+            txt += " zorro_vs_book_%s=%.3e" % (k, fl[k])
+        out.append(txt + " (INFO)")
     bad = sorted(r["check_id"] for r in rows if r["role"] == "floor" and r["result"] != "PASS")
     if bad:
         out.append("# FLOOR_GUARD FAIL: tolerance window invalid (item 7; not accepted until explained): "
@@ -464,13 +573,18 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
         f.write("# real_checks=%d PASS=%d FAIL=%d ERROR=%d\n"
                 % (c["n_real"], c["n_pass"], c["n_fail"], c["n_err"]))
         for vid, d in nc.items():
+            xk = _extra_kinds(spec)
             f.write("# NC %s fails_as_required=%s margin10_met=%s max_ratio gain=%.3e lag=%.3e flat=%.3e"
                     % (vid, d["fails_as_required"], d["margin10_met"], d["max_ratio"].get("gain", 0.0),
                        d["max_ratio"].get("lag", 0.0), d["max_ratio"].get("flat", 0.0)))
+            for k in xk:
+                f.write(" %s=%.3e" % (k, d["max_ratio"].get(k, 0.0)))
             if d["required"] is not None:
-                f.write(" detected gain=%s lag=%s flat=%s required=%s"
-                        % (d["detected"]["gain"], d["detected"]["lag"], d["detected"]["flat"],
-                           ",".join(d["required"])))
+                f.write(" detected gain=%s lag=%s flat=%s"
+                        % (d["detected"]["gain"], d["detected"]["lag"], d["detected"]["flat"]))
+                for k in xk:
+                    f.write(" %s=%s" % (k, d["detected"][k]))
+                f.write(" required=%s" % ",".join(d["required"]))
             f.write("\n")
         if ext:
             li = spec.get("literal_info")

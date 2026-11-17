@@ -175,6 +175,19 @@ any indicator or batch script. The ones that fail **silently**:
 - Prefer editing existing files to creating new ones. Don't delete tracked files;
   propose the deletion instead.
 
+### Test runs and reporting (added 2026-11-17, after the HP tooling stages)
+
+- Run tests with `bash analysis/harness/run_tests.sh`. Report the TOTAL line, and on any ERROR or
+  FAIL also the test names and the first lines of each traceback. Counts alone are not a report.
+- If any ERROR or FAIL appears, rerun once and report both runs. A result that changes between
+  runs is not green; say so.
+- Known intermittent issue (b, 2026-11-16/17): `test_checker_amend1.test_cli` has failed with
+  `MemoryError` in your shell (twice), and once 4/144 tests errored in the user's Git Bash with the
+  cause not captured. Report it if you see it; investigate only when asked.
+- Test counts that go into commit messages come from the user's Git Bash run, not from yours.
+- The working copy is CRLF (Windows checkout), the repo LF. For diff sizes use
+  `git diff --stat --ignore-cr-at-eol`; a plain `--stat` can show a whole file as changed.
+
 ## 9. Stop and ask before
 
 - touching anything in the confirmation set (§4.1)

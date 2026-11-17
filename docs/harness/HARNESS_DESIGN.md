@@ -54,6 +54,15 @@ The generator and checker are ordinary Python, tested with their own self-tests.
 - Results files get a run suffix and are never overwritten; raw CSV copied to `*_run<k>.csv`
   with its sha256 recorded.
 - Negative controls in every spec; a control that passes means the harness is broken.
+- Every run is read twice (adopted 2026-11-17, HP runs 1-2): after the [Test] click and BEFORE the checker, the
+  planning chat back-checks the raw file with its own code (models from `reference.py`, measurements written
+  independently of `checker.py`) and writes a row-level prediction; then Claude Code runs the checker; the two are
+  compared row by row. A disagreement is a finding to explain before the result is accepted. (b) HP run 1: both readers
+  found the same single FAIL; run 2: same PASS.
+- Every number a pre-run condition compares is stored at full precision in the spec (HP Amendment 1, A1.2: values kept
+  as 4-digit text could only be compared at their digits).
+- Corrected code starts expressions with a variable, never with a product of literals (gotchas 9d.8: such products are
+  folded at compile time to an unpredictable float32).
 
 ## 5. Acceptance of the tool itself
 
@@ -186,6 +195,57 @@ assumes DC gain = 1 (D2 Amendment 1 correction). HighPassFilter and RoofingFilte
 design; (c) on a ramp the check would report roughly level/slope, not lag. Their specs need a different
 phase/lag measurement (e.g. phase at the sine test periods), decided before those specs are written.
 
+**D4 - DECIDED 2026-11-16 (planning chat, user): sine phase + ramp residual; ramp lag only at DC gain 1.**
+
+Worked example (b): first difference y = x - x[1] (DC gain 0). Ramp x = 5 + 2n gives y = 2 on every bar, so
+(x - y)/s = 2.5, 3.5, 4.5, ... grows by 1 per bar: the ramp-lag check measures position on the ramp, not lag.
+Sine T = 4 (x = sin(pi*n/2)): the least-squares fit y = a*sin + b*cos gives a = b = 1, gain sqrt(2), phase
+pi/4 rad, delay = -phase/omega = -0.5 bars (the output leads). Matches H(e^jw) = 1 - e^-jw = 1 + j at w = pi/2.
+(b) Found while reading `checker.py`: `m_flat` also assumes DC gain 1 (it measures |y - level|).
+
+Rules (apply to every spec from HighPassFilter on):
+1. **Ramp lag** (existing check): only when the spec's reference DC gain = 1.
+2. **Flat:** expected output = reference DC gain x level (0 for DC gain 0). `m_flat` is generalised accordingly.
+3. **Sine phase** (new quantity): phase = atan2 of the existing least-squares fit (sin, cos, constant columns,
+   `checker.m_gain`), compared with arg H(e^jw) from the reference model; the difference is wrapped to (-pi, pi];
+   tolerance in **radians**; checked only at test periods where the reference gain >= a gate the spec
+   pre-registers (phase is undefined at gain 0, e.g. RoofingFilter at T = 2).
+4. **Ramp residual** (specs with DC gain 0): steady-state output on the ramp vs the reference model's value
+   (-s * sum k*h_k; 0 when the numerator has a double zero at DC). A known-answer check, not a lag.
+5. The phase tolerance default is set in the first spec that uses it (HighPassFilter) from its measured floor
+   and recorded here (D2 rule 1). D2 per-control detection (Amendment 1) is unchanged.
+
+Why radians (b): a phase error d_phi is d_phi * T/(2*pi) bars, so one tolerance in bars would be loose at long
+periods and strict at short ones. Rejected: group delay from phases at two nearby periods (differences two noisy
+estimates; a high-pass has no meaningful group delay near DC); gain only (a pole-angle error barely moves gain,
+and timing is what the NNFX slots depend on).
+Sourcing note (a)/(b), 2026-11-16: Ehlers published three different high-pass filters: 2-pole with `.707`
+(TASC V.32:1 2014; also V.33:09, V.36:03), 1-pole (V.34:09 2016), 2-pole Butterworth-type with zero start-up
+(V.42:04 2024). `HighPassFilter.c` implements the first (read 2026-11-16); details in the HighPassFilter spec.
+
+**D4 rule 5 applied, 2026-11-17 (HP_ArticleFidelity, 2069d86).** Defaults recorded under D2 rule 1:
+**phase 3e-5 rad** (HP floor 8.1e-7 = the `PI` gap; NCA 37x), **ramp residual 1e-9** (floor 2.8e-16), **start-up 1e-6**
+(floor 1.2e-9). Phase gate 0.05 (judgement (c); binds first in RoofingFilter, gain 0 at T = 2). Each later spec checks
+them against its own measured window (D2 rule 3) and states another value with its reason if the window requires it.
+
+**D5 - DECIDED 2026-11-17: how an amendment changes a pre-registered value.** The pre-registered text is never edited.
+A dated amendment adds a correction section that the tooling applies on a copy and reports as an INFO line in the
+results header: `[effect_corrections.<id>]` (SS2 Amendment 2, tooling 49f7fda) and `[imp_corrections.<id>]` (HP
+Amendment 2, tooling edfa8d5). An `[imp_corrections]` entry must name its list (`must_pass` | `must_fail`), quote the
+model it `replaces` verbatim (validation refuses a mismatch), name a registered model, its amendment and a labelled
+source. Rejected: editing in place (breaks the record), a checker-side override outside the spec (criterion not
+traceable to the pre-registration), a new spec for a one-model change (re-runs everything for nothing).
+(b) First use: HP run 1 FAILED one row because the NCH model did not know Zorro's compile-time fold of `0.707*2.0*PI`
+(gotchas 9d.8). The fold was measured by a probe (ba54022), the model corrected by Amendment 2 (e29febd), and run 2
+(same script, byte-identical raw) PASSED (512781c). Run 1 stays recorded as FAIL. The planning chat had first fitted
+the value from run 1's data; the probe measured it independently; disclosed in the amendment.
+
+**Open items (2026-11-17).**
+- The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
+  run record should carry every pre-registered exception (small tooling task).
+- Intermittent test errors: `test_checker_amend1.test_cli` MemoryError twice in Claude Code's shell; once 4/144
+  ERRORs in the user's Git Bash, cause not captured (CLAUDE.md §8 now requires tracebacks and a rerun).
+
 ## 7. Order of work
 
 1. [x] Decide D1–D3 (planning chat, 2026-11-06).
@@ -207,3 +267,9 @@ phase/lag measurement (e.g. phase at the sine test periods), decided before thos
    `a1dbce5` (65/65 tests); **run 1 PASS 2026-11-16** (`09c05ad`): 28/28, all 6 controls detected (incl. NCH = the
    real hybrid, NCL = the book as printed), IMP <= 3.4e-14 (fire test 4.1e-3), Zorro vs book = `PI` gap (gain 9.0e-7,
    lag 7.7e-6); 10 variants. First spec to answer both §1 questions in one run (IMP replaces an H1-style run).
+   HP status 2026-11-17: D4 decided `032d766`; tooling `14395a0`, `a2999c4`, `f2e80c2`; spec `2069d86` (HP-A, TASC
+   V.32:1; corrections D-1 `0.707` -> sqrt(2)/2 and D-2 zero seed; 56 real checks, 8 controls, IMP own-model replay for
+   all 12 variants); corrected `.c` `d22ef57`; Amendment 1 `c998bf8`. **Run 1 FAIL** (`a361e4b`): item 6 only, NCH
+   own-model replay 2.24e-7 (Zorro literal fold, probe `ba54022`). Amendment 2 `e29febd` (tooling `edfa8d5`,
+   `3434866`). **Run 2 PASS** (`512781c`): 56/56, 8/8 controls, 14/14 IMP (<= 1.3e-11 except fire rows), 16/16 floor;
+   Zorro vs article = `PI` gap (gain 4.0e-7, phase 8.1e-7 rad). 24 variant-runs (12 x 2) on one byte-identical raw file.
