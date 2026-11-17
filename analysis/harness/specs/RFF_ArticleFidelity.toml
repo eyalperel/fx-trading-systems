@@ -573,3 +573,17 @@ blob_source = "(b) git rev-parse 9b117fc:indicators/ehlers/RoofingFilter.c (old)
 script = "strategies/tests/GEN_RFF_RoofingFilter.c"
 script_sha256 = "17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853"
 script_check = "(b) read-through 2026-11-17: includes HighPassFilter.c, SuperSmoother2Pole.c, RoofingFilter.c in order; alt input from integers via static rff_sgn reset at INITRUN, flipped once per bar after the row is written, X[6] set before the filter calls; 88 unconditional Y calls in fixed variant-major order, RoofingFilter(S, hp, ss) for P48S10/P30S10/P125S10/P48S20/NC1/NC1s; five inline bodies each defined once; no bare 'Period' identifier; decimal literals all float32-exact except 0.707 (three, inside rff_nco, exempted); raw file Data/GEN_RFF_raw.csv deleted at INITRUN, header written once; last row latched before quit(). C:/Zorro/Data/GEN_RFF_raw.csv does not exist yet."
+
+# ============================================================================ Amendment 2
+# 2026-11-17, AFTER run 1, no criterion changed. Base: Amendment 1 commit (everything above unchanged). Records only.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], the generated script.
+[amendment_2]
+date = "2026-11-17"
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Results file analysis/harness/results/RFF_ArticleFidelity_20261117.csv; raw analysis/harness/results/RFF_ArticleFidelity_20261117_raw_run1.csv sha256 edb3400fb8985f89b7b6696932023d457edfb6d4dd3df4b213ee4fb63070c810; script strategies/tests/GEN_RFF_RoofingFilter.c sha256 17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853. Per pass item: (1) 64 of 64 real checks PASS, 0 FAIL, 0 ERROR (largest real ratio 0.0522), 11 alt-phase rows SKIP (4 real, 7 control), not counted in the 64; (2) 7 of 7 controls detected on every required kind; (3) no guard row, no ERROR row, no NaN; (4) Zorro window clean, Warning 047 only (user report); (5) variants_run=11 real=4 neg_control=7; (6) IMP must_pass 11 of 11 (largest 3.514e-12, NCB), must_fail 2 of 2 (P48S10 1.1013035607766, NCO 1.9138e-02); (7) floor 16 of 16 PASS (largest ratio 0.5224).",
+  "A2.2 NCO must_fail measured 1.9138e-02 against the pre-registered [imp.fire_test].nco_vs_corrected_model = 1.101303560776619. Cause (b), reproduced by the planning chat: the checker replays the variant's declared seed 'price' on roof_code as ONE 4th-order filter with output history = x[0], giving 1.9138e-02; per-stage price seeding (HP price, SuperSmoother at its first input) gives 9.07e-05; both stages zero-seeded gives 1.10 (the spec value, computed with seed zero). The verdict is unaffected: the row needs > 1e-9 and passed. Open tooling item: per-stage seeds for cascades.",
+  "A2.3 INFO, no criterion: IMP residuals of NCA / NCB are 7.4e-13 / 3.5e-12 against ~1e-15 for the other variants. Both bodies, and only they, contain the literal expression `1.0 / 1000`. Inference (c): compile-time fold to float32(0.001), relative error 4.7e-11 (as gotchas 9d.8). Not probed; both rows pass with a margin of more than 280x.",
+]
