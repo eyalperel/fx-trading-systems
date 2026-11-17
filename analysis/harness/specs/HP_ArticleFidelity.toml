@@ -530,3 +530,29 @@ O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-arti
 
 # ----------------------------------------------------------------------------- amendments
 # (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-17, BEFORE any run. Base: d22ef57 (spec 2069d86 + corrected indicators/ehlers/HighPassFilter.c). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp], pass items 1-7,
+# [corrected_code], [observations].
+[amendment_1]
+date = "2026-11-17"
+base_commit = "d22ef57"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed.",
+  "A1.2 Interpretation, no criterion changed: pre-run (iii)'s 1e-9 applies to values the spec stores at full precision (tables, floors, effects, literal_info). Values stored as text at 4 significant digits ([imp].fire_test_effect, [floor].source per-P lists) are compared at their stored digits; all match (largest deviation 3.8e-4 = rounding of 1.091). Lesson for later specs: store every number pre-run (iii) checks at full precision.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_hp_corrected_code.py: indicators/ehlers/HighPassFilter.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var HighPassFilter(vars Price, int HPPeriod)'. Guard seen to fire on temp-file copies: sqrt(2.0)/2.0 -> 0.707, series(0, 3) -> series(Price[0], 3), HP[1] -> HP[2] in the feedback term, wrong function name, lines present only in comments: all reported not-ok. A whitespace-only reformat still passes."
+cond_ii = "PASS. Same test file: the NCH inline body (variant NCH) equals `git show 14395a0:indicators/ehlers/HighPassFilter.c` token by token, comments stripped; the only difference is the function name (hpf_nch vs HighPassFilter). Guard seen to fire: 0.707 -> 0.708, Price[2] -> Price[1] and '- (1.0 - alpha1) *' -> '+ (1.0 - alpha1) *' in copies of the old file, and 0.707 -> 0.708 in the NCH body: all reported not-ok (first differing token named). Edits to comments only do not matter."
+cond_iii = "PASS. analysis/harness/tests/test_reference_hp_spec.py (checker's own check_rows / m_gain / m_phase / m_startup / m_ramp_res, own-model replays from reference.IMP_MODELS): [expected.*] 4 x 11 = 44 values, [floor] 5 kinds plus the per-P text (gain, phase, startup x 4 P, at the 4 digits stored), [variants.effect] 8 controls x 5 kinds = 40 values, [literal_info] 2 values, [imp].fire_test_effect 11 numbers (stored at 4 significant digits; compared at those digits, own-model replays exactly 0, every control discriminates > 1e-9). Tolerance <= 1e-9 (relative 1e-9 above 1). Largest deviation per section: expected 4.470e-10, floor 6.629e-16, effects 2.278e-10, literal_info 4.626e-15, imp_fire_test 3.819e-04 (a 4-digit storage rounding of the value 1.091, not a mismatch). Guards seen to fire: tolerance rule, table value +1e-6, floor +5e-9, effect +1%, swapped control, corrected k vs literal_info."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/HP_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; every D2 floor window ok (gain, flat, phase, resid, startup), every control's D2 margin >= 10x, INFO line 'L_FLOAT32 exemption used: variant NCH, literal 0.707' present."
+tests_before = 144
+tests_after = 170
+tests_added = 26
+suite = "bash analysis/harness/run_tests.sh: TOTAL 170  PASS 170  FAIL 0  ERROR 0  SKIP 0"
+blob_HighPassFilter_c_at_14395a0 = "b734b7e2b07dfc5c08a5e12eeac1d2b104296080"
+blob_HighPassFilter_c_at_d22ef57 = "9e2bc7ac0caf6389838e6e4032f407844ecdbfa5"
+blob_source = "(b) git rev-parse <commit>:indicators/ehlers/HighPassFilter.c, 2026-11-17"
