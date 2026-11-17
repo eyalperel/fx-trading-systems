@@ -1,0 +1,269 @@
+check_id,indicator,params,asset,input,expected,actual,abs_diff,tolerance,ratio,result,role
+RFF-P48S10-flat,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P48S10-gain-T5,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.22329212604238194,3.377e-07,3e-05,1.126e-02,PASS,real
+RFF-P48S10-gain-T10,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.681218432380848,5.278e-07,3e-05,1.759e-02,PASS,real
+RFF-P48S10-gain-T20,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.8900165783403248,2.882e-08,3e-05,9.606e-04,PASS,real
+RFF-P48S10-gain-T40,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.7405717724994254,3.032e-07,3e-05,1.011e-02,PASS,real
+RFF-P48S10-gain-T100,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.3152099166223484,3.488e-07,3e-05,1.163e-02,PASS,real
+RFF-P48S10-gain-alt,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,real
+RFF-P48S10-ramp-res,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P48S10-phase-T5,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7262731659847383,6.951e-07,3e-05,2.317e-02,PASS,real
+RFF-P48S10-phase-T10,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.0206192585361558,1.328e-06,3e-05,4.428e-02,PASS,real
+RFF-P48S10-phase-T20,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.05338792674704225,1.088e-06,3e-05,3.625e-02,PASS,real
+RFF-P48S10-phase-T40,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.769983002362127,9.989e-07,3e-05,3.330e-02,PASS,real
+RFF-P48S10-phase-T100,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.834050522246169,8.624e-07,3e-05,2.875e-02,PASS,real
+RFF-P48S10-phase-alt,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-P48S10-startup-flat,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+RFF-P48S10-startup-ramp,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,4.973373366780331e-10,4.973e-10,1e-06,4.973e-04,PASS,real
+RFF-P48S10-startup-s20,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.0629929667396731e-08,1.063e-08,1e-06,1.063e-02,PASS,real
+RFF-P30S10-flat,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P30S10-gain-T5,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,0.221886515801968,0.22188618249659028,3.333e-07,3e-05,1.111e-02,PASS,real
+RFF-P30S10-gain-T10,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,0.6606227216063713,0.660622241541946,4.801e-07,3e-05,1.600e-02,PASS,real
+RFF-P30S10-gain-T20,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,0.7923026240490537,0.7923027797350503,1.557e-07,3e-05,5.190e-03,PASS,real
+RFF-P30S10-gain-T40,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,0.5279498520179208,0.527950251055721,3.990e-07,3e-05,1.330e-02,PASS,real
+RFF-P30S10-gain-T100,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,0.15212204507710883,0.1521222539759949,2.089e-07,3e-05,6.963e-03,PASS,real
+RFF-P30S10-gain-alt,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,real
+RFF-P30S10-ramp-res,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P30S10-phase-T5,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,-1.6500843312236226,-1.6500850874293727,7.562e-07,3e-05,2.521e-02,PASS,real
+RFF-P30S10-phase-T10,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,-0.8548518285837566,-0.8548532827837371,1.454e-06,3e-05,4.847e-02,PASS,real
+RFF-P30S10-phase-T20,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,0.2537181883627087,0.2537169140115852,1.274e-06,3e-05,4.248e-02,PASS,real
+RFF-P30S10-phase-T40,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,1.2179066009523658,1.2179055000468142,1.101e-06,3e-05,3.670e-02,PASS,real
+RFF-P30S10-phase-T100,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,2.225019952201823,2.22501925896916,6.932e-07,3e-05,2.311e-02,PASS,real
+RFF-P30S10-phase-alt,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-P30S10-startup-flat,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+RFF-P30S10-startup-ramp,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,3.2626657086210105e-10,3.263e-10,1e-06,3.263e-04,PASS,real
+RFF-P30S10-startup-s20,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.0507046387293623e-08,1.051e-08,1e-06,1.051e-02,PASS,real
+RFF-P125S10-flat,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P125S10-gain-T5,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,0.22406569268162604,0.2240653525700302,3.401e-07,3e-05,1.134e-02,PASS,real
+RFF-P125S10-gain-T10,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,0.692985615735416,0.692985059875135,5.559e-07,3e-05,1.853e-02,PASS,real
+RFF-P125S10-gain-T20,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,0.9541012321301761,0.9541011607837167,7.135e-08,3e-05,2.378e-03,PASS,real
+RFF-P125S10-gain-T40,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,0.94864257264635,0.9486426406631212,6.802e-08,3e-05,2.267e-03,PASS,real
+RFF-P125S10-gain-T100,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,0.7574953205695956,0.757495618279039,2.977e-07,3e-05,9.924e-03,PASS,real
+RFF-P125S10-gain-alt,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.0342470785651366e-18,6.914860000001063e-11,6.915e-11,3e-05,2.305e-06,PASS,real
+RFF-P125S10-ramp-res,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P125S10-phase-T5,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=5,-1.8046730161716742,-1.804673648139247,6.320e-07,3e-05,2.107e-02,PASS,real
+RFF-P125S10-phase-T10,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=10,-1.1944917645042243,-1.1944929551971717,1.191e-06,3e-05,3.969e-02,PASS,real
+RFF-P125S10-phase-T20,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=20,-0.39884512105393705,-0.39884595203527123,8.310e-07,3e-05,2.770e-02,PASS,real
+RFF-P125S10-phase-T40,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=40,0.15040983304925093,0.15040919374240322,6.393e-07,3e-05,2.131e-02,PASS,real
+RFF-P125S10-phase-T100,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),sine T=100,0.9142629208646229,0.9142621168978831,8.040e-07,3e-05,2.680e-02,PASS,real
+RFF-P125S10-phase-alt,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.0342470785651366e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-P125S10-startup-flat,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+RFF-P125S10-startup-ramp,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.2532025391379098e-09,1.253e-09,1e-06,1.253e-03,PASS,real
+RFF-P125S10-startup-s20,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,8.27932758592706e-09,8.279e-09,1e-06,8.279e-03,PASS,real
+RFF-P48S20-flat,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P48S20-gain-T5,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=5,0.057431618504874854,0.05743152655019025,9.195e-08,3e-05,3.065e-03,PASS,real
+RFF-P48S20-gain-T10,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=10,0.23365848260774072,0.23365813519891998,3.474e-07,3e-05,1.158e-02,PASS,real
+RFF-P48S20-gain-T20,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=20,0.6487070206488631,0.6487065797460189,4.409e-07,3e-05,1.470e-02,PASS,real
+RFF-P48S20-gain-T40,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=40,0.719862160915718,0.7198623918408286,2.309e-07,3e-05,7.698e-03,PASS,real
+RFF-P48S20-gain-T100,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=100,0.31497347991604596,0.3149738276808346,3.478e-07,3e-05,1.159e-02,PASS,real
+RFF-P48S20-gain-alt,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),alt (-1)^n,1.5107043619184775e-18,0.0,1.511e-18,3e-05,5.036e-14,PASS,real
+RFF-P48S20-ramp-res,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+RFF-P48S20-phase-T5,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=5,-2.0732111242169586,-2.073211490006434,3.658e-07,3e-05,1.219e-02,PASS,real
+RFF-P48S20-phase-T10,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=10,-1.8117540367506426,-1.8117549148602639,8.781e-07,3e-05,2.927e-02,PASS,real
+RFF-P48S20-phase-T20,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=20,-0.8564295844658709,-0.8564311516320288,1.567e-06,3e-05,5.224e-02,PASS,real
+RFF-P48S20-phase-T40,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=40,0.3805302637415229,0.3805288906804808,1.373e-06,3e-05,4.577e-02,PASS,real
+RFF-P48S20-phase-T100,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),sine T=100,1.6917733148669594,1.691772328801878,9.861e-07,3e-05,3.287e-02,PASS,real
+RFF-P48S20-phase-alt,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 1.5107043619184775e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-P48S20-startup-flat,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+RFF-P48S20-startup-ramp,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,5.461422749588815e-10,5.461e-10,1e-06,5.461e-04,PASS,real
+RFF-P48S20-startup-s20,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.2092360225125776e-08,1.209e-08,1e-06,1.209e-02,PASS,real
+RFF-NCA-flat,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCA-gain-T5,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.22274201260727566,5.505e-04,3e-05,1.835e+01,FAIL,neg_control
+RFF-NCA-gain-T10,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.6812221551279933,3.195e-06,3e-05,1.065e-01,PASS,neg_control
+RFF-NCA-gain-T20,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.8905716804363762,5.551e-04,3e-05,1.850e+01,FAIL,neg_control
+RFF-NCA-gain-T40,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.7407243367774344,1.529e-04,3e-05,5.096e+00,FAIL,neg_control
+RFF-NCA-gain-T100,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.3152209256053116,1.136e-05,3e-05,3.786e-01,PASS,neg_control
+RFF-NCA-gain-alt,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NCA-ramp-res,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCA-phase-T5,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7282734242053712,2.001e-03,3e-05,6.670e+01,FAIL,neg_control
+RFF-NCA-phase-T10,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.022939311463551,2.321e-03,3e-05,7.738e+01,FAIL,neg_control
+RFF-NCA-phase-T20,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.05388804160384893,5.012e-04,3e-05,1.671e+01,FAIL,neg_control
+RFF-NCA-phase-T40,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.7699484918892409,3.551e-05,3e-05,1.184e+00,FAIL,neg_control
+RFF-NCA-phase-T100,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.834062731734139,1.135e-05,3e-05,3.782e-01,PASS,neg_control
+RFF-NCA-phase-alt,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NCA-startup-flat,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NCA-startup-ramp,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.1098016370120396e-07,1.110e-07,1e-06,1.110e-01,PASS,neg_control
+RFF-NCA-startup-s20,RoofingFilter,NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,7.131782244679252e-06,7.132e-06,1e-06,7.132e+00,FAIL,neg_control
+RFF-NCB-flat,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCB-gain-T5,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.22505592542238634,1.763e-03,3e-05,5.878e+01,FAIL,neg_control
+RFF-NCB-gain-T10,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.6865994221630543,5.380e-03,3e-05,1.793e+02,FAIL,neg_control
+RFF-NCB-gain-T20,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.8970468785882045,7.030e-03,3e-05,2.343e+02,FAIL,neg_control
+RFF-NCB-gain-T40,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.746421598269524,5.850e-03,3e-05,1.950e+02,FAIL,neg_control
+RFF-NCB-gain-T100,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.317699780753982,2.490e-03,3e-05,8.301e+01,FAIL,neg_control
+RFF-NCB-gain-alt,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NCB-ramp-res,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCB-phase-T5,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7262731659847712,6.951e-07,3e-05,2.317e-02,PASS,neg_control
+RFF-NCB-phase-T10,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.0206192585361569,1.328e-06,3e-05,4.428e-02,PASS,neg_control
+RFF-NCB-phase-T20,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.05338792674701891,1.088e-06,3e-05,3.625e-02,PASS,neg_control
+RFF-NCB-phase-T40,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.7699830023621257,9.989e-07,3e-05,3.330e-02,PASS,neg_control
+RFF-NCB-phase-T100,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.834050522246138,8.624e-07,3e-05,2.875e-02,PASS,neg_control
+RFF-NCB-phase-alt,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NCB-startup-flat,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NCB-startup-ramp,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,3.156172740071306e-06,3.156e-06,1e-06,3.156e+00,FAIL,neg_control
+RFF-NCB-startup-s20,RoofingFilter,NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,7.399557944283083e-05,7.400e-05,1e-06,7.400e+01,FAIL,neg_control
+RFF-NCU-flat,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCU-gain-T5,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.2760042466288362,5.271e-02,3e-05,1.757e+03,FAIL,neg_control
+RFF-NCU-gain-T10,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.7162754481032818,3.506e-02,3e-05,1.169e+03,FAIL,neg_control
+RFF-NCU-gain-T20,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.9011107469427331,1.109e-02,3e-05,3.698e+02,FAIL,neg_control
+RFF-NCU-gain-T40,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.7428617674107564,2.290e-03,3e-05,7.634e+01,FAIL,neg_control
+RFF-NCU-gain-T100,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.3153655304743564,1.560e-04,3e-05,5.199e+00,FAIL,neg_control
+RFF-NCU-gain-alt,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.09854657478840056,9.855e-02,3e-05,3.285e+03,FAIL,neg_control
+RFF-NCU-ramp-res,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCU-phase-T5,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.0979546352668024,6.283e-01,3e-05,2.094e+04,FAIL,neg_control
+RFF-NCU-phase-T10,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-0.7064599931771827,3.142e-01,3e-05,1.047e+04,FAIL,neg_control
+RFF-NCU-phase-T20,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,0.10369170593247919,1.571e-01,3e-05,5.236e+03,FAIL,neg_control
+RFF-NCU-phase-T40,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.8485228187018709,7.854e-02,3e-05,2.618e+03,FAIL,neg_control
+RFF-NCU-phase-T100,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.8654664487820263,3.142e-02,3e-05,1.047e+03,FAIL,neg_control
+RFF-NCU-phase-alt,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NCU-startup-flat,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NCU-startup-ramp,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,3.096266072229878e-05,3.096e-05,1e-06,3.096e+01,FAIL,neg_control
+RFF-NCU-startup-s20,RoofingFilter,NC-U: SS input not averaged vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0014343541138253325,1.434e-03,1e-06,1.434e+03,FAIL,neg_control
+RFF-NCO-flat,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCO-gain-T5,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.2232923986121167,6.512e-08,3e-05,2.171e-03,PASS,neg_control
+RFF-NCO-gain-T10,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.681222523939551,3.564e-06,3e-05,1.188e-01,PASS,neg_control
+RFF-NCO-gain-T20,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.890037724874784,2.118e-05,3e-05,7.058e-01,PASS,neg_control
+RFF-NCO-gain-T40,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.7406292345531603,5.777e-05,3e-05,1.926e+00,FAIL,neg_control
+RFF-NCO-gain-T100,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.3152750320665877,6.546e-05,3e-05,2.182e+00,FAIL,neg_control
+RFF-NCO-gain-alt,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NCO-ramp-res,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NCO-phase-T5,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7262923171079654,1.985e-05,3e-05,6.615e-01,PASS,neg_control
+RFF-NCO-phase-T10,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.020661399685817,4.347e-05,3e-05,1.449e+00,FAIL,neg_control
+RFF-NCO-phase-T20,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.05346918691421704,8.235e-05,3e-05,2.745e+00,FAIL,neg_control
+RFF-NCO-phase-T40,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.7698511431303973,1.329e-04,3e-05,4.429e+00,FAIL,neg_control
+RFF-NCO-phase-T100,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.8339103502319523,1.410e-04,3e-05,4.701e+00,FAIL,neg_control
+RFF-NCO-phase-alt,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NCO-startup-flat,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,1.091381907075929,1.091e+00,1e-06,1.091e+06,FAIL,neg_control
+RFF-NCO-startup-ramp,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.091381907075929,1.091e+00,1e-06,1.091e+06,FAIL,neg_control
+RFF-NCO-startup-s20,RoofingFilter,NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.091381907075929,1.091e+00,1e-06,1.091e+06,FAIL,neg_control
+RFF-NC1-flat,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC1-gain-T5,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.22332868915264512,3.623e-05,3e-05,1.208e+00,FAIL,neg_control
+RFF-NC1-gain-T10,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.6817676330864177,5.487e-04,3e-05,1.829e+01,FAIL,neg_control
+RFF-NC1-gain-T20,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.8928617595464616,2.845e-03,3e-05,9.484e+01,FAIL,neg_control
+RFF-NC1-gain-T40,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.748359042315711,7.788e-03,3e-05,2.596e+02,FAIL,neg_control
+RFF-NC1-gain-T100,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.32419018275627287,8.981e-03,3e-05,2.994e+02,FAIL,neg_control
+RFF-NC1-gain-alt,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NC1-ramp-res,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC1-phase-T5,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.728868255680418,2.596e-03,3e-05,8.653e+01,FAIL,neg_control
+RFF-NC1-phase-T10,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.0263314581018133,5.714e-03,3e-05,1.905e+02,FAIL,neg_control
+RFF-NC1-phase-T20,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.06441576856260993,1.103e-02,3e-05,3.676e+02,FAIL,neg_control
+RFF-NC1-phase-T40,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.752023526037685,1.796e-02,3e-05,5.987e+02,FAIL,neg_control
+RFF-NC1-phase-T100,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.814790983672364,1.926e-02,3e-05,6.420e+02,FAIL,neg_control
+RFF-NC1-phase-alt,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NC1-startup-flat,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NC1-startup-ramp,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.2205272326966854e-05,1.221e-05,1e-06,1.221e+01,FAIL,neg_control
+RFF-NC1-startup-s20,RoofingFilter,NC1: HP=49 SS=10 vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0001256005044177255,1.256e-04,1e-06,1.256e+02,FAIL,neg_control
+RFF-NC1s-flat,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC1s-gain-T5,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.1862866319138871,3.701e-02,3e-05,1.234e+03,FAIL,neg_control
+RFF-NC1s-gain-T10,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.6137247076117346,6.749e-02,3e-05,2.250e+03,FAIL,neg_control
+RFF-NC1s-gain-T20,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.8781117486300816,1.190e-02,3e-05,3.968e+02,FAIL,neg_control
+RFF-NC1s-gain-T40,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.7399041482438061,6.673e-04,3e-05,2.224e+01,FAIL,neg_control
+RFF-NC1s-gain-T100,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.31520261330376786,6.955e-06,3e-05,2.318e-01,PASS,neg_control
+RFF-NC1s-gain-alt,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NC1s-ramp-res,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC1s-phase-T5,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7924362238578568,6.616e-02,3e-05,2.205e+03,FAIL,neg_control
+RFF-NC1s-phase-T10,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.1504661216123777,1.298e-01,3e-05,4.328e+03,FAIL,neg_control
+RFF-NC1s-phase-T20,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.13504777176637517,8.166e-02,3e-05,2.722e+03,FAIL,neg_control
+RFF-NC1s-phase-T40,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.7334456777454703,3.654e-02,3e-05,1.218e+03,FAIL,neg_control
+RFF-NC1s-phase-T100,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.8201845794118414,1.387e-02,3e-05,4.622e+02,FAIL,neg_control
+RFF-NC1s-phase-alt,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NC1s-startup-flat,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NC1s-startup-ramp,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.5158840507676296e-05,1.516e-05,1e-06,1.516e+01,FAIL,neg_control
+RFF-NC1s-startup-s20,RoofingFilter,NC1s: HP=48 SS=11 vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0007398058115531069,7.398e-04,1e-06,7.398e+02,FAIL,neg_control
+RFF-NC2-flat,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC2-gain-T5,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,0.22329246373117576,0.1636617125860948,5.963e-02,3e-05,1.988e+03,FAIL,neg_control
+RFF-NC2-gain-T10,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,0.6812189601598664,0.5135945974441907,1.676e-01,3e-05,5.587e+03,FAIL,neg_control
+RFF-NC2-gain-T20,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,0.8900165495219391,0.80197003053376,8.805e-02,3e-05,2.935e+03,FAIL,neg_control
+RFF-NC2-gain-T40,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.7405714692715243,0.721700751552826,1.887e-02,3e-05,6.290e+02,FAIL,neg_control
+RFF-NC2-gain-T100,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,0.3152095678349821,0.3139354939944873,1.274e-03,3e-05,4.247e+01,FAIL,neg_control
+RFF-NC2-gain-alt,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,6.034247078565135e-18,0.0,6.034e-18,3e-05,2.011e-13,PASS,neg_control
+RFF-NC2-ramp-res,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),ramp (last 100 bars),0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+RFF-NC2-phase-T5,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.7262724708581951,-1.7633941015340688,3.712e-02,3e-05,1.237e+03,FAIL,neg_control
+RFF-NC2-phase-T10,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.0206179300609162,-1.1854494140500986,1.648e-01,3e-05,5.494e+03,FAIL,neg_control
+RFF-NC2-phase-T20,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.05338683922280379,-0.23914561487872976,1.858e-01,3e-05,6.192e+03,FAIL,neg_control
+RFF-NC2-phase-T40,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=40,0.769984001215179,0.6640789505061533,1.059e-01,3e-05,3.530e+03,FAIL,neg_control
+RFF-NC2-phase-T100,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),sine T=100,1.8340513846255355,1.7906596323788897,4.339e-02,3e-05,1.446e+03,FAIL,neg_control
+RFF-NC2-phase-alt,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 6.034247078565135e-18 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+RFF-NC2-startup-flat,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+RFF-NC2-startup-ramp,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,3.721131516154651e-05,3.721e-05,1e-06,3.721e+01,FAIL,neg_control
+RFF-NC2-startup-s20,RoofingFilter,NC2: SS cos arg in degrees vs P48S10 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0018319538206768913,1.832e-03,1e-06,1.832e+03,FAIL,neg_control
+RFF-P48S10-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,1.2459651366203417e-15,1.246e-15,1e-09,1.246e-06,PASS,imp
+RFF-P30S10-imp-pass,RoofingFilter,"IMP must_pass: roof_code(30, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,8.503939739890054e-16,8.504e-16,1e-09,8.504e-07,PASS,imp
+RFF-P125S10-imp-pass,RoofingFilter,"IMP must_pass: roof_code(125, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,2.1935578353726726e-15,2.194e-15,1e-09,2.194e-06,PASS,imp
+RFF-P48S20-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 20)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,2.465042059363043e-15,2.465e-15,1e-09,2.465e-06,PASS,imp
+RFF-NCA-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 10, ss_c1_bump=1)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,7.393467348765226e-13,7.393e-13,1e-09,7.393e-04,PASS,imp
+RFF-NCB-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 10, ss_in_bump=1)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.514345064958846e-12,3.514e-12,1e-09,3.514e-03,PASS,imp
+RFF-NCU-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 10, ss_unaveraged)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,1.2476998600963185e-15,1.248e-15,1e-09,1.248e-06,PASS,imp
+RFF-NCO-imp-pass,RoofingFilter,"IMP must_pass: roof_nco(48, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,7.612111451103484e-15,7.612e-15,1e-09,7.612e-06,PASS,imp
+RFF-NC1-imp-pass,RoofingFilter,"IMP must_pass: roof_code(49, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,1.0414236205173732e-15,1.041e-15,1e-09,1.041e-06,PASS,imp
+RFF-NC1s-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 11)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,9.8879238130678e-16,9.888e-16,1e-09,9.888e-07,PASS,imp
+RFF-NC2-imp-pass,RoofingFilter,"IMP must_pass: roof_code(48, 10, ss_deg)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,9.497611030973019e-16,9.498e-16,1e-09,9.498e-07,PASS,imp
+RFF-P48S10-imp-fail,RoofingFilter,"IMP must_fail: roof_nco(48, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",1e-09,1.101303560776619,1.101e+00,1e-09,1.101e+09,PASS,imp
+RFF-NCO-imp-fail,RoofingFilter,"IMP must_fail: roof_code(48, 10)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",1e-09,0.019138262548155538,1.914e-02,1e-09,1.914e+07,PASS,imp
+RFF-P48S10-floor-gain,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,5.277790183777498e-07,5.278e-07,3e-06,1.759e-01,PASS,floor
+RFF-P48S10-floor-phase,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,1.3284752395925636e-06,1.328e-06,3e-06,4.428e-01,PASS,floor
+RFF-P48S10-floor-resid,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| resid,0.0,0.0,0.000e+00,1e-10,0.000e+00,PASS,floor
+RFF-P48S10-floor-startup,RoofingFilter,HP=48 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,1.0629929667396731e-08,1.063e-08,1e-07,1.063e-01,PASS,floor
+RFF-P30S10-floor-gain,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,4.800644252123121e-07,4.801e-07,3e-06,1.600e-01,PASS,floor
+RFF-P30S10-floor-phase,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,1.4541999804329464e-06,1.454e-06,3e-06,4.847e-01,PASS,floor
+RFF-P30S10-floor-resid,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| resid,0.0,0.0,0.000e+00,1e-10,0.000e+00,PASS,floor
+RFF-P30S10-floor-startup,RoofingFilter,HP=30 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,1.0507046387293623e-08,1.051e-08,1e-07,1.051e-01,PASS,floor
+RFF-P125S10-floor-gain,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,5.558602809152546e-07,5.559e-07,3e-06,1.853e-01,PASS,floor
+RFF-P125S10-floor-phase,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,1.1906929473504135e-06,1.191e-06,3e-06,3.969e-01,PASS,floor
+RFF-P125S10-floor-resid,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| resid,0.0,0.0,0.000e+00,1e-10,0.000e+00,PASS,floor
+RFF-P125S10-floor-startup,RoofingFilter,HP=125 SS=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,8.27932758592706e-09,8.279e-09,1e-07,8.279e-02,PASS,floor
+RFF-P48S20-floor-gain,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,4.4090284423425885e-07,4.409e-07,3e-06,1.470e-01,PASS,floor
+RFF-P48S20-floor-phase,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,1.5671661577343343e-06,1.567e-06,3e-06,5.224e-01,PASS,floor
+RFF-P48S20-floor-resid,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| resid,0.0,0.0,0.000e+00,1e-10,0.000e+00,PASS,floor
+RFF-P48S20-floor-startup,RoofingFilter,HP=48 SS=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,1.2092360225125776e-08,1.209e-08,1e-07,1.209e-01,PASS,floor
+RFF-NCA-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase",DETECTED,,,,PASS,neg_control
+RFF-NCB-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,startup",DETECTED,,,,PASS,neg_control
+RFF-NCU-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+RFF-NCO-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,DETECTED:startup,DETECTED,,,,PASS,neg_control
+RFF-NC1-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+RFF-NC1s-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+RFF-NC2-verdict,RoofingFilter,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+# batch=RFF_ArticleFidelity variants_run=11 real=4 neg_control=7
+# real_checks=64 PASS=64 FAIL=0 ERROR=0
+# SKIP=11 (alt phase where the expected gain < phase_gate 0.05; not a PASS, not counted in real_checks): RFF-P48S10-phase-alt,RFF-P30S10-phase-alt,RFF-P125S10-phase-alt,RFF-P48S20-phase-alt,RFF-NCA-phase-alt,RFF-NCB-phase-alt,RFF-NCU-phase-alt,RFF-NCO-phase-alt,RFF-NC1-phase-alt,RFF-NC1s-phase-alt,RFF-NC2-phase-alt
+# NC NCA fails_as_required=True margin10_met=True max_ratio gain=1.850e+01 lag=0.000e+00 flat=0.000e+00 phase=7.738e+01 resid=0.000e+00 startup=7.132e+00 detected gain=True lag=False flat=False phase=True resid=False startup=True required=gain,phase
+# NC NCB fails_as_required=True margin10_met=True max_ratio gain=2.343e+02 lag=0.000e+00 flat=0.000e+00 phase=4.428e-02 resid=0.000e+00 startup=7.400e+01 detected gain=True lag=False flat=False phase=False resid=False startup=True required=gain,startup
+# NC NCU fails_as_required=True margin10_met=True max_ratio gain=3.285e+03 lag=0.000e+00 flat=0.000e+00 phase=2.094e+04 resid=0.000e+00 startup=1.434e+03 detected gain=True lag=False flat=False phase=True resid=False startup=True required=gain,phase,startup
+# NC NCO fails_as_required=True margin10_met=True max_ratio gain=2.182e+00 lag=0.000e+00 flat=0.000e+00 phase=4.701e+00 resid=0.000e+00 startup=1.091e+06 detected gain=True lag=False flat=False phase=True resid=False startup=True required=startup
+# NC NC1 fails_as_required=True margin10_met=True max_ratio gain=2.994e+02 lag=0.000e+00 flat=0.000e+00 phase=6.420e+02 resid=0.000e+00 startup=1.256e+02 detected gain=True lag=False flat=False phase=True resid=False startup=True required=gain,phase,startup
+# NC NC1s fails_as_required=True margin10_met=True max_ratio gain=2.250e+03 lag=0.000e+00 flat=0.000e+00 phase=4.328e+03 resid=0.000e+00 startup=7.398e+02 detected gain=True lag=False flat=False phase=True resid=False startup=True required=gain,phase,startup
+# NC NC2 fails_as_required=True margin10_met=True max_ratio gain=5.587e+03 lag=0.000e+00 flat=0.000e+00 phase=6.192e+03 resid=0.000e+00 startup=1.832e+03 detected gain=True lag=False flat=False phase=True resid=False startup=True required=gain,phase,startup
+# INFO D2 floor gain: floor 5.559e-07 x10 = 5.559e-06 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor flat: floor 0.000e+00 x10 = 0.000e+00 <= tolerance 1.000e-09 -> window ok
+# INFO D2 floor phase: floor 1.567e-06 x10 = 1.567e-05 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor resid: floor 9.492e-17 x10 = 9.492e-16 <= tolerance 1.000e-09 -> window ok
+# INFO D2 floor startup: floor 1.209e-08 x10 = 1.209e-07 <= tolerance 1.000e-06 -> window ok
+# INFO D2 margin NCA: error/tolerance gain 18.5x, flat 0x, phase 77.4x, resid 8.86e-08x, startup 7.13x -> 10x margin met (phase)
+# INFO D2 margin NCB: error/tolerance gain 234x, flat 0x, phase 0.0443x, resid 1.27e-07x, startup 74x -> 10x margin met (gain)
+# INFO D2 margin NCU: error/tolerance gain 3.28e+03x, flat 0x, phase 2.09e+04x, resid 7.5e-08x, startup 1.43e+03x -> 10x margin met (phase)
+# INFO D2 margin NCO: error/tolerance gain 2.18x, flat 4.02e-10x, phase 4.7x, resid 8.72e-08x, startup 1.09e+06x -> 10x margin met (startup)
+# INFO D2 margin NC1: error/tolerance gain 299x, flat 0x, phase 642x, resid 9.36e-08x, startup 126x -> 10x margin met (phase)
+# INFO D2 margin NC1s: error/tolerance gain 2.25e+03x, flat 0x, phase 4.33e+03x, resid 8.91e-08x, startup 740x -> 10x margin met (phase)
+# INFO D2 margin NC2: error/tolerance gain 5.59e+03x, flat 0x, phase 6.19e+03x, resid 6.98e-08x, startup 1.83e+03x -> 10x margin met (phase)
+# IMP RFF-P48S10-imp-pass residual overall=1.246e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.536e-16 s10=8.639e-16 s20=9.532e-16 s40=1.188e-15 s100=1.246e-15 alt=6.877e-16 ramp=6.173e-16
+# IMP RFF-P30S10-imp-pass residual overall=8.504e-16 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.355e-16 s10=8.214e-16 s20=8.504e-16 s40=8.110e-16 s100=7.210e-16 alt=5.178e-16 ramp=6.227e-16
+# IMP RFF-P125S10-imp-pass residual overall=2.194e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=1.130e-15 s10=1.298e-15 s20=2.028e-15 s40=1.839e-15 s100=2.194e-15 alt=1.165e-15 ramp=8.663e-16
+# IMP RFF-P48S20-imp-pass residual overall=2.465e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=7.717e-16 s10=8.396e-16 s20=1.837e-15 s40=2.465e-15 s100=1.984e-15 alt=1.421e-15 ramp=6.928e-16
+# IMP RFF-NCA-imp-pass residual overall=7.393e-13 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.986e-13 s10=7.393e-13 s20=3.389e-13 s40=1.035e-13 s100=3.274e-14 alt=2.645e-13 ramp=5.763e-15
+# IMP RFF-NCB-imp-pass residual overall=3.514e-12 tol=1e-09 PASS per_input: flat=0.000e+00 s5=1.072e-12 s10=2.955e-12 s20=3.514e-12 s40=2.854e-12 s100=1.185e-12 alt=2.324e-12 ramp=1.505e-13
+# IMP RFF-NCU-imp-pass residual overall=1.248e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.162e-16 s10=8.084e-16 s20=9.836e-16 s40=1.248e-15 s100=1.228e-15 alt=6.631e-16 ramp=6.124e-16
+# IMP RFF-NCO-imp-pass residual overall=7.612e-15 tol=1e-09 PASS per_input: flat=6.661e-16 s5=2.854e-15 s10=2.057e-15 s20=1.449e-15 s40=4.774e-15 s100=3.136e-15 alt=7.612e-15 ramp=1.887e-15
+# IMP RFF-NC1-imp-pass residual overall=1.041e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.635e-16 s10=9.012e-16 s20=1.029e-15 s40=1.032e-15 s100=1.041e-15 alt=7.242e-16 ramp=6.228e-16
+# IMP RFF-NC1s-imp-pass residual overall=9.888e-16 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.793e-16 s10=9.420e-16 s20=9.289e-16 s40=9.888e-16 s100=8.351e-16 alt=5.727e-16 ramp=6.156e-16
+# IMP RFF-NC2-imp-pass residual overall=9.498e-16 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.413e-16 s10=8.444e-16 s20=9.333e-16 s40=9.498e-16 s100=8.361e-16 alt=5.469e-16 ramp=6.016e-16
+# IMP RFF-P48S10-imp-fail residual overall=1.101e+00 tol=1e-09 PASS per_input: flat=1.091e+00 s5=1.091e+00 s10=1.091e+00 s20=1.091e+00 s40=1.091e+00 s100=1.091e+00 alt=1.101e+00 ramp=1.091e+00
+# IMP RFF-NCO-imp-fail residual overall=1.914e-02 tol=1e-09 PASS per_input: flat=1.897e-02 s5=1.897e-02 s10=1.897e-02 s20=1.897e-02 s40=1.897e-02 s100=1.897e-02 alt=1.914e-02 ramp=1.897e-02
+# O_PEAK P48S10 max_measured_gain=0.8900165783403248 (INFO)
+# O_PEAK P30S10 max_measured_gain=0.7923027797350503 (INFO)
+# O_PEAK P125S10 max_measured_gain=0.9541011607837167 (INFO)
+# O_PEAK P48S20 max_measured_gain=0.7198623918408286 (INFO)
+# O_IMP_RESIDUAL P48S10 imp=1.246e-15 zorro_vs_book_gain_max=5.278e-07 zorro_vs_book_phase=1.328e-06 zorro_vs_book_resid=0.000e+00 zorro_vs_book_startup=1.063e-08 (INFO)
+# O_IMP_RESIDUAL P30S10 imp=8.504e-16 zorro_vs_book_gain_max=4.801e-07 zorro_vs_book_phase=1.454e-06 zorro_vs_book_resid=0.000e+00 zorro_vs_book_startup=1.051e-08 (INFO)
+# O_IMP_RESIDUAL P125S10 imp=2.194e-15 zorro_vs_book_gain_max=5.559e-07 zorro_vs_book_phase=1.191e-06 zorro_vs_book_resid=0.000e+00 zorro_vs_book_startup=8.279e-09 (INFO)
+# O_IMP_RESIDUAL P48S20 imp=2.465e-15 zorro_vs_book_gain_max=4.409e-07 zorro_vs_book_phase=1.567e-06 zorro_vs_book_resid=0.000e+00 zorro_vs_book_startup=1.209e-08 (INFO)
+# raw_file=results/RFF_ArticleFidelity_20261117_raw_run1.csv sha256=edb3400fb8985f89b7b6696932023d457edfb6d4dd3df4b213ee4fb63070c810
+# VERDICT: PASS

@@ -54,8 +54,30 @@ def load_spec(path):
         return tomllib.load(f)
 
 
+def alternating_of(spec):
+    """[inputs].alternating (RFF stage 1, decision 2A): adds the Nyquist input 'alt'. Default off (old specs unchanged)."""
+    return spec["inputs"].get("alternating", False) is True
+
+
 def input_ids(spec):
-    return ["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]] + ["ramp"]
+    """flat, sines, [alt], ramp. alt sits after the sines and before ramp, so without the flag the ids and slots are
+    exactly the old ones."""
+    return (["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]]
+            + (["alt"] if alternating_of(spec) else []) + ["ramp"])
+
+
+def call_params(v):
+    """Integer arguments of a variant's call after the input series: `params = [48, 10]` (RFF stage 1, decision 1A) or
+    `param = 48` (old form). None if neither is given."""
+    if "params" in v:
+        return v["params"]
+    return [v["param"]] if "param" in v else None
+
+
+def includes(spec):
+    """[zorro].include as a list of paths (dependency order, gotchas 5.3); a plain string is a one-element list."""
+    inc = spec["zorro"]["include"]
+    return [inc] if isinstance(inc, str) else list(inc)
 
 
 def _frac(pair):
@@ -113,6 +135,13 @@ def validate_spec(spec):
             err.append(("ID_NOT_C", "%s %r is not a valid C identifier fragment [A-Za-z0-9_]" % (what, v)))
 
     idcheck("batch id_prefix", b["id_prefix"])
+    if "alternating" in spec["inputs"] and not isinstance(spec["inputs"]["alternating"], bool):
+        err.append(("ALT_BAD", "[inputs].alternating %r must be true or false" % (spec["inputs"]["alternating"],)))
+    alt = alternating_of(spec)
+    inc = spec["zorro"].get("include")
+    if not (isinstance(inc, str) and inc) and not (isinstance(inc, list) and inc
+                                                   and all(isinstance(i, str) and i for i in inc)):
+        err.append(("INCLUDE_BAD", "[zorro].include %r must be a path or a non-empty list of paths" % (inc,)))
     ts = spec["inputs"].get("sine_periods", [])
     for t in ts:
         if not isinstance(t, int) or isinstance(t, bool) or t <= 0:
@@ -143,7 +172,8 @@ def validate_spec(spec):
             err.append(("STARTUP_BAD", "[checks].startup_inputs %r: need a non-empty list of %s" % (sin, ids_ok)))
     has_lag = dc == 1
     any_phases = any(phase_periods(t) for t in spec["expected"].values() if isinstance(t, dict))
-    need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) + (["phase"] if any_phases else []) \
+    need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
+        + (["phase"] if any_phases or alt else []) \
         + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
     for q in need_tol:
         t = spec["tolerances"].get(q)
@@ -183,6 +213,24 @@ def validate_spec(spec):
                 if g < gate:
                     err.append(("PHASE_GATE", "expected table %s: phase listed at T=%d where the reference gain "
                                 "%.4g < phase_gate %g (phase undefined near gain 0)" % (name, T, g, gate)))
+        if alt:
+            ga, pa = t.get("gain_alt"), t.get("phase_alt")
+            if not _is_num(ga):
+                err.append(("STRUCT", "expected table %s: gain_alt missing ([inputs].alternating is on)" % name))
+            elif gate is None:
+                err.append(("PHASE_GATE_MISSING", "expected table %s: [inputs].alternating needs "
+                            "[checks].phase_gate (the alt phase is gated)" % name))
+            elif ga >= gate and not _is_num(pa):
+                err.append(("ALT_PHASE_MISSING", "expected table %s: gain_alt %.4g >= phase_gate %g but phase_alt is "
+                            "missing (the alt phase is checked wherever the gain reaches the gate)" % (name, ga, gate)))
+            elif ga < gate and pa is not None:
+                err.append(("PHASE_GATE", "expected table %s: phase_alt listed where gain_alt %.4g < phase_gate %g "
+                            "(the alt phase is written as SKIP there)" % (name, ga, gate)))
+            elif pa is not None and not (-math.pi < pa <= math.pi):
+                err.append(("PHASE_BAD", "expected table %s: phase_alt %r not in (-pi, pi]" % (name, pa)))
+        elif "gain_alt" in t or "phase_alt" in t:
+            err.append(("ALT_NOT_ENABLED", "expected table %s lists gain_alt / phase_alt but [inputs].alternating "
+                        "is not true" % name))
         if sin:
             if not isinstance(t.get("article"), str) or R.article_model(t.get("article")) is None:
                 err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
@@ -198,7 +246,14 @@ def validate_spec(spec):
             err.append(("STRUCT", "variant %s: expected table %r not defined" % (vid, v.get("expected"))))
         if "seed" in v and v["seed"] not in SEEDS:
             err.append(("SEED_BAD", "variant %s: seed %r must be one of %s" % (vid, v["seed"], "/".join(SEEDS))))
-        if not isinstance(v.get("param"), int):
+        if "params" in v and "param" in v:
+            err.append(("PARAMS_BAD", "variant %s: give param or params, not both" % vid))
+        elif "params" in v:
+            pl = v["params"]
+            if (not isinstance(pl, list) or not pl
+                    or not all(isinstance(i, int) and not isinstance(i, bool) for i in pl)):
+                err.append(("PARAMS_BAD", "variant %s: params %r must be a non-empty list of integers" % (vid, pl)))
+        elif not isinstance(v.get("param"), int):
             err.append(("STRUCT", "variant %s: param must be an integer" % vid))
         if v.get("kind") == "inline":
             fn, body = v.get("function"), v.get("body")
@@ -403,6 +458,10 @@ def to_checker_spec(spec):
             vd["resid"] = e["resid"]
         if "phases" in e:
             vd["phases"] = phase_periods(e)
+        if alternating_of(spec):                 # RFF stage 1 (2A): alt keys only when the flag is on
+            vd["gain_alt"] = e["gain_alt"]
+            if "phase_alt" in e:
+                vd["phase_alt"] = e["phase_alt"]
         variants.append(vd)
     d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
              asset=b["asset_label"],
@@ -420,6 +479,9 @@ def to_checker_spec(spec):
         for q in ("phase", "resid", "startup"):
             if q in t:
                 d["tol_" + q] = t[q]["value"]
+    if alternating_of(spec):
+        d["alt"] = True
+        d["phase_gate"] = spec["checks"]["phase_gate"]
     if "detect" in spec:
         d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
     if "ox" in spec:
@@ -506,6 +568,7 @@ def build_script(spec):
     p = b["id_prefix"].lower()
     ts = inp["sine_periods"]
     ids = input_ids(spec)
+    alt = alternating_of(spec)
     nin = len(ids)
     variants = spec["variants"]
     nvar = len(variants)
@@ -522,8 +585,8 @@ def build_script(spec):
         v["id"] + (" [control]" if v["role"] == "neg_control" else "") for v in variants))
     a("//           Python (analysis/harness/checker.py) measures and writes PASS/FAIL.")
     a("// PREREG:   %s" % b["prereg"])
-    a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s | ramp level+slope*n"
-      % ",".join(str(t) for t in ts))
+    a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s%s | ramp level+slope*n"
+      % (",".join(str(t) for t in ts), " | alt level+amp*(-1)^n" if alternating_of(spec) else ""))
     a("//           level=%d/%d amp=%d/%d slope=%d/%d. (b, H1 run 1) Decimal literals are float32 in this Zorro"
       % (inp["level"][0], inp["level"][1], inp["amp"][0], inp["amp"][1], inp["slope"][0], inp["slope"][1]))
     a("//           build and the PI macro is 3.14159, so every constant is built at run time from integers.")
@@ -538,7 +601,8 @@ def build_script(spec):
     a("// Y[] index = variant*%d + input." % nin)
     a("")
     a("#include <default.c>")
-    a('#include "%s"' % z["include"])
+    for inc in includes(spec):
+        a('#include "%s"' % inc)
     a("")
     a('#define %s_RAW "%s"' % (P, z["raw_file"]))
     a('#define %s_MARK "%s"' % (P, z["marker_file"]))
@@ -548,6 +612,8 @@ def build_script(spec):
     a("static int %s_done = 0;" % p)
     a("static int %s_hdr = 0;" % p)
     a("static int %s_rows = 0;" % p)
+    if alt:
+        a("static int %s_sgn = 1;\t// alt input sign, flipped once per fed bar (reset at INITRUN)" % p)
     a("")
     bodies = []
     for v in variants:
@@ -568,7 +634,8 @@ def build_script(spec):
     a('\tasset("%s");' % z["clock_asset"])
     a("")
     a("\tif(is(INITRUN)) {")
-    a("\t\t%s_n = 0; %s_done = 0; %s_hdr = 0; %s_rows = 0;\t// declared initialisers" % (p, p, p, p))
+    a("\t\t%s_n = 0; %s_done = 0; %s_hdr = 0; %s_rows = 0;%s\t// declared initialisers"
+      % (p, p, p, p, (" %s_sgn = 1;" % p) if alt else ""))
     a("\t\tfile_delete(%s_RAW);" % P)
     a("\t\tfile_delete(%s_MARK);" % P)
     a("\t\treturn;")
@@ -596,6 +663,8 @@ def build_script(spec):
     a("\tX[0] = lvl;")
     for k, t in enumerate(ts, start=1):
         a("\tX[%d] = lvl + amp * sin(2 * pi_x * n / %d);" % (k, t))
+    if alt:
+        a("\tX[%d] = lvl + amp * %s_sgn;" % (len(ts) + 1, p))
     a("\tX[%d] = lvl + slp * n;" % (nin - 1))
     a("")
     a("\t// --- input series: %d unconditional calls, fixed order ---" % nin)
@@ -606,7 +675,8 @@ def build_script(spec):
     slot = 0
     for v in variants:
         for k, iid in enumerate(ids):
-            a("\tY[%d] = %s(S%d, %d);\t// %s %s" % (slot, _fn_of(spec, v), k, v["param"], v["id"], iid))
+            a("\tY[%d] = %s(S%d, %s);\t// %s %s" % (slot, _fn_of(spec, v), k,
+                                                   ", ".join("%d" % i for i in call_params(v)), v["id"], iid))
             slot += 1
     a("")
     a("\t// --- write one row per fed bar ---")
@@ -636,6 +706,8 @@ def build_script(spec):
     a('\t\t\tquit("%s batch complete: %d rows written");' % (b["id_prefix"], N))
     a("\t\t} else {")
     a("\t\t\t%s_n += 1;" % p)
+    if alt:
+        a("\t\t\t%s_sgn = -%s_sgn;" % (p, p))
     a("\t\t}")
     a("\t}")
     a("}")

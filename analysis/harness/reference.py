@@ -68,7 +68,7 @@ def ss2_article(period):
     return Filter(b=(c1 / 2.0, c1 / 2.0), a=(c2, c3))
 
 
-def ss2_code(period, pi_value=PI_ZORRO, c1_scale=None, c1_bump=0, in_bump=0):
+def ss2_code(period, pi_value=PI_ZORRO, c1_scale=None, c1_bump=0, in_bump=0, deg=False, unaveraged=False):
     """SuperSmoother 2-pole exactly as indicators/ehlers/SuperSmoother2Pole.c computes it.
 
     Quoted verbatim from the .c (b: read in this session):
@@ -89,17 +89,23 @@ def ss2_code(period, pi_value=PI_ZORRO, c1_scale=None, c1_bump=0, in_bump=0):
                are derived from it (L3 changed; L4-L7 follow, so DC gain stays 1).
       in_bump  NC-B: add `in_bump` units in the 3rd significant digit of c0 AFTER all
                coefficients are computed; both input taps (L20, same c0) change, so DC gain != 1.
+    RFF stage 1 hooks (default off, existing callers unchanged):
+      deg         NC2: the cosine argument is sqrt(2)*180/Period (degrees fed to cos(), gotchas 2); exponent unchanged.
+      unaveraged  NCU: the input is not averaged: Filt = (1 - b1 + c1*c1)*Price[0] + c2*Filt[1] + c3*Filt[2]
+                  (full weight 2*c0 on Price[0], no Price[1] term). DC gain stays 1.
     """
     root2 = math.sqrt(2.0)
     c1 = math.exp(-root2 * pi_value / period)
     if c1_bump:
         c1 = bump3(c1, c1_bump)
-    b1 = 2.0 * c1 * math.cos(root2 * pi_value / period)
+    b1 = 2.0 * c1 * math.cos(root2 * 180.0 / period if deg else root2 * pi_value / period)
     c2 = b1
     c3 = -c1 * c1
     c0 = (1.0 - b1 + c1 * c1) / 2.0
     if in_bump:
         c0 = bump3(c0, in_bump)
+    if unaveraged:
+        return Filter(b=(1.0 - b1 + c1 * c1,), a=(c2, c3))
     return Filter(b=(c0, c0), a=(c2, c3))
 
 
@@ -239,14 +245,79 @@ def hp_code(period, k=K_F32_0707, pi_value=PI_ZORRO, alpha_bump=0, in_bump=0, fb
     return _hp_filter(alpha1, in_bump=in_bump, fb2_bump=fb2_bump, num=num)
 
 
+# ---------------------------------------------------------------------------------------------------
+# Cascades (RFF stage 1). A cascade of two linear filters is one linear filter: H = H_f * H_g, i.e. polynomial
+# products of the numerators and of the denominators 1 - sum a_k q^k. `cascade` returns that single Filter (seed:
+# the whole run); `simulate_cascade` runs the stages one after the other, each with its own seed (needed where
+# the stages are seeded differently, e.g. the old HP with a price seed feeding the SuperSmoother).
+# ---------------------------------------------------------------------------------------------------
+def cascade(f, g):
+    """One Filter equal to f followed by g (H = Hf*Hg). b = conv(bf, bg); D = conv(Df, Dg), a = -D[1:]."""
+    df = np.array([1.0] + [-a for a in f.a])
+    dg = np.array([1.0] + [-a for a in g.a])
+    d = np.convolve(df, dg)
+    return Filter(b=tuple(float(v) for v in np.convolve(np.array(f.b), np.array(g.b))),
+                  a=tuple(float(-v) for v in d[1:]))
+
+
+def roof_article(hp, ss):
+    """RoofingFilter as the article defines it (TASC V.32:1 2014 sidebar): the article HP followed by the article
+    SuperSmoother 2-pole, exact constants (D1 rule 1). Seed 'zero' in simulate (EasyLanguage Vars HP(0), Filt(0))."""
+    return cascade(hp_article(hp), ss2_article(ss))
+
+
+def roof_code(hp, ss, ss_c1_bump=0, ss_in_bump=0, ss_deg=False, ss_unaveraged=False):
+    """The corrected RoofingFilter.c (spec [corrected_code]: rf_hp = series(HighPassFilter(Price, HPPeriod), 3);
+    SuperSmoother2Pole(rf_hp, SSPeriod)) as one Filter: hp_code(k = sqrt(2)/2) followed by ss2_code, Zorro PI.
+    Simulated with seed 'zero' it equals simulate_cascade([(hp, 'zero'), (ss, 'price')]) (test).
+    Control hooks (default off), all acting on the SuperSmoother stage: ss_c1_bump = NCA (ss2_code c1_bump),
+    ss_in_bump = NCB (in_bump), ss_unaveraged = NCU, ss_deg = NC2 (cos argument in degrees)."""
+    return cascade(hp_code(hp, k=math.sqrt(2.0) / 2.0),
+                   ss2_code(ss, c1_bump=ss_c1_bump, in_bump=ss_in_bump, deg=ss_deg, unaveraged=ss_unaveraged))
+
+
+Cascade = namedtuple("Cascade", "stages")            # stages: tuple of (Filter, seed), applied in order
+
+
+def roof_nco(hp, ss):
+    """NCO: the pipeline of the current (old) RoofingFilter.c: the OLD HighPassFilter body (literal 0.707 folded to
+    ZORRO_FOLD_0707x2xPI, history seeded at the price level) feeding SuperSmoother2Pole (price seed = its own first
+    input). Not representable as one filter (the HP stage has a price seed): a Cascade for simulate_cascade."""
+    return Cascade(stages=((hp_code(hp, theta_const=ZORRO_FOLD_0707x2xPI), "price"), (ss2_code(ss), "price")))
+
+
+def simulate_cascade(stages, x):
+    """Run stages [(Filter, seed), ...] one after the other: each stage's input is the previous stage's output, its
+    input history before n = 0 is its own first input and its output history is seeded per `seed` (as simulate)."""
+    cur = np.asarray(x, dtype=float)
+    for f, seed in stages:
+        cur = simulate(f, cur, seed=seed)
+    return cur
+
+
+def simulate_any(model, x, seed=None):
+    """simulate() for a Filter, simulate_cascade() for a Cascade (its stages carry their own seeds; `seed` unused)."""
+    if isinstance(model, Cascade):
+        return simulate_cascade(model.stages, x)
+    return simulate(model, x, seed=seed)
+
+
 _ARTICLE_RE = re.compile(r"hp_article\((\d{1,4})\)")
+_ROOF_ARTICLE_RE = re.compile(r"roof_article\((\d{1,4}),\s*(\d{1,4})\)")
 
 
 def article_model(name):
-    """Resolve a spec's article-model string ('hp_article(48)') to a Filter. Restricted grammar, no eval;
-    unknown -> None. Used by the checker's start-up check (reference model for expected values)."""
-    m = _ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
-    return hp_article(int(m.group(1))) if m and int(m.group(1)) > 0 else None
+    """Resolve a spec's article-model string ('hp_article(48)', 'roof_article(48,10)') to a Filter. Restricted
+    grammar, no eval; unknown -> None. Used by the checker's start-up check (reference model for expected values)."""
+    if not isinstance(name, str):
+        return None
+    m = _ARTICLE_RE.fullmatch(name)
+    if m and int(m.group(1)) > 0:
+        return hp_article(int(m.group(1)))
+    m = _ROOF_ARTICLE_RE.fullmatch(name)
+    if m and int(m.group(1)) > 0 and int(m.group(2)) > 0:
+        return roof_article(int(m.group(1)), int(m.group(2)))
+    return None
 
 
 # [imp] model strings (spec) -> filter. Explicit registry, no eval.
@@ -267,6 +338,18 @@ IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, fb2_bump=1)"] = lambda: hp_code(48,
 IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, num=1st)"] = lambda: hp_code(48, k=_SQRT_HALF, num="1st")
 IMP_MODELS["hp_code(49, PI_ZORRO, SQRT_HALF)"] = lambda: hp_code(49, k=_SQRT_HALF)
 IMP_MODELS["hp_code(20, PI_ZORRO, SQRT_HALF, deg)"] = lambda: hp_code(20, k=_SQRT_HALF, deg=True)
+
+
+# RoofingFilter (RFF stage 1; c: names chosen here). Real variants and the controls' own models, explicit entries.
+for _hp, _ss in ((48, 10), (30, 10), (125, 10), (48, 20)):
+    IMP_MODELS["roof_code(%d, %d)" % (_hp, _ss)] = (lambda h=_hp, s=_ss: roof_code(h, s))
+IMP_MODELS["roof_code(48, 10, ss_c1_bump=1)"] = lambda: roof_code(48, 10, ss_c1_bump=1)
+IMP_MODELS["roof_code(48, 10, ss_in_bump=1)"] = lambda: roof_code(48, 10, ss_in_bump=1)
+IMP_MODELS["roof_code(48, 10, ss_unaveraged)"] = lambda: roof_code(48, 10, ss_unaveraged=True)
+IMP_MODELS["roof_code(48, 10, ss_deg)"] = lambda: roof_code(48, 10, ss_deg=True)
+IMP_MODELS["roof_code(49, 10)"] = lambda: roof_code(49, 10)
+IMP_MODELS["roof_code(48, 11)"] = lambda: roof_code(48, 11)
+IMP_MODELS["roof_nco(48, 10)"] = lambda: roof_nco(48, 10)
 
 
 def bump3(v, units=1):

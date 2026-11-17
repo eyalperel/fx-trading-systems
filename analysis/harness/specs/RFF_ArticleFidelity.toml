@@ -1,0 +1,589 @@
+# RFF_ArticleFidelity.toml -- RoofingFilter (HP-A followed by the 2-pole SuperSmoother), SOURCE FIDELITY + IMPLEMENTATION
+# (HARNESS_DESIGN §1, both questions).
+# Pre-registration: this file, committed BEFORE the corrected RoofingFilter.c is written and BEFORE the generated script is
+# run (PROJECT_STATE §2 rule 2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of RFF stage 1 (planning chat 2026-11-17, decisions 1A / 2A / 3 accepted by the user): built on tooling that adds
+# `params = [..]`, `[zorro].include` as a list and `[inputs].alternating` (generator / checker / reference, this branch).
+# Format: as specs/HP_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from HPF:
+#   * Two integer parameters per call (HPPeriod, SSPeriod). The article fixes (48, 10); the library's HPPeriod / SSPeriod
+#     parameters are a generalisation (the HP lines with HPPeriod are in V.33:09); (30,10), (125,10), (48,20) probe it.
+#   * An alternating (Nyquist) input, x[n] = level + amp*(-1)^n: a period-2 "sine" cannot be built (sin(pi*n) = 0), and the
+#     article filter has a gain zero there (HP-A passes it, the SuperSmoother's (1 + z^-1) numerator nulls it). The alt
+#     phase is checked only where the expected gain reaches [checks].phase_gate; here it never does, so the alt phase row
+#     is written as SKIP (never PASS) for every variant: the gate binds for the first time.
+#   * Start-up is checked on flat, ramp AND the s20 sine, against the source's zero seeds.
+#   * No NCH-style control: the corrected file is numerically identical to the current one (two renames only). NCO is the
+#     "what changed" control: the OLD HighPassFilter feeding SuperSmoother2Pole, as the current RoofingFilter.c does.
+#
+# Decisions recorded here:
+#   1A tooling: two integer parameters (`params`), include list.   2A tooling: alternating input, gated alt phase, SKIP row.
+#   3  corrected code: the three lines in [corrected_code] (the .c is written AFTER this file is committed).
+#   4  Seed-declaring variants are replayed by IMP over n >= 0 (as HPF decision 4).
+
+[batch]
+name = "RFF_ArticleFidelity"
+id_prefix = "RFF"
+indicator = "RoofingFilter"                # Light-C function called by `params` variants (corrected file)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/RFF_ArticleFidelity.toml (this file)"
+script_name = "GEN_RFF_RoofingFilter"      # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'Predictive And Successful Indicators', Technical Analysis of Stocks & Commodities V.32:1 (Jan 2014), pp. 16-25, sidebar 'EasyLanguage Code To Compute The Roofing Filter'"
+formula = """
+(a) alpha1 = (Cosine(.707*360 / 48) + Sine (.707*360 / 48) - 1) / Cosine(.707*360 / 48);
+    HP = (1 - alpha1 / 2)*(1 - alpha1 / 2)*(Close - 2*Close[1] + Close[2]) + 2*(1 - alpha1)*HP[1] - (1 - alpha1)*(1 - alpha1)*HP[2];
+    a1 = expvalue(-1.414*3.14159 / 10);
+    b1 = 2*a1*Cosine(1.414*180 / 10);
+    c2 = b1;  c3 = -a1*a1;  c1 = 1 - c2 - c3;
+    Filt = c1*(HP + HP[1]) / 2 + c2*Filt[1] + c3*Filt[2];
+    Vars: ... HP(0) ... Filt(0) ...             (EasyLanguage: both histories start at 0)
+    Cosine/Sine take degrees: .707*360/P deg = .707*2*pi/P rad; 1.414*180/P deg = sqrt(2)*pi/P rad.
+(a) The article fixes 48 and 10. HPPeriod / SSPeriod as parameters is the library's generalisation (HP: V.33:09).
+"""
+reference = "analysis/harness/reference.py roof_article(hp, ss) = cascade(hp_article(hp), ss2_article(ss)); seed zero"
+other_forms = "(a) Not tested here: the 1-pole HP (V.34:09) and the $HighPass / $SuperSmoother forms of V.42:04."
+
+[[literal_replacements]]
+literal = ".707"
+exact = 0.7071067811865476
+name = "1/sqrt(2)"
+rule = "D1 rule 1"
+source = "(a) alpha1 line. .707 equals 1/sqrt(2) to every printed digit (D1 rule 1 example). 360 in the degrees form is exact 2*pi rad, not a replacement."
+
+[[literal_replacements]]
+literal = "1.414"
+exact = 1.4142135623730951
+name = "sqrt(2)"
+rule = "D1 rule 1"
+source = "(a) a1 and b1 lines (SuperSmoother). 1.414 = sqrt(2) to 4 significant digits (D1 decided: replace, TASC V.42:04 as quoted in D1). 180 in the degrees form is exact pi rad."
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+rule = "D1 rule 1"
+source = "(a) a1 line. 3.14159 = pi to its printed digits (D1 rule 1)."
+
+# Pre-registered lines of the corrected indicators/ehlers/RoofingFilter.c (decision 3). The .c is written to these lines
+# after this file is committed; a test asserts the .c contains them verbatim (whitespace-normalised, comments stripped).
+# reference.roof_code(hp, ss) is the cascade of hp_code (k = sqrt(2)/2) and ss2_code; with simulate(seed='zero') it
+# implements exactly these lines (test: simulate_cascade of the two stages equals it to <= 1e-14).
+[corrected_code]
+file = "indicators/ehlers/RoofingFilter.c"
+function = "var RoofingFilter(vars Price, int HPPeriod, int SSPeriod)"
+lines = """
+var* rf_hp = series(HighPassFilter(Price, HPPeriod), 3);
+var rf_out = SuperSmoother2Pole(rf_hp, SSPeriod);
+return rf_out;"""
+notes = """(b) Changed vs the current .c (blob bb717f103fc1521c2ffc6046dfbaa0011a84ca3f at 9b117fc): the two locals are renamed
+(hp -> rf_hp, roofed -> rf_out, flat-namespace prefix, CLAUDE.md section 6); every other token is unchanged, so the compiled
+function is numerically identical to the current one (no NCH-style control). The numerical change comes from the corrected
+HighPassFilter.c it calls (literal 0.707 -> sqrt(2)/2, seed 0; HPF run 2 PASS, 512781c): NCO is the control for it.
+Header to write with the .c: source V.32:1 sidebar (GAP-1.31 fix); remove 'Validated', 'only dominant cycle survives' and
+'HPPeriod must be >> SSPeriod' (unsourced); add a verification line pointing at this spec.
+(b) Seeding: with the corrected HP the first HP output is 0 (input history = x[0] by series seeding, gotchas 9d.6; HP history 0),
+so SuperSmoother2Pole's series(Price[0], 3) seeds Filt at hp[0] = 0 = the source's Filt(0)."""
+
+[zorro]
+include = ["../../indicators/ehlers/HighPassFilter.c", "../../indicators/ehlers/SuperSmoother2Pole.c", "../../indicators/ehlers/RoofingFilter.c"]   # dependency order (gotchas 5.3), resolved from strategies/tests/
+raw_file = "Data/GEN_RFF_raw.csv"
+marker_file = "Data/GEN_RFF_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # as SS2F / SS3F / HPF, plus the alternating input
+n_bars = 3000
+warmup = 500
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+alternating = true          # extra input id `alt`: level + amp*(-1)^n, after the sines and before ramp
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D4
+dc_gain = 0.0
+phase_gate = 0.05
+startup_inputs = ["flat", "ramp", "s20"]
+source = """(a)/(b) DC gain 0: the HP numerator x - 2x[1] + x[2] sums to 0, the SuperSmoother has DC gain 1. phase_gate (c): judgement,
+as HPF. (b) Smallest expected sine gain in the four tables is 0.0574 (P48S20, T = 5) >= 0.05, so all 20 sine phases are checked.
+The expected alt gain is ~6e-18 (a numerical zero) in every table: the alt phase is SKIP in all of them (the gate binds)."""
+
+[tolerances.flat]
+value = 1e-9
+source = "(a) H1 criteria section 5 (unchanged). Expected output 0 (D4 rule 2). (b) floor 0."
+[tolerances.gain]
+value = 3e-5
+source = "(c) HPF / SS2F / SS3F default (D4 rule 5). (b) window: floor x10 <= 3e-5, see [floor].gain. Applies to the five sine gains and the alt gain."
+[tolerances.phase]
+value = 3e-5
+source = "(c) HPF default (D4 rule 5), radians. (b) window: floor x10 <= 3e-5, see [floor].phase. Applies to the five sine phases; the alt phase is gated out."
+[tolerances.resid]
+value = 1e-9
+source = "(c) HPF default (D4 rule 5). (b) floor ~1e-16 (round-off; expected residual 0, double zero at DC from the HP)."
+[tolerances.startup]
+value = 1e-6
+source = "(c) HPF default (D4 rule 5). (b) window: floor x10 <= 1e-6, see [floor].startup. Inputs flat, ramp, s20."
+[tolerances.lag]
+value = 1e-3
+source = "(a) H1 default; UNUSED here (dc_gain 0, D4 rule 1). Present for the schema."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers the alt input."
+[tolerances.imp]
+value = 1e-9
+source = "(c) As HPF / SS3F. (b) Fire tests: see [imp.fire_test]."
+
+# D2 floor per quantity: largest known accepted difference, corrected code (Zorro PI) vs THIS spec's (article) tables.
+[floor]
+gain = 5.558602782507194e-07
+phase = 1.5671661155458594e-06
+resid = 9.491639793472638e-17
+startup = 1.209236072602718e-08
+flat = 0.0
+source = """(b) 2026-11-17: reference.roof_code(hp, ss) (hp_code k = sqrt(2)/2 then ss2_code, Zorro PI), seed zero, simulated 3000 bars and
+measured with the checker's own functions (check_rows: m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the
+roof_article tables below, max over the four real variants; per variant in [floor.per_variant.*]. = the Zorro PI gap only
+(D3). The Zorro-side implementation residual is measured by IMP in the run; pass item 7 guards it. The gain floor includes the alt gain."""
+
+[floor.per_variant.P48S10]
+gain = 5.277790244839764e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+startup = 1.0629930066816812e-08
+flat = 0.0
+
+[floor.per_variant.P30S10]
+gain = 4.800644289870704e-07
+phase = 1.4541999853179277e-06
+resid = 8.54239343521705e-17
+startup = 1.0507046224825928e-08
+flat = 0.0
+
+[floor.per_variant.P125S10]
+gain = 5.558602782507194e-07
+phase = 1.1906929380245401e-06
+resid = 9.120472326080155e-17
+startup = 8.279327836160921e-09
+flat = 0.0
+
+[floor.per_variant.P48S20]
+gain = 4.409028473428833e-07
+phase = 1.5671661155458594e-06
+resid = 9.491639793472638e-17
+startup = 1.209236072602718e-08
+flat = 0.0
+
+# Expected tables: from reference.roof_article (exact constants, D1). Never from the .c file. Stored at full precision.
+
+[expected.P48S10]
+flat = 0.0
+gains = [0.22329246373117576, 0.6812189601598664, 0.8900165495219391, 0.7405714692715243, 0.3152095678349821]
+gain_alt = 6.034247078565135e-18
+phases = { 5 = -1.7262724708581951, 10 = -1.0206179300609162, 20 = -0.05338683922280379, 40 = 0.769984001215179, 100 = 1.8340513846255355 }
+resid = 0.0
+article = "roof_article(48,10)"
+source = "(b) reference.roof_article(48, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; resid = 0 exactly (double zero at DC; reference.ramp_residual gives 1.398785354715624e-18, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P30S10]
+flat = 0.0
+gains = [0.221886515801968, 0.6606227216063713, 0.7923026240490537, 0.5279498520179208, 0.15212204507710883]
+gain_alt = 6.034247078565135e-18
+phases = { 5 = -1.6500843312236226, 10 = -0.8548518285837566, 20 = 0.2537181883627087, 40 = 1.2179066009523658, 100 = 2.225019952201823 }
+resid = 0.0
+article = "roof_article(30,10)"
+source = "(b) reference.roof_article(30, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; resid = 0 exactly (double zero at DC; reference.ramp_residual gives -5.7461342332940055e-19, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P125S10]
+flat = 0.0
+gains = [0.22406569268162604, 0.692985615735416, 0.9541012321301761, 0.94864257264635, 0.7574953205695956]
+gain_alt = 6.0342470785651366e-18
+phases = { 5 = -1.8046730161716742, 10 = -1.1944917645042243, 20 = -0.39884512105393705, 40 = 0.15040983304925093, 100 = 0.9142629208646229 }
+resid = 0.0
+article = "roof_article(125,10)"
+source = "(b) reference.roof_article(125, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; resid = 0 exactly (double zero at DC; reference.ramp_residual gives -4.493311111409376e-18, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P48S20]
+flat = 0.0
+gains = [0.057431618504874854, 0.23365848260774072, 0.6487070206488631, 0.719862160915718, 0.31497347991604596]
+gain_alt = 1.5107043619184775e-18
+phases = { 5 = -2.0732111242169586, 10 = -1.8117540367506426, 20 = -0.8564295844658709, 40 = 0.3805302637415229, 100 = 1.6917733148669594 }
+resid = 0.0
+article = "roof_article(48,20)"
+source = "(b) reference.roof_article(48, 20) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; resid = 0 exactly (double zero at DC; reference.ramp_residual gives -1.1202608636441558e-18, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "P48S10"
+role = "real"
+label = "HP=48 SS=10"
+kind = "param"
+params = [48, 10]
+expected = "P48S10"
+seed = "zero"
+
+[[variants]]
+id = "P30S10"
+role = "real"
+label = "HP=30 SS=10"
+kind = "param"
+params = [30, 10]
+expected = "P30S10"
+seed = "zero"
+
+[[variants]]
+id = "P125S10"
+role = "real"
+label = "HP=125 SS=10"
+kind = "param"
+params = [125, 10]
+expected = "P125S10"
+seed = "zero"
+
+[[variants]]
+id = "P48S20"
+role = "real"
+label = "HP=48 SS=20"
+kind = "param"
+params = [48, 20]
+expected = "P48S20"
+seed = "zero"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NC-A: SS pole factor a1 +1 in 3rd digit vs P48S10 article"
+kind = "inline"
+function = "rff_nca"
+params = [48, 10]
+expected = "P48S10"
+seed = "zero"
+comment = """NC-A: realistic copying error in the SuperSmoother pole factor (D2 rule 4). [corrected_code] pipeline, SuperSmoother inline, except a1 + 1/1000 (= bump3 at SS = 10: 0.6412807 -> 0.6422807 with Zorro PI, 0.6412805 -> 0.6422805 with exact pi) BEFORE b1, c3 and c0 are derived, so the DC gain stays 1. HighPassFilter is called (verified)."""
+body = '''
+var rff_nca(vars Price, int HPP, int SSP)
+{
+	var* nca_hp = series(HighPassFilter(Price, HPP), 3);
+	var nca_a1 = exp(-sqrt(2.0) * PI / SSP);
+	nca_a1 = nca_a1 + 1.0 / 1000;
+	var nca_b1 = 2.0 * nca_a1 * cos(sqrt(2.0) * PI / SSP);
+	var nca_c3 = -nca_a1 * nca_a1;
+	var nca_c0 = (1.0 - nca_b1 + nca_a1 * nca_a1) / 2.0;
+	var* nca_f = series(nca_hp[0], 3);
+	nca_f[0] = nca_c0 * (nca_hp[0] + nca_hp[1])
+	        + nca_b1 * nca_f[1]
+	        + nca_c3 * nca_f[2];
+	return nca_f[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.0005551308879390149
+phase = 0.0023213812923303934
+resid = 8.86444809083422e-17
+startup = 7.131781905601528e-06
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCB"
+role = "neg_control"
+label = "NC-B: SS input weight c0 +1 in 3rd digit vs P48S10 article"
+kind = "inline"
+function = "rff_ncb"
+params = [48, 10]
+expected = "P48S10"
+seed = "zero"
+comment = """NC-B: realistic copying error in the SuperSmoother input weight. [corrected_code] pipeline except c0 + 1/1000 (= bump3: 0.1265972 -> 0.1275972 with Zorro PI, 0.1265974 -> 0.1275974 with exact pi) AFTER the coefficients; both input taps change, so the DC gain is not 1."""
+body = '''
+var rff_ncb(vars Price, int HPP, int SSP)
+{
+	var* ncb_hp = series(HighPassFilter(Price, HPP), 3);
+	var ncb_a1 = exp(-sqrt(2.0) * PI / SSP);
+	var ncb_b1 = 2.0 * ncb_a1 * cos(sqrt(2.0) * PI / SSP);
+	var ncb_c3 = -ncb_a1 * ncb_a1;
+	var ncb_c0 = (1.0 - ncb_b1 + ncb_a1 * ncb_a1) / 2.0;
+	ncb_c0 = ncb_c0 + 1.0 / 1000;
+	var* ncb_f = series(ncb_hp[0], 3);
+	ncb_f[0] = ncb_c0 * (ncb_hp[0] + ncb_hp[1])
+	        + ncb_b1 * ncb_f[1]
+	        + ncb_c3 * ncb_f[2];
+	return ncb_f[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.00703032873236098
+phase = 1.3284752471420802e-06
+resid = 1.2710612805485527e-16
+startup = 7.399557592849618e-05
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCU"
+role = "neg_control"
+label = "NC-U: SS input not averaged vs P48S10 article"
+kind = "inline"
+function = "rff_ncu"
+params = [48, 10]
+expected = "P48S10"
+seed = "zero"
+comment = """NC-U: form mix-up, the SuperSmoother input is not averaged: Filt = (1 - b1 + a1*a1)*hp[0] + c2*Filt[1] + c3*Filt[2] (full weight on hp[0], no hp[1] term). DC gain stays 1; the Nyquist gain no longer vanishes (the only control that moves the alt gain)."""
+body = '''
+var rff_ncu(vars Price, int HPP, int SSP)
+{
+	var* ncu_hp = series(HighPassFilter(Price, HPP), 3);
+	var ncu_a1 = exp(-sqrt(2.0) * PI / SSP);
+	var ncu_b1 = 2.0 * ncu_a1 * cos(sqrt(2.0) * PI / SSP);
+	var ncu_c3 = -ncu_a1 * ncu_a1;
+	var ncu_c0 = (1.0 - ncu_b1 + ncu_a1 * ncu_a1) / 2.0;
+	var* ncu_f = series(ncu_hp[0], 3);
+	ncu_f[0] = (1.0 - ncu_b1 + ncu_a1 * ncu_a1) * ncu_hp[0]
+	        + ncu_b1 * ncu_f[1]
+	        + ncu_c3 * ncu_f[2];
+	return ncu_f[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.09854657478844052
+phase = 0.6283178355913965
+resid = 7.496068721186662e-17
+startup = 0.0014343541138257337
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCO"
+role = "neg_control"
+label = "NC-O: old HighPassFilter feeding SuperSmoother2Pole vs P48S10 article"
+kind = "inline"
+function = "rff_nco"
+params = [48, 10]
+expected = "P48S10"
+seed = "price"
+lint_allow_float32 = ["0.707"]
+lint_allow_reason = "NCO reproduces the old HighPassFilter.c verbatim; float32 0.707 is the old deviation itself (gotchas 9d.1). Exempt in this body only."
+comment = """NCO: the old pipeline. The OLD HighPassFilter body (= HPF spec variant NCH: literal 0.707, history seeded at the price level, series(Price[0], 3)) feeding SuperSmoother2Pole as the current RoofingFilter.c does. Locals renamed only. Gain / phase effects are small (T = 20 gain 2.1e-5 < tolerance); caught by start-up (the seed) and by IMP must_fail (corrected model)."""
+body = '''
+var rff_nco(vars Price, int HPP, int SSP)
+{
+	var nco_alpha1 = (cos(0.707*2.0*PI / HPP) + sin(0.707*2.0*PI / HPP) - 1.0)
+	       / cos(0.707*2.0*PI / HPP);
+	var* nco_hraw = series(Price[0], 3);
+	nco_hraw[0] = (1.0 - nco_alpha1/2.0) * (1.0 - nco_alpha1/2.0)
+	        * (Price[0] - 2.0*Price[1] + Price[2])
+	        + 2.0*(1.0 - nco_alpha1) * nco_hraw[1]
+	        - (1.0 - nco_alpha1) * (1.0 - nco_alpha1) * nco_hraw[2];
+	var* nco_hp = series(nco_hraw[0], 3);
+	var nco_out = SuperSmoother2Pole(nco_hp, SSP);
+	return nco_out;
+}'''
+[variants.effect]
+flat = 4.0193712881603565e-19
+gain = 6.546423158931836e-05
+phase = 0.0001410343935885905
+resid = 8.719502769424519e-17
+startup = 1.0913819070759285
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: HP=49 SS=10 vs P48S10 article"
+kind = "param"
+params = [49, 10]
+expected = "P48S10"
+seed = "zero"
+comment = """NC1 (H1 definition): the corrected file called with HPPeriod = 49, compared with the P48S10 table."""
+[variants.effect]
+flat = 0.0
+gain = 0.008980614921285934
+phase = 0.01926040095303172
+resid = 9.36105066766898e-17
+startup = 0.00012560050441817435
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NC1s"
+role = "neg_control"
+label = "NC1s: HP=48 SS=11 vs P48S10 article"
+kind = "param"
+params = [48, 11]
+expected = "P48S10"
+seed = "zero"
+comment = """NC1s: the corrected file called with SSPeriod = 11, compared with the P48S10 table."""
+[variants.effect]
+flat = 0.0
+gain = 0.06749425254814845
+phase = 0.12984819155146266
+resid = 8.909189724851529e-17
+startup = 0.0007398058115533003
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "NC2: SS cos arg in degrees vs P48S10 article"
+kind = "inline"
+function = "rff_nc2"
+params = [48, 10]
+expected = "P48S10"
+seed = "zero"
+comment = """NC2: gross units bug (gotchas section 2, mixed-file mode). SuperSmoother cosine argument in degrees (sqrt(2)*180/SSP) with the exponent unchanged. Stable at SS = 10 (pole radius a1 = 0.64)."""
+body = '''
+var rff_nc2(vars Price, int HPP, int SSP)
+{
+	var* nc2_hp = series(HighPassFilter(Price, HPP), 3);
+	var nc2_a1 = exp(-sqrt(2.0) * PI / SSP);
+	var nc2_b1 = 2.0 * nc2_a1 * cos(sqrt(2.0) * 180.0 / SSP);
+	var nc2_c3 = -nc2_a1 * nc2_a1;
+	var nc2_c0 = (1.0 - nc2_b1 + nc2_a1 * nc2_a1) / 2.0;
+	var* nc2_f = series(nc2_hp[0], 3);
+	nc2_f[0] = nc2_c0 * (nc2_hp[0] + nc2_hp[1])
+	        + nc2_b1 * nc2_f[1]
+	        + nc2_c3 * nc2_f[2];
+	return nc2_f[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.1676243627156725
+phase = 0.18575877565591314
+resid = 6.983669621034786e-17
+startup = 0.0018319538206765873
+source = "(b) simulated 3000 bars with the control's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (ratios: NCA gain 18.5x, phase 77.4x; NCB gain 234x, startup 74x; NCU gain 3.28e+03x, phase 2.09e+04x, startup 1.43e+03x; NCO startup 1.09e+06x; NC1 gain 299x, phase 642x, startup 126x; NC1s gain 2.25e+03x, phase 4.33e+03x, startup 740x; NC2 gain 5.59e+03x, phase 6.19e+03x, startup 1.83e+03x). Kinds below 10x are not required (e.g. NCA startup 7.1x, NCO gain 2.2x, phase 4.7x)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* / gain-alt | phase-T* | ramp-res | startup-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCA = ["gain", "phase"]
+NCB = ["gain", "startup"]
+NCU = ["gain", "phase", "startup"]
+NCO = ["startup"]
+NC1 = ["gain", "phase", "startup"]
+NC1s = ["gain", "phase", "startup"]
+NC2 = ["gain", "phase", "startup"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN §1, first question). Replay the recursion in Python (reference.simulate / simulate_cascade, with
+the variant's declared seed) with the named model on the x columns EXPORTED by Zorro; residual = max |y_Zorro - y_replay| over n >= 0
+(seed-declaring variants, decision 4), per input (flat, five sines, alt, ramp) and overall."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { P48S10 = "roof_code(48, 10)", P30S10 = "roof_code(30, 10)", P125S10 = "roof_code(125, 10)", P48S20 = "roof_code(48, 20)", NCA = "roof_code(48, 10, ss_c1_bump=1)", NCB = "roof_code(48, 10, ss_in_bump=1)", NCU = "roof_code(48, 10, ss_unaveraged)", NCO = "roof_nco(48, 10)", NC1 = "roof_code(49, 10)", NC1s = "roof_code(48, 11)", NC2 = "roof_code(48, 10, ss_deg)" }
+must_fail = { P48S10 = "roof_nco(48, 10)", NCO = "roof_code(48, 10)" }
+fire_test_effect = "(b) standalone model, 2026-11-17, numbers at full precision in [imp.fire_test]: P48S10 output vs the NCO-model replay (old HP + SuperSmoother, price seeds) and NCO output vs the corrected-model replay, both > 1e-9; own-model replays exactly 0; every control's own-model output differs from roof_code(48, 10) (seed zero) by more than 1e-9 (must_pass discriminates)."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs article).
+IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. P48S10 must_fail = the old
+HP stage is absent from the run's output; NCO must_fail = the corrected pipeline is absent from the NCO output. NCO is expected to show
+FIDELITY FAIL (start-up) + IMP PASS (own model): the signature of the old RoofingFilter.c."""
+
+[imp.fire_test]
+p48s10_vs_nco_model = 1.101303560776619
+nco_vs_corrected_model = 1.101303560776619
+source = "(b) 2026-11-17: reference.simulate_any on the exported-input model of the harness (3000 bars, all 8 inputs), max over n >= 0 and inputs"
+[imp.fire_test.discrimination]
+NCA = 1.5547465473081173e-05
+NCB = 7.39945488330649e-05
+NCU = 0.002312762008568253
+NCO = 1.101303560776619
+NC1 = 0.00016134719461098537
+NC1s = 0.0011015812935017892
+NC2 = 0.002005536827954186
+# source: (b) control own-model output vs roof_code(48, 10) with seed zero (NCO: the Cascade model), max over n >= 0 and all inputs; each > [tolerances.imp]
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """RoofingFilter source fidelity and implementation PASS only if ALL of the following hold; any other outcome is
+FAIL, recorded and kept (PROJECT_STATE §2 rule 9), and its cause found before anything is changed:
+1. All 64 real checks PASS: 4 variants (P48S10, P30S10, P125S10, P48S20) x 16 checks (flat, 5 sine gains, alt gain, 5 sine phases,
+   ramp residual, start-up flat, start-up ramp, start-up s20), against the article tables above at the tolerances above.
+   The alt phase row of every variant (11 rows: 4 real, 7 controls) is SKIP (expected gain < phase_gate), not PASS, and is not
+   one of the 64. A SKIP row where the checker should have checked (or the reverse) is a failed run.
+2. Each of the 7 negative controls FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] vs recomputed incl. alt, tol 1e-12; clock range), no row is ERROR in ANY variant, real or control,
+   no NaN / infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check
+   (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 4 real + 7 negative controls = 11 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9, and every [imp].must_fail replay > 1e-9 (guards seen to fire).
+7. Floor guard: for every real variant, max |Zorro - article| <= tolerance / 10 for gain (3e-6), phase (3e-6 rad),
+   resid (1e-10) and start-up (1e-7) (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT
+   accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done by Claude Code before the [Test] click and recorded in Amendment 1:
+   (i) the corrected RoofingFilter.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current RoofingFilter.c blob (bb717f103fc1521c2ffc6046dfbaa0011a84ca3f at 9b117fc) is recorded and is token-identical
+        to [corrected_code] apart from the two renames hp -> rf_hp and roofed -> rf_out (no NCH-style control is needed: the
+        corrected file is numerically identical to the current one);
+   (iii) reference.py reproduces this file's expected tables, floors, effects and IMP fire-test numbers to <= 1e-9 (relative
+        1e-9 for values > 1). Every number is stored at full precision (HPF Amendment 1, A1.2). Each inline control body is
+        checked at run time, not by reading: IMP must_pass replays every control with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every margin >= 10x)."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_STAGE_ORDER = "(b) Stage order is not detectable: from the zero-seed steady state SS -> HP equals HP -> SS on every input (both LTI). Not a control; noted so nobody adds one."
+O_SEED = "(b) HP seed zero + SuperSmoother seed hp[0] (= 0) in the code cascade equals the single cascaded article filter with seed zero: max difference 9.3e-17 (ramp), 1.7e-15 (sine T = 20) in the planning-chat simulation; tested here to <= 1e-14 on all inputs."
+O_NYQUIST = "(b) T = 2 cannot be a sine (sin(pi*n) = 0 at integer n), hence the alternating input (decision 2A). The article gain there is ~6e-18 (zero), so the alt phase is undefined and SKIPped."
+O_KNOWN_ANSWER = "(b) PROJECT_STATE section 5 known answer 0.890038 (RoofingFilter(48,10), T = 20) is SUPERSEDED: it is the OLD code (0.707 HP + sqrt(2) SS, exact pi). Article (exact constants) gain 0.8900165495219391, phase -0.05338683922280379 rad; article-as-printed literals 0.8900220682097704; old code 0.8900377520202695. Planning-chat values agree to ~1e-14."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-article residual per kind per real variant; the latter is the measured floor (expected ~ the PI gap)."
+
+[known_answer_T20]
+article_gain_T20 = 0.8900165495219391
+article_phase_T20 = -0.05338683922280379
+printed_gain_T20 = 0.8900220682097704
+old_gain_T20 = 0.8900377520202695
+source = "(b) 2026-11-17: reference.roof_article(48,10) gain_at / phase_at at T = 20; printed literals = .707 / 1.414 / 3.14159 as printed (exact pi where the article's degrees convert), see test_reference_rff_spec.py; old code = hp_code(48, k = 0.707, exact pi) cascaded with ss2_code(10, exact pi)"
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-17, BEFORE any run. Base: b6b5c5d (spec; tooling f9f3561). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp], pass items 1-7,
+# [corrected_code], [observations].
+[amendment_1]
+date = "2026-11-17"
+base_commit = "b6b5c5d"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_rff_corrected_code.py (real-file tests enabled): indicators/ehlers/RoofingFilter.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var RoofingFilter(vars Price, int HPPeriod, int SSPeriod)'. Guard seen to fire on temp-file copies: rf_hp -> hp in the series line, SuperSmoother2Pole(rf_hp, SSPeriod) -> (rf_hp, HPPeriod), series(..., 3) -> series(..., 2), return rf_out -> return rf_hp: all reported not-ok. The removed claims ('Validated: EUR/USD', 'only dominant cycle survives', 'must be >> SSPeriod') are absent from the file."
+cond_ii = "PASS (re-run at stage 2). Same test file: git blob bb717f103fc1521c2ffc6046dfbaa0011a84ca3f (RoofingFilter.c at 9b117fc) is token-identical to [corrected_code] apart from the renames hp -> rf_hp and roofed -> rf_out. Guards seen to fire: four altered tokens in copies of the old file, two altered registered lines, comment-only edits do not matter."
+cond_iii = "PASS. analysis/harness/tests/test_reference_rff_spec.py, 18 tests OK. Largest deviation per section: expected 4.493e-18, floor 0.000e+00, effects 0.000e+00, known_answer 0.000e+00, imp_fire_test 0.000e+00. Guards seen to fire: comparison rule, table +1e-6, floor +5e-9, effect +1%, swapped control, hand-picked detect kinds, wrong-model known answer."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/RFF_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; D2 floor windows ok (gain, flat, phase, resid, startup), all 7 control margins >= 10x, INFO line 'L_FLOAT32 exemption used: variant NCO, literal 0.707' present."
+tests_before = 283
+tests_after = 286
+tests_added = 3
+suite = "bash analysis/harness/run_tests.sh: TOTAL 286  PASS 286  FAIL 0  ERROR 0  SKIP 0"
+blob_RoofingFilter_c_old = "bb717f103fc1521c2ffc6046dfbaa0011a84ca3f"
+blob_RoofingFilter_c_new = "6f5a20939a6c85b0d6a7fe182ffcbd33bc95dfa5"
+blob_source = "(b) git rev-parse 9b117fc:indicators/ehlers/RoofingFilter.c (old); git hash-object indicators/ehlers/RoofingFilter.c (new), 2026-11-17"
+script = "strategies/tests/GEN_RFF_RoofingFilter.c"
+script_sha256 = "17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853"
+script_check = "(b) read-through 2026-11-17: includes HighPassFilter.c, SuperSmoother2Pole.c, RoofingFilter.c in order; alt input from integers via static rff_sgn reset at INITRUN, flipped once per bar after the row is written, X[6] set before the filter calls; 88 unconditional Y calls in fixed variant-major order, RoofingFilter(S, hp, ss) for P48S10/P30S10/P125S10/P48S20/NC1/NC1s; five inline bodies each defined once; no bare 'Period' identifier; decimal literals all float32-exact except 0.707 (three, inside rff_nco, exempted); raw file Data/GEN_RFF_raw.csv deleted at INITRUN, header written once; last row latched before quit(). C:/Zorro/Data/GEN_RFF_raw.csv does not exist yet."
+
+# ============================================================================ Amendment 2
+# 2026-11-17, AFTER run 1, no criterion changed. Base: Amendment 1 commit (everything above unchanged). Records only.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], the generated script.
+[amendment_2]
+date = "2026-11-17"
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Results file analysis/harness/results/RFF_ArticleFidelity_20261117.csv; raw analysis/harness/results/RFF_ArticleFidelity_20261117_raw_run1.csv sha256 edb3400fb8985f89b7b6696932023d457edfb6d4dd3df4b213ee4fb63070c810; script strategies/tests/GEN_RFF_RoofingFilter.c sha256 17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853. Per pass item: (1) 64 of 64 real checks PASS, 0 FAIL, 0 ERROR (largest real ratio 0.0522), 11 alt-phase rows SKIP (4 real, 7 control), not counted in the 64; (2) 7 of 7 controls detected on every required kind; (3) no guard row, no ERROR row, no NaN; (4) Zorro window clean, Warning 047 only (user report); (5) variants_run=11 real=4 neg_control=7; (6) IMP must_pass 11 of 11 (largest 3.514e-12, NCB), must_fail 2 of 2 (P48S10 1.1013035607766, NCO 1.9138e-02); (7) floor 16 of 16 PASS (largest ratio 0.5224).",
+  "A2.2 NCO must_fail measured 1.9138e-02 against the pre-registered [imp.fire_test].nco_vs_corrected_model = 1.101303560776619. Cause (b), reproduced by the planning chat: the checker replays the variant's declared seed 'price' on roof_code as ONE 4th-order filter with output history = x[0], giving 1.9138e-02; per-stage price seeding (HP price, SuperSmoother at its first input) gives 9.07e-05; both stages zero-seeded gives 1.10 (the spec value, computed with seed zero). The verdict is unaffected: the row needs > 1e-9 and passed. Open tooling item: per-stage seeds for cascades.",
+  "A2.3 INFO, no criterion: IMP residuals of NCA / NCB are 7.4e-13 / 3.5e-12 against ~1e-15 for the other variants. Both bodies, and only they, contain the literal expression `1.0 / 1000`. Inference (c): compile-time fold to float32(0.001), relative error 4.7e-11 (as gotchas 9d.8). Not probed; both rows pass with a margin of more than 280x.",
+]
