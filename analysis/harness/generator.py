@@ -205,6 +205,7 @@ def validate_spec(spec):
                 err.append(("STRUCT", "variant %s: inline needs function and a body defining it" % vid))
         elif v.get("kind") != "param":
             err.append(("STRUCT", "variant %s: kind must be param or inline" % vid))
+        err.extend(_lint_allow_errors(v))
     if "neg_control" not in roles:
         err.append(("NO_NEG_CONTROL", "no negative control (D2 Amendment 1: a control that is "
                                       "never seen to fail means the harness could be broken)"))
@@ -394,6 +395,52 @@ def _chunks(items, size):
     return [items[i:i + size] for i in range(0, len(items), size)]
 
 
+def _decimal_tokens(text):
+    return [m.group(1) for m in _DECIMAL_RE.finditer(_strip(text))]
+
+
+def _lint_allow_errors(v):
+    """Validation of the scoped float32 exemption fields on one variant (code LINT_ALLOW)."""
+    vid = v.get("id")
+    has_l, has_r = "lint_allow_float32" in v, "lint_allow_reason" in v
+    if not has_l and not has_r:
+        return []
+    e = []
+    lits, reason = v.get("lint_allow_float32"), v.get("lint_allow_reason")
+    if has_l and not has_r:
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_float32 without lint_allow_reason" % vid))
+    if has_r and not has_l:
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_reason without lint_allow_float32" % vid))
+    if has_r and (not isinstance(reason, str) or not reason.strip()):
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_reason must be a non-empty string" % vid))
+    if v.get("kind") != "inline":
+        e.append(("LINT_ALLOW", "variant %s: lint_allow_* is only valid on an inline variant" % vid))
+    if has_l:
+        if not isinstance(lits, list) or not lits or not all(isinstance(x, str) and x for x in lits):
+            e.append(("LINT_ALLOW", "variant %s: lint_allow_float32 must be a non-empty list of literal strings" % vid))
+        elif v.get("kind") == "inline" and isinstance(v.get("body"), str):
+            present = _decimal_tokens(v["body"])
+            for x in lits:
+                if x not in present:
+                    e.append(("LINT_ALLOW", "variant %s: exempted literal %s does not occur as a decimal literal "
+                              "in its body (stale exemption)" % (vid, x)))
+    return e
+
+
+def lint_allowances(spec):
+    """[(variant id, body text as emitted, [literals], reason)] for every variant that carries an exemption."""
+    out = []
+    for v in spec["variants"]:
+        if v.get("kind") == "inline" and v.get("lint_allow_float32"):
+            out.append((v["id"], v["body"].rstrip("\n"), list(v["lint_allow_float32"]), v["lint_allow_reason"]))
+    return out
+
+
+def lint_infos(allow):
+    return ["INFO L_FLOAT32 exemption used: variant %s, literal %s, reason: %s" % (vid, lit, reason)
+            for vid, _, lits, reason in allow for lit in lits]
+
+
 def _fn_of(spec, v):
     return v["function"] if v["kind"] == "inline" else spec["batch"]["indicator"]
 
@@ -561,7 +608,7 @@ def _f32_exact(x):
         return False
 
 
-def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
+def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT, allow=()):
     """Returns a list of (rule, message); empty = clean.
     L_PI        no `PI` token in harness plumbing (comments, strings and the inline negative-control
                 bodies excluded: they are mutated indicator copies, D3 allows PI; Amendment 2).
@@ -569,7 +616,10 @@ def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
                 9d.1). Applies to the whole script including inline bodies.
     L_QUIT      no file_append after quit( in the same block (9d.4).
     L_INCLUDE   every #include "path" resolves from include_base (strategies/tests/) to an
-                existing file (9d.3). <angle> includes are not checked."""
+                existing file (9d.3). <angle> includes are not checked.
+    allow       [(variant id, body, [literals], reason)] from lint_allowances(spec): each listed literal is
+                exempt from L_FLOAT32 inside that variant's inline body only (first occurrence of the body
+                in the text); everywhere else, including the generated main script, it is still refused."""
     issues = []
     plumbing = text
     for body in inline_bodies:
@@ -578,12 +628,19 @@ def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT):
         issues.append(("L_PI", "PI token in harness code (line %d of the plumbing text)"
                        % (_strip(plumbing)[:m.start()].count("\n") + 1)))
         break
-    clean = _strip(text)
-    for m in _DECIMAL_RE.finditer(clean):
+    ftext = text
+    for _, body, lits, _r in allow:
+        i = ftext.find(body)
+        if i >= 0:
+            new_body = _DECIMAL_RE.sub(lambda m: "0" if m.group(1) in lits else m.group(0), body)
+            ftext = ftext[:i] + new_body + ftext[i + len(body):]
+    fclean = _strip(ftext)
+    for m in _DECIMAL_RE.finditer(fclean):
         tok = m.group(1)
         if not _f32_exact(float(tok)):
             issues.append(("L_FLOAT32", "decimal literal %s is not float32-exact (line %d)"
-                           % (tok, clean[:m.start()].count("\n") + 1)))
+                           % (tok, fclean[:m.start()].count("\n") + 1)))
+    clean = _strip(text)
     for m in re.finditer(r"\bquit\s*\(", clean):
         depth = 0
         for ch_i in range(m.end(), len(clean)):
@@ -610,7 +667,7 @@ def write_script(spec, out_dir, include_base=DEFAULT_OUT):
     """Lint, then write <out_dir>/<script_name>.c with exclusive create (FileExistsError if the
     file exists: an existing .c is never overwritten). Returns the path."""
     text, bodies = build_script(spec)
-    issues = lint_script(text, bodies, include_base)
+    issues = lint_script(text, bodies, include_base, allow=lint_allowances(spec))
     if issues:
         raise LintError(issues)
     path = os.path.join(out_dir, spec["batch"]["script_name"] + ".c")
@@ -634,7 +691,10 @@ def main():
     if errs:
         sys.exit(2)
     text, bodies = build_script(spec)
-    issues = lint_script(text, bodies)
+    allow = lint_allowances(spec)
+    issues = lint_script(text, bodies, allow=allow)
+    for i in lint_infos(allow):
+        print(i)
     for r, m in issues:
         print("LINT REFUSED %s: %s" % (r, m))
     if issues:
