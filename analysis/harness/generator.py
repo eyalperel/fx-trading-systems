@@ -32,6 +32,7 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
 DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup")      # checker._kind values (D4 adds the last three)
+IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
 SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate)
 
 
@@ -299,6 +300,50 @@ def validate_spec(spec):
                                 "(reference.IMP_MODELS)" % (lst, vid, model)))
         if not n_listed:
             err.append(("IMP_BAD", "[imp] lists no variant"))
+    # Amendment 2 mechanism: [imp_corrections.<id>] supersedes ONE pre-registered [imp] model string; [imp] itself
+    # stays as the record (precedent: [effect_corrections]). One INFO line per correction, appended after the margins.
+    corr_info = []
+    ic = spec.get("imp_corrections")
+    if ic is not None:
+        imp_ok = isinstance(imp, dict) and all(isinstance(imp.get(k), dict) for k in ("must_pass", "must_fail"))
+        if not isinstance(ic, dict) or not all(isinstance(c, dict) for c in ic.values()):
+            err.append(("IMP_CORRECTION_BAD", "[imp_corrections] must be a table of tables, one per variant id"))
+        elif not imp_ok:
+            err.append(("IMP_CORRECTION_BAD", "[imp_corrections] needs an [imp] section with must_pass and "
+                        "must_fail tables"))
+        else:
+            for vid, c in ic.items():
+                where = "[imp_corrections.%s]" % vid
+                miss = [k for k in IMP_CORRECTION_FIELDS if k not in c]
+                extra = [k for k in c if k not in IMP_CORRECTION_FIELDS]
+                if miss or extra:
+                    err.append(("IMP_CORRECTION_BAD", "%s: missing %s, unexpected %s (fields: %s)"
+                                % (where, miss or "none", extra or "none", "/".join(IMP_CORRECTION_FIELDS))))
+                    continue
+                bad = []
+                if c["list"] not in ("must_pass", "must_fail"):
+                    bad.append("list must be must_pass or must_fail, got %r" % (c["list"],))
+                for k in ("replaces", "model", "amendment"):
+                    if not isinstance(c[k], str) or not c[k].strip():
+                        bad.append("%s must be a non-empty string" % k)
+                if not _has_label(c["source"]):
+                    bad.append("source has no (a)/(b)/(c) label")
+                if bad:
+                    err.append(("IMP_CORRECTION_BAD", "%s: %s" % (where, "; ".join(bad))))
+                    continue
+                tab = imp[c["list"]]
+                if vid not in tab:
+                    err.append(("IMP_CORRECTION_UNKNOWN_ID", "%s: %r is not a key of [imp].%s"
+                                % (where, vid, c["list"])))
+                    continue
+                if tab[vid] != c["replaces"]:
+                    err.append(("IMP_CORRECTION_REPLACES_MISMATCH", "%s: replaces %r but [imp].%s.%s is %r"
+                                % (where, c["replaces"], c["list"], vid, tab[vid])))
+                if c["model"] not in R.IMP_MODELS:
+                    err.append(("IMP_CORRECTION_UNKNOWN_MODEL", "%s: model %r is not in the model registry "
+                                "(reference.IMP_MODELS)" % (where, c["model"])))
+                corr_info.append("INFO IMP correction applied: %s %s: %s -> %s (Amendment %s)"
+                                 % (vid, c["list"], c["replaces"], c["model"], c["amendment"]))
     if err:
         return err, info
 
@@ -334,6 +379,7 @@ def validate_spec(spec):
         info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
                        "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met", note))
+    info.extend(corr_info)
     return err, info
 
 
@@ -384,7 +430,11 @@ def to_checker_spec(spec):
     if "imp" in spec:
         d["imp"] = dict(must_pass=dict(spec["imp"]["must_pass"]), must_fail=dict(spec["imp"]["must_fail"]),
                         tol=t["imp"]["value"])
-    if "detect" in spec or "ox" in spec or "literal_info" in spec:
+        # [imp_corrections] (validated above): the amendment's model replaces the pre-registered string; the spec's
+        # own [imp] tables are copies here, so the record in the spec is not touched.
+        for vid, c in spec.get("imp_corrections", {}).items():
+            d["imp"][c["list"]][vid] = c["model"]
+    if "detect" in spec or "ox" in spec or "literal_info" in spec or "imp_corrections" in spec:
         d["info_lines"] = list(infos)
         d["extended_report"] = True
     return d
