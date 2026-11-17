@@ -31,7 +31,8 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
-DETECT_KINDS = ("flat", "gain", "lag")      # checker._kind values
+DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup")      # checker._kind values (D4 adds the last three)
+SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate)
 
 
 class SpecError(Exception):
@@ -62,6 +63,26 @@ def _frac(pair):
 
 def _has_label(s):
     return isinstance(s, str) and LABEL_RE.match(s) is not None
+
+
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def dc_gain_of(spec):
+    """[checks].dc_gain, default 1 (a spec without [checks] behaves exactly as H1 / SS2 / SS3)."""
+    return spec.get("checks", {}).get("dc_gain", 1.0)
+
+
+def phase_periods(table):
+    """expected.<P>.phases as {int period: radians}; TOML keys arrive as strings, fixtures may use ints."""
+    out = {}
+    for k, v in table.get("phases", {}).items():
+        try:
+            out[int(k)] = v
+        except (TypeError, ValueError):
+            out[k] = v
+    return out
 
 
 def validate_spec(spec):
@@ -103,7 +124,27 @@ def validate_spec(spec):
         seen.add(v.get("id"))
 
     # source labels on every tolerance and expected table
-    for q in ("flat", "gain", "lag", "x"):
+    chk = spec.get("checks", {})
+    if not isinstance(chk, dict):
+        err.append(("CHECKS_BAD", "[checks] must be a table"))
+        chk = {}
+    dc = chk.get("dc_gain", 1.0)
+    if not _is_num(dc):
+        err.append(("CHECKS_BAD", "[checks].dc_gain %r is not a number" % (dc,)))
+        dc = 1.0
+    gate = chk.get("phase_gate")
+    if gate is not None and (not _is_num(gate) or gate <= 0):
+        err.append(("CHECKS_BAD", "[checks].phase_gate %r must be a positive number" % (gate,)))
+    sin = chk.get("startup_inputs")
+    if sin is not None:
+        ids_ok = input_ids(spec)
+        if not isinstance(sin, list) or not sin or any(i not in ids_ok for i in sin):
+            err.append(("STARTUP_BAD", "[checks].startup_inputs %r: need a non-empty list of %s" % (sin, ids_ok)))
+    has_lag = dc == 1
+    any_phases = any(phase_periods(t) for t in spec["expected"].values() if isinstance(t, dict))
+    need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) + (["phase"] if any_phases else []) \
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+    for q in need_tol:
         t = spec["tolerances"].get(q)
         if not isinstance(t, dict) or "value" not in t:
             err.append(("STRUCT", "[tolerances.%s] missing or without value" % q))
@@ -116,8 +157,35 @@ def validate_spec(spec):
             err.append(("STRUCT", "expected table %s: %d gains for %d sine periods"
                         % (name, len(t.get("gains", [])), len(ts))))
         for k in ("flat", "lag"):
+            if k == "lag" and not has_lag:
+                if "lag" in t:
+                    err.append(("LAG_NOT_APPLICABLE", "expected table %s: lag given but [checks].dc_gain is %g "
+                                "(ramp lag only at DC gain 1, D4 rule 1)" % (name, dc)))
+                continue
             if not isinstance(t.get(k), (int, float)):
                 err.append(("STRUCT", "expected table %s: %s missing" % (name, k)))
+        if has_lag:
+            if "resid" in t:
+                err.append(("RESID_NOT_APPLICABLE", "expected table %s: resid given at dc_gain 1" % name))
+        elif not _is_num(t.get("resid")):
+            err.append(("STRUCT", "expected table %s: resid missing (required at dc_gain != 1, D4 rule 4)" % name))
+        ph = phase_periods(t)
+        if ph and gate is None:
+            err.append(("PHASE_GATE_MISSING", "expected table %s lists phases but [checks].phase_gate is missing "
+                        "(D4 rule 3: the spec pre-registers the gate)" % name))
+        for T, val in ph.items():
+            if T not in ts or not _is_num(val) or not (-math.pi < val <= math.pi):
+                err.append(("PHASE_BAD", "expected table %s: phase for period %r = %r (period must be one of the "
+                            "sine periods, value a number in (-pi, pi])" % (name, T, val)))
+            elif gate is not None and _is_num(gate) and len(t.get("gains", [])) == len(ts):
+                g = t["gains"][ts.index(T)]
+                if g < gate:
+                    err.append(("PHASE_GATE", "expected table %s: phase listed at T=%d where the reference gain "
+                                "%.4g < phase_gate %g (phase undefined near gain 0)" % (name, T, g, gate)))
+        if sin:
+            if not isinstance(t.get("article"), str) or R.article_model(t.get("article")) is None:
+                err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
+                            "reference.article_model (needed by the start-up check)" % (name, t.get("article"))))
 
     # variants
     roles = [v.get("role") for v in spec["variants"]]
@@ -127,6 +195,8 @@ def validate_spec(spec):
             err.append(("STRUCT", "variant %s: role must be real or neg_control" % vid))
         if v.get("expected") not in spec["expected"]:
             err.append(("STRUCT", "variant %s: expected table %r not defined" % (vid, v.get("expected"))))
+        if "seed" in v and v["seed"] not in SEEDS:
+            err.append(("SEED_BAD", "variant %s: seed %r must be one of %s" % (vid, v["seed"], "/".join(SEEDS))))
         if not isinstance(v.get("param"), int):
             err.append(("STRUCT", "variant %s: param must be an integer" % vid))
         if v.get("kind") == "inline":
@@ -160,10 +230,12 @@ def validate_spec(spec):
                 if vid not in ctrl:
                     err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
                                 % vid))
+                applicable = ["flat", "gain"] + (["lag"] if has_lag else ["resid"]) \
+                    + (["phase"] if any_phases else []) + (["startup"] if sin else [])
                 if (not isinstance(kinds, list) or not kinds
-                        or any(k not in DETECT_KINDS for k in kinds)):
-                    err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of %s"
-                                % (vid, kinds, "/".join(DETECT_KINDS))))
+                        or any(k not in DETECT_KINDS or k not in applicable for k in kinds)):
+                    err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the "
+                                "spec actually checks (%s)" % (vid, kinds, "/".join(applicable))))
             for vid in ctrl:
                 if vid not in req:
                     err.append(("DETECT_MISSING", "neg_control %s has no entry in [detect.required]" % vid))
@@ -230,9 +302,11 @@ def validate_spec(spec):
         return err, info
 
     # INFO only: D2 floor x 10 <= tolerance per quantity; per-control 10x margin
-    tol = {q: spec["tolerances"][q]["value"] for q in ("flat", "gain", "lag")}
+    kinds_on = ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else []) \
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+    tol = {q: spec["tolerances"][q]["value"] for q in kinds_on}
     fl = spec.get("floor")
-    for q in ("gain", "lag", "flat"):
+    for q in kinds_on:
         if fl and q in fl:
             ok = fl[q] * 10 <= tol[q]
             info.append("INFO D2 floor %s: floor %.3e x10 = %.3e %s tolerance %.3e -> %s"
@@ -249,9 +323,12 @@ def validate_spec(spec):
             info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
             continue
         eff = dict(eff or {}, **fix)
-        ratios = {q: eff[q] / tol[q] for q in ("gain", "lag", "flat") if q in eff}
+        ratios = {q: eff[q] / tol[q] for q in kinds_on if q in eff}
+        if not ratios:
+            info.append("INFO D2 margin %s: no measured effect for a checked quantity (not checked)" % v["id"])
+            continue
         best = max(ratios, key=ratios.get)
-        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in ("gain", "lag", "flat") if q in fix)
+        note = (" (corrected: %s, Amendment 2)" % ", ".join(q for q in kinds_on if q in fix)
                 if fix else "")
         info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
@@ -268,17 +345,34 @@ def to_checker_spec(spec):
     variants = []
     for v in spec["variants"]:
         e = spec["expected"][v["expected"]]
-        variants.append(dict(id=v["id"], params=v["label"], role=v["role"],
-                             expected=(e["flat"], list(e["gains"]), e["lag"])))
+        vd = dict(id=v["id"], params=v["label"], role=v["role"],
+                  expected=(e["flat"], list(e["gains"]), e.get("lag")))
+        # D4 keys, added ONLY when the spec / table / variant carries them (old specs: dict unchanged)
+        if "seed" in v:
+            vd["seed"] = v["seed"]
+        if "article" in e:
+            vd["article"] = e["article"]
+        if "resid" in e:
+            vd["resid"] = e["resid"]
+        if "phases" in e:
+            vd["phases"] = phase_periods(e)
+        variants.append(vd)
     d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
              asset=b["asset_label"],
              n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]),
              amp=_frac(inp["amp"]), slope=_frac(inp["slope"]), ts=tuple(inp["sine_periods"]),
              clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
-             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t["lag"]["value"],
+             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t.get("lag", {}).get("value"),
              tol_x=t["x"]["value"], variants=variants)
     # Amendment 1 keys, added ONLY when the spec has the section: a spec without them (H1) gives the
     # dict checker.h1_spec() has (test_g1) and the pre-amendment results format.
+    if "checks" in spec:
+        d["dc_gain"] = spec["checks"].get("dc_gain", 1.0)
+        if spec["checks"].get("startup_inputs"):
+            d["startup"] = list(spec["checks"]["startup_inputs"])
+        for q in ("phase", "resid", "startup"):
+            if q in t:
+                d["tol_" + q] = t[q]["value"]
     if "detect" in spec:
         d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
     if "ox" in spec:
