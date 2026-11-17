@@ -54,6 +54,15 @@ The generator and checker are ordinary Python, tested with their own self-tests.
 - Results files get a run suffix and are never overwritten; raw CSV copied to `*_run<k>.csv`
   with its sha256 recorded.
 - Negative controls in every spec; a control that passes means the harness is broken.
+- Every run is read twice (adopted 2026-11-17, HP runs 1-2): after the [Test] click and BEFORE the checker, the
+  planning chat back-checks the raw file with its own code (models from `reference.py`, measurements written
+  independently of `checker.py`) and writes a row-level prediction; then Claude Code runs the checker; the two are
+  compared row by row. A disagreement is a finding to explain before the result is accepted. (b) HP run 1: both readers
+  found the same single FAIL; run 2: same PASS.
+- Every number a pre-run condition compares is stored at full precision in the spec (HP Amendment 1, A1.2: values kept
+  as 4-digit text could only be compared at their digits).
+- Corrected code starts expressions with a variable, never with a product of literals (gotchas 9d.8: such products are
+  folded at compile time to an unpredictable float32).
 
 ## 5. Acceptance of the tool itself
 
@@ -214,6 +223,29 @@ Sourcing note (a)/(b), 2026-11-16: Ehlers published three different high-pass fi
 (TASC V.32:1 2014; also V.33:09, V.36:03), 1-pole (V.34:09 2016), 2-pole Butterworth-type with zero start-up
 (V.42:04 2024). `HighPassFilter.c` implements the first (read 2026-11-16); details in the HighPassFilter spec.
 
+**D4 rule 5 applied, 2026-11-17 (HP_ArticleFidelity, 2069d86).** Defaults recorded under D2 rule 1:
+**phase 3e-5 rad** (HP floor 8.1e-7 = the `PI` gap; NCA 37x), **ramp residual 1e-9** (floor 2.8e-16), **start-up 1e-6**
+(floor 1.2e-9). Phase gate 0.05 (judgement (c); binds first in RoofingFilter, gain 0 at T = 2). Each later spec checks
+them against its own measured window (D2 rule 3) and states another value with its reason if the window requires it.
+
+**D5 - DECIDED 2026-11-17: how an amendment changes a pre-registered value.** The pre-registered text is never edited.
+A dated amendment adds a correction section that the tooling applies on a copy and reports as an INFO line in the
+results header: `[effect_corrections.<id>]` (SS2 Amendment 2, tooling 49f7fda) and `[imp_corrections.<id>]` (HP
+Amendment 2, tooling edfa8d5). An `[imp_corrections]` entry must name its list (`must_pass` | `must_fail`), quote the
+model it `replaces` verbatim (validation refuses a mismatch), name a registered model, its amendment and a labelled
+source. Rejected: editing in place (breaks the record), a checker-side override outside the spec (criterion not
+traceable to the pre-registration), a new spec for a one-model change (re-runs everything for nothing).
+(b) First use: HP run 1 FAILED one row because the NCH model did not know Zorro's compile-time fold of `0.707*2.0*PI`
+(gotchas 9d.8). The fold was measured by a probe (ba54022), the model corrected by Amendment 2 (e29febd), and run 2
+(same script, byte-identical raw) PASSED (512781c). Run 1 stays recorded as FAIL. The planning chat had first fitted
+the value from run 1's data; the probe measured it independently; disclosed in the amendment.
+
+**Open items (2026-11-17).**
+- The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
+  run record should carry every pre-registered exception (small tooling task).
+- Intermittent test errors: `test_checker_amend1.test_cli` MemoryError twice in Claude Code's shell; once 4/144
+  ERRORs in the user's Git Bash, cause not captured (CLAUDE.md §8 now requires tracebacks and a rerun).
+
 ## 7. Order of work
 
 1. [x] Decide D1–D3 (planning chat, 2026-11-06).
@@ -235,3 +267,9 @@ Sourcing note (a)/(b), 2026-11-16: Ehlers published three different high-pass fi
    `a1dbce5` (65/65 tests); **run 1 PASS 2026-11-16** (`09c05ad`): 28/28, all 6 controls detected (incl. NCH = the
    real hybrid, NCL = the book as printed), IMP <= 3.4e-14 (fire test 4.1e-3), Zorro vs book = `PI` gap (gain 9.0e-7,
    lag 7.7e-6); 10 variants. First spec to answer both §1 questions in one run (IMP replaces an H1-style run).
+   HP status 2026-11-17: D4 decided `032d766`; tooling `14395a0`, `a2999c4`, `f2e80c2`; spec `2069d86` (HP-A, TASC
+   V.32:1; corrections D-1 `0.707` -> sqrt(2)/2 and D-2 zero seed; 56 real checks, 8 controls, IMP own-model replay for
+   all 12 variants); corrected `.c` `d22ef57`; Amendment 1 `c998bf8`. **Run 1 FAIL** (`a361e4b`): item 6 only, NCH
+   own-model replay 2.24e-7 (Zorro literal fold, probe `ba54022`). Amendment 2 `e29febd` (tooling `edfa8d5`,
+   `3434866`). **Run 2 PASS** (`512781c`): 56/56, 8/8 controls, 14/14 IMP (<= 1.3e-11 except fire rows), 16/16 floor;
+   Zorro vs article = `PI` gap (gain 4.0e-7, phase 8.1e-7 rad). 24 variant-runs (12 x 2) on one byte-identical raw file.
