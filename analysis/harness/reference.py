@@ -197,8 +197,30 @@ def hp_article(period):
 # the float32 value of the decimal literal 0.707 as Zorro stores it (gotchas 9d.1, b)
 K_F32_0707 = float(np.float32(0.707))
 
+# The old HighPassFilter.c writes 0.707*2.0*PI / HPPeriod with all-literal factors. Zorro 3.11 folds the product
+# 0.707*2.0*PI at compile time to this float32 value; the division, trig and recursion are plain double.
+# (b) measured: strategies/tests/PROBE_LiteralEval_20261117.c, label L04 (= L17), results/PROBE_LiteralEval_20261117.csv,
+#     commit ba54022. (c) The rule that produces this value is unknown: no standard rounding of float32(0.707) x
+#     float32(PI) reproduces it (3-4 float32 ulps off), so it is a measured constant, not a derived one.
+ZORRO_FOLD_0707x2xPI = 4.44221019744873047
 
-def hp_code(period, k=K_F32_0707, pi_value=PI_ZORRO, alpha_bump=0, in_bump=0, fb2_bump=0, deg=False, num="2nd"):
+
+def hp_theta(period, k=K_F32_0707, pi_value=PI_ZORRO, deg=False, theta_const=None):
+    """The trig argument of hp_code: theta_const / period when theta_const is given (the folded literal product,
+    ZORRO_FOLD_0707x2xPI), else k*360/period (deg) or k*2*pi_value/period."""
+    if theta_const is not None:
+        return theta_const / period
+    return k * 360.0 / period if deg else k * 2.0 * pi_value / period
+
+
+def hp_alpha(period, k=K_F32_0707, pi_value=PI_ZORRO, deg=False, theta_const=None):
+    """alpha1 of hp_code, before any negative-control bump."""
+    arg = hp_theta(period, k=k, pi_value=pi_value, deg=deg, theta_const=theta_const)
+    return (math.cos(arg) + math.sin(arg) - 1.0) / math.cos(arg)
+
+
+def hp_code(period, k=K_F32_0707, pi_value=PI_ZORRO, alpha_bump=0, in_bump=0, fb2_bump=0, deg=False, num="2nd",
+            theta_const=None):
     """HighPassFilter as indicators/ehlers/HighPassFilter.c computes it (b: read 2026-11-16):
         var alpha1 = (cos(0.707*2.0*PI / HPPeriod) + sin(0.707*2.0*PI / HPPeriod) - 1.0) / cos(0.707*2.0*PI / HPPeriod);
         HP[0] = (1.0 - alpha1/2.0)*(1.0 - alpha1/2.0)*(Price[0] - 2.0*Price[1] + Price[2])
@@ -208,9 +230,10 @@ def hp_code(period, k=K_F32_0707, pi_value=PI_ZORRO, alpha_bump=0, in_bump=0, fb
     series(Price[0], 3), the current .c), not of the coefficients.
     Negative-control hooks (default off): alpha_bump = bump3 on alpha1 BEFORE the coefficients; in_bump = bump3 on
     (1-alpha1/2)^2; fb2_bump = bump3 on (1-alpha1)^2; deg = trig arguments in degrees (k*360/P); num = '1st' uses
-    the first-difference numerator x - x[1] (the 1-pole form, V.34:09)."""
-    arg = k * 360.0 / period if deg else k * 2.0 * pi_value / period
-    alpha1 = (math.cos(arg) + math.sin(arg) - 1.0) / math.cos(arg)
+    the first-difference numerator x - x[1] (the 1-pole form, V.34:09).
+    theta_const (default None): the trig argument is theta_const / period, k and pi_value unused. With
+    theta_const = ZORRO_FOLD_0707x2xPI this is the OLD .c as Zorro 3.11 compiles it (Amendment 2, NCH must_pass)."""
+    alpha1 = hp_alpha(period, k=k, pi_value=pi_value, deg=deg, theta_const=theta_const)
     if alpha_bump:
         alpha1 = bump3(alpha1, alpha_bump)
     return _hp_filter(alpha1, in_bump=in_bump, fb2_bump=fb2_bump, num=num)
@@ -234,6 +257,8 @@ IMP_MODELS["ss3_hybrid(20, PI_ZORRO)"] = lambda: ss3_hybrid(20)
 for _p in (20, 30, 48, 125):
     IMP_MODELS["hp_code(%d, PI_ZORRO, SQRT_HALF)" % _p] = (lambda p=_p: hp_code(p, k=math.sqrt(2.0) / 2.0))
 IMP_MODELS["hp_code(48, PI_ZORRO, F32_0707)"] = lambda: hp_code(48)
+# The old .c as Zorro 3.11 compiles it (all-literal product folded at compile time; probe ba54022, L04): Amendment 2.
+IMP_MODELS["hp_code(48, ZORRO_FOLD_0707x2xPI)"] = lambda: hp_code(48, theta_const=ZORRO_FOLD_0707x2xPI)
 # HP negative controls, own models (c: names chosen here). Explicit entries, no eval; k = sqrt(2)/2, Zorro PI.
 _SQRT_HALF = math.sqrt(2.0) / 2.0
 IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, alpha_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, alpha_bump=1)

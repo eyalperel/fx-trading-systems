@@ -37,8 +37,16 @@ def good_correction():
     return dict(list="must_pass", replaces=OLD, model=NEW, amendment="2", source="(b) test data")
 
 
-def spec_with(corr=None):
+def plain_spec():
+    """The HP spec as the section-free fixture these tests need. Since Amendment 2 the committed spec carries an
+    [imp_corrections.NCH]; it is removed here, in memory, so the tests still exercise 'no section' and 'a correction'."""
     s = copy.deepcopy(G.load_spec(HP))
+    s.pop("imp_corrections", None)
+    return s
+
+
+def spec_with(corr=None):
+    s = plain_spec()
     s["imp_corrections"] = {"NCH": corr if corr is not None else good_correction()}
     return s
 
@@ -62,7 +70,7 @@ class TestImpCorrectionsValidation(unittest.TestCase):
         print("\n  %s" % want)
 
     def test_no_section_no_info_line(self):
-        s = G.load_spec(HP)
+        s = plain_spec()
         self.assertNotIn("imp_corrections", s)
         self.assertEqual([i for i in G.validate_spec(s)[1] if "IMP correction" in i], [])
 
@@ -117,7 +125,7 @@ class TestImpCorrectionsValidation(unittest.TestCase):
 
 class TestImpCorrectionsApplied(unittest.TestCase):
     def test_to_checker_spec_applies_only_the_named_entry(self):
-        base = G.to_checker_spec(G.load_spec(HP))["imp"]
+        base = G.to_checker_spec(plain_spec())["imp"]
         s = spec_with()
         raw_before = copy.deepcopy(s["imp"])
         d = G.to_checker_spec(s)["imp"]
@@ -179,12 +187,17 @@ class TestNoRegression(unittest.TestCase):
     """The committed results files, replayed from their raw copies with the current checker (a spec without
     [imp_corrections]), are identical to the committed files (masked lines: raw_file path, batch name)."""
 
-    def _replay(self, spec_name, res_name, date):
+    def _replay(self, spec_name, res_name, date, strip_amendment_2=False):
         raw = os.path.join(RESULTS, res_name + "_raw_run1.csv")
         committed = os.path.join(RESULTS, res_name + ".csv")
         if not (os.path.isfile(raw) and os.path.isfile(committed)):
             self.skipTest("raw copy or committed results absent (gitignored raw): %s" % raw)
         tspec = G.load_spec(os.path.join(SPECS, spec_name + ".toml"))
+        if strip_amendment_2:
+            # HP carries [imp_corrections.NCH] since Amendment 2; run 1 predates it, so the replay of run 1 is made
+            # with the section removed in memory (and the guard below proves it was there to remove).
+            self.assertIn("imp_corrections", tspec)
+            del tspec["imp_corrections"]
         self.assertNotIn("imp_corrections", tspec)
         with tempfile.TemporaryDirectory() as d:
             res = C.run_check(G.to_checker_spec(tspec), raw, d, date)
@@ -204,7 +217,7 @@ class TestNoRegression(unittest.TestCase):
         self._replay(*REPLAYS[2])
 
     def test_hp_run1(self):
-        self._replay(*REPLAYS[3])
+        self._replay(*REPLAYS[3], strip_amendment_2=True)
 
     def test_replay_guard_fires(self):
         """The comparison can fail: one extra INFO line in the replayed text is not masked away."""
