@@ -65,7 +65,8 @@ def h1_spec():
 
 
 def input_names(spec):
-    return ["flat"] + ["s%d" % t for t in spec["ts"]] + ["ramp"]
+    """flat, sines, [alt], ramp (alt = the alternating / Nyquist input, RFF stage 1, only when spec["alt"] is true)."""
+    return (["flat"] + ["s%d" % t for t in spec["ts"]] + (["alt"] if spec.get("alt") else []) + ["ramp"])
 
 
 def header_of(spec):
@@ -81,6 +82,8 @@ def make_inputs(spec):
     x = {"flat": np.full(spec["n_bars"], spec["level"])}
     for t in spec["ts"]:
         x["s%d" % t] = spec["level"] + spec["amp"] * np.sin(2 * math.pi * n / t)
+    if spec.get("alt"):
+        x["alt"] = spec["level"] + spec["amp"] * (1.0 - 2.0 * (n % 2))        # level + amp*(-1)^n, exact signs
     x["ramp"] = spec["level"] + spec["slope"] * n
     return x
 
@@ -119,6 +122,26 @@ def m_phase(spec, y, t):
     Convention shared with reference.phase_at (test_03 in test_reference_hp.py)."""
     coef = _fit(spec, y, t)
     return float(math.atan2(coef[1], coef[0]))
+
+
+def _alt_fit(spec, y):
+    """Least-squares fit y = a*(-1)^n + c over n >= warmup (decision 2A). Returns (a, c)."""
+    w0 = spec["w"]
+    n = np.arange(spec["n_bars"], dtype=float)[w0:]
+    A = np.column_stack([1.0 - 2.0 * (n % 2), np.ones_like(n)])
+    coef, *_ = np.linalg.lstsq(A, y[w0:], rcond=None)
+    return float(coef[0]), float(coef[1])
+
+
+def m_gain_alt(spec, y):
+    """Gain at the Nyquist frequency (period 2 bars): |a| / amp of the (-1)^n fit."""
+    return abs(_alt_fit(spec, y)[0]) / spec["amp"]
+
+
+def m_phase_alt(spec, y):
+    """Phase at Nyquist: only 0 or pi exist there (H(-1) is real): 0 if the (-1)^n coefficient is >= 0, else pi.
+    Convention of reference.phase_at(f, 2) (= arg H(-1), +-pi for a negative value; compare with wrap_phase)."""
+    return 0.0 if _alt_fit(spec, y)[0] >= 0 else math.pi
 
 
 def wrap_phase(d):
@@ -162,7 +185,8 @@ def n_checks(spec, variant):
     """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups.
     For specs without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3)."""
     return (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
-            + len(variant.get("phases", {})) + len(spec.get("startup", [])))
+            + len(variant.get("phases", {})) + len(spec.get("startup", []))
+            + ((1 + (1 if variant.get("phase_alt") is not None else 0)) if spec.get("alt") else 0))
 
 
 def check_rows(spec, variant, x, yv, xe=None):
@@ -190,6 +214,8 @@ def check_rows(spec, variant, x, yv, xe=None):
     row("flat", "flat", ef, m_flat(spec, yv["flat"]), spec["tol_flat"], is_flat=True)
     for t, e in zip(spec["ts"], eg):
         row("gain-T%d" % t, "sine T=%d" % t, e, m_gain(spec, yv["s%d" % t], t), spec["tol_gain"])
+    if spec.get("alt"):
+        row("gain-alt", "alt (-1)^n", variant["gain_alt"], m_gain_alt(spec, yv["alt"]), spec["tol_gain"])
     if _has_lag(spec):
         row("ramp-lag", "ramp", el, m_lag(spec, x["ramp"], yv["ramp"]), spec["tol_lag"])
     if _has_resid(spec, variant):
@@ -202,6 +228,23 @@ def check_rows(spec, variant, x, yv, xe=None):
         a = m_phase(spec, yv["s%d" % t], t)
         d = abs(wrap_phase(a - e)) if math.isfinite(a) else float("nan")
         add("phase-T%d" % t, "sine T=%d" % t, e, a, spec["tol_phase"], d)
+    if spec.get("alt"):
+        if variant.get("phase_alt") is not None:                     # expected gain >= phase_gate: checked
+            e = variant["phase_alt"]
+            a = m_phase_alt(spec, yv["alt"])
+            d = abs(wrap_phase(a - e)) if math.isfinite(a) else float("nan")
+            add("phase-alt", "alt (-1)^n", e, a, spec["tol_phase"], d)
+        elif variant["gain_alt"] >= spec["phase_gate"]:              # table inconsistent with the gate: never silent
+            add("phase-alt", "alt (-1)^n: phase_alt missing although gain_alt >= phase_gate", float("nan"),
+                float("nan"), spec["tol_phase"], float("nan"), res="ERROR")
+        else:                                                        # SKIP, not PASS: the gate binds here
+            nan = float("nan")
+            rows.append(dict(check_id="%s-%s-phase-alt" % (spec["id_prefix"], variant["id"]),
+                             indicator=spec["indicator"], params=variant["params"], asset=spec["asset"],
+                             input="alt (-1)^n: SKIP, gain < phase_gate (expected %r < %r)"
+                                   % (variant["gain_alt"], spec["phase_gate"]),
+                             expected=nan, actual=nan, abs_diff=nan, tolerance=spec["tol_phase"], ratio=nan,
+                             result="SKIP", role="skip"))
     if spec.get("startup"):
         model = R.article_model(variant.get("article"))
         xs = x if xe is None else xe
@@ -380,7 +423,7 @@ def imp_rows(spec, raw, x=None):
                 for i in input_names(spec):
                     xi = raw.cols["x_" + i]
                     yi = raw.cols["y_%s_%s" % (vid, i)]
-                    per[i] = float(np.max(np.abs(yi[lo:] - R.simulate(model, xi, seed=seeds.get(vid))[lo:])))
+                    per[i] = float(np.max(np.abs(yi[lo:] - R.simulate_any(model, xi, seed=seeds.get(vid))[lo:])))
                 overall = max(per.values())
                 if not math.isfinite(overall):
                     res = "ERROR"
@@ -572,6 +615,10 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
                     "neg_control=%d\n" % (spec["batch"], ",".join(gids), len(spec["variants"]), nreal, nneg))
         f.write("# real_checks=%d PASS=%d FAIL=%d ERROR=%d\n"
                 % (c["n_real"], c["n_pass"], c["n_fail"], c["n_err"]))
+        if spec.get("alt"):
+            sk = [r["check_id"] for r in rows if r["result"] == "SKIP"]
+            f.write("# SKIP=%d (alt phase where the expected gain < phase_gate %g; not a PASS, not counted in "
+                    "real_checks): %s\n" % (len(sk), spec["phase_gate"], ",".join(sk)))
         for vid, d in nc.items():
             xk = _extra_kinds(spec)
             f.write("# NC %s fails_as_required=%s margin10_met=%s max_ratio gain=%.3e lag=%.3e flat=%.3e"
