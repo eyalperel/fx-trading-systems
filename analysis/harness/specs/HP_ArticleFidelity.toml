@@ -556,3 +556,40 @@ suite = "bash analysis/harness/run_tests.sh: TOTAL 170  PASS 170  FAIL 0  ERROR 
 blob_HighPassFilter_c_at_14395a0 = "b734b7e2b07dfc5c08a5e12eeac1d2b104296080"
 blob_HighPassFilter_c_at_d22ef57 = "9e2bc7ac0caf6389838e6e4032f407844ecdbfa5"
 blob_source = "(b) git rev-parse <commit>:indicators/ehlers/HighPassFilter.c, 2026-11-17"
+
+# ============================================================================ Amendment 2
+# 2026-11-17, AFTER run 1 (results a361e4b), BEFORE run 2. Base: ba54022 (probe commit; Amendment 1 and everything above
+# unchanged). Tooling for the change: edfa8d5 ([imp_corrections.<id>], precedent [effect_corrections], 49f7fda).
+# ONE change: the model that replays NCH in [imp].must_pass. Unchanged: tolerances, floors, expected tables, variants,
+# effects, [detect.required], [imp].must_fail, [imp] text itself (stays as the record), pass items 1-7,
+# [corrected_code], [observations], the generated script (the [imp] section does not reach it).
+[amendment_2]
+date = "2026-11-17"
+base_commit = "ba54022"
+tooling_commit = "edfa8d5"
+after_run = true
+changes = [
+  "A2.1 Run 1 result (analysis/harness/results/HP_ArticleFidelity_20261117.csv, committed a361e4b; raw sha256 40dec81a0cacab21402619e62dd4014d880ab8e370214f77df2ee5a48a854898): FAIL on pass item 6 ONLY. Row HPF-NCH-imp-pass: residual 2.244e-07 against tolerance 1e-09 (ratio 224). All other items held: 56/56 real checks PASS, 8/8 controls fail as required, the other 11 must_pass rows PASS (largest 1.345e-11), both must_fail rows PASS (P48 1.188e-06, NCH 9.033e-05), 16/16 floor rows PASS, no ERROR row.",
+  "A2.2 Cause (b), measured by strategies/tests/PROBE_LiteralEval_20261117.c (commit ba54022, results/PROBE_LiteralEval_20261117.csv): Zorro 3.11 folds the all-literal product 0.707*2.0*PI at compile time to the float32 value 4.44221019744873047 (labels L04 = L17). No standard rounding rule reproduces that value (it is 3-4 float32 ulps from every candidate, (c) the rule is unknown). Trig, division and the recursion are plain double. With that constant / 48 (L05 = 9.25460457801818848e-02), alpha = 0.0885134449164305 (L10 = L11 = L12 = 8.85134449164305115e-02). The NCH model registered in [imp] (float32 0.707 x float32 PI, evaluated in double) gives theta x 48 = 4.442208535 (= probe L13, the runtime var path) and alpha = 0.0885134132174893 (L14): 3.17e-08 absolute, 3.58e-07 relative below Zorro's. That alpha difference is the run-1 residual (2.244e-07 on the output). Disclosure: the planning chat first fitted alpha from run 1's raw data (0.088513444916430); the probe then measured it independently (L10); the two agree to 15 digits.",
+  "A2.3 Change, the ONLY one: the NCH must_pass model hp_code(48, PI_ZORRO, F32_0707) is replaced by hp_code(48, ZORRO_FOLD_0707x2xPI) (reference.py: HP-A with theta = 4.44221019744873047 / P in double, seed price at run time). Mechanism: [imp_corrections.NCH] below, applied by the generator (edfa8d5) and shown as an INFO line in the results header. The tolerance (1e-9), pass items, tables, floors, effects, controls, [detect.required] and every must_fail entry are unchanged. The F32_0707 model and registry entry stay (P48 must_fail uses it; it PASSED in run 1).",
+  "A2.4 Information only, no criterion: NCH must_fail (replay of the NCH output with the corrected model, price seed) measured 9.033e-05 in run 1; [imp].fire_test_effect pre-registered 9.056e-05. The pre-registered number is the float32-0.707 model's output against the corrected replay, so it carries the same cause (3.58e-07 relative alpha difference). must_fail needs > 1e-9 and passed (ratio 9.03e+04); its model is unchanged.",
+  "A2.5 Run 2: a fresh [Test] click with the SAME generated script strategies/tests/GEN_HPF_HighPassFilter.c (sha256 742c7c812f52ecdb7c90dde29fd9920b251bcf2800575d9f085090f562f7c71a; the [imp] section does not reach the script). The checker is run on the new raw file with this spec; run 1 stays recorded as FAIL and is not deleted or hidden. Run 2 decides; the offline replay in [prerun_2] is evidence about the model, not a run.",
+]
+
+[imp_corrections.NCH]
+list = "must_pass"
+replaces = "hp_code(48, PI_ZORRO, F32_0707)"
+model = "hp_code(48, ZORRO_FOLD_0707x2xPI)"
+amendment = "2"
+source = "(b) PROBE_LiteralEval_20261117.c / .csv, commit ba54022, labels L04 = L17 (folded product), L05 (theta), L10 = L11 = L12 (alpha); rule of the folded value unknown (c)"
+
+# Amendment 2, pre-run record for run 2 (written before the run 2 [Test] click; records only, no criterion).
+[prerun_2]
+cond_a = "PASS. python analysis/harness/generator.py <this spec> --out-dir <temp>: the regenerated GEN_HPF_HighPassFilter.c is byte-identical to strategies/tests/GEN_HPF_HighPassFilter.c, sha256 742c7c812f52ecdb7c90dde29fd9920b251bcf2800575d9f085090f562f7c71a (cmp: identical; the script includes ../../indicators/ehlers/HighPassFilter.c). The [imp] correction does not reach the script."
+cond_b = "PASS. generator --lint-only on this spec: 'lint clean; nothing written', exit 0; INFO line 'IMP correction applied: NCH must_pass: hp_code(48, PI_ZORRO, F32_0707) -> hp_code(48, ZORRO_FOLD_0707x2xPI) (Amendment 2)' and the NCH L_FLOAT32 exemption line present; D2 floor windows and control margins as in Amendment 1."
+cond_c = "(c) OFFLINE EVIDENCE, NOT RUN 2. Run 1's raw NCH columns (results/HP_ArticleFidelity_20261117_raw_run1.csv, sha256 40dec81a...4898) replayed with the new model, n >= 0, price seed: overall residual 5.218e-15 (flat 4.996e-16, s5 3.072e-15, s10 2.314e-15, s20 1.940e-15, s40 5.218e-15, s100 3.442e-15, ramp 2.165e-15). The same columns with the old model give 2.244e-07 (the run-1 value), so the replay can fail. The checker run on that raw file with this spec (scratch output directory, not a results file) gives the NCH must_pass row 5.218e-15 PASS and the NCH must_fail row 9.033e-05 PASS. Run 2 decides."
+model_check = "(b) reference.hp_theta / hp_alpha, P = 48: theta = 9.25460457801818848e-02 = probe L05 and alpha = 8.85134449164305115e-02 = probe L10 (|diff| 0.0, tolerance 1e-16); the F32_0707 model gives theta x 48 = 4.4422085353 (= L13 x 48) and alpha 8.85134132174892896e-02 = L14; the corrected model's alpha equals L15. Tests: analysis/harness/tests/test_reference_hp_fold.py."
+tests_before = 184
+tests_after = 198
+tests_added = 14
+suite = "bash analysis/harness/run_tests.sh: TOTAL 198  PASS 198  FAIL 0  ERROR 0  SKIP 0"
