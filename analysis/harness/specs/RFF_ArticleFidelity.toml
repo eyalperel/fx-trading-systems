@@ -545,3 +545,31 @@ source = "(b) 2026-11-17: reference.roof_article(48,10) gain_at / phase_at at T 
 
 # ----------------------------------------------------------------------------- amendments
 # (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-17, BEFORE any run. Base: b6b5c5d (spec; tooling f9f3561). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp], pass items 1-7,
+# [corrected_code], [observations].
+[amendment_1]
+date = "2026-11-17"
+base_commit = "b6b5c5d"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_rff_corrected_code.py (real-file tests enabled): indicators/ehlers/RoofingFilter.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var RoofingFilter(vars Price, int HPPeriod, int SSPeriod)'. Guard seen to fire on temp-file copies: rf_hp -> hp in the series line, SuperSmoother2Pole(rf_hp, SSPeriod) -> (rf_hp, HPPeriod), series(..., 3) -> series(..., 2), return rf_out -> return rf_hp: all reported not-ok. The removed claims ('Validated: EUR/USD', 'only dominant cycle survives', 'must be >> SSPeriod') are absent from the file."
+cond_ii = "PASS (re-run at stage 2). Same test file: git blob bb717f103fc1521c2ffc6046dfbaa0011a84ca3f (RoofingFilter.c at 9b117fc) is token-identical to [corrected_code] apart from the renames hp -> rf_hp and roofed -> rf_out. Guards seen to fire: four altered tokens in copies of the old file, two altered registered lines, comment-only edits do not matter."
+cond_iii = "PASS. analysis/harness/tests/test_reference_rff_spec.py, 18 tests OK. Largest deviation per section: expected 4.493e-18, floor 0.000e+00, effects 0.000e+00, known_answer 0.000e+00, imp_fire_test 0.000e+00. Guards seen to fire: comparison rule, table +1e-6, floor +5e-9, effect +1%, swapped control, hand-picked detect kinds, wrong-model known answer."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/RFF_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; D2 floor windows ok (gain, flat, phase, resid, startup), all 7 control margins >= 10x, INFO line 'L_FLOAT32 exemption used: variant NCO, literal 0.707' present."
+tests_before = 283
+tests_after = 286
+tests_added = 3
+suite = "bash analysis/harness/run_tests.sh: TOTAL 286  PASS 286  FAIL 0  ERROR 0  SKIP 0"
+blob_RoofingFilter_c_old = "bb717f103fc1521c2ffc6046dfbaa0011a84ca3f"
+blob_RoofingFilter_c_new = "6f5a20939a6c85b0d6a7fe182ffcbd33bc95dfa5"
+blob_source = "(b) git rev-parse 9b117fc:indicators/ehlers/RoofingFilter.c (old); git hash-object indicators/ehlers/RoofingFilter.c (new), 2026-11-17"
+script = "strategies/tests/GEN_RFF_RoofingFilter.c"
+script_sha256 = "17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853"
+script_check = "(b) read-through 2026-11-17: includes HighPassFilter.c, SuperSmoother2Pole.c, RoofingFilter.c in order; alt input from integers via static rff_sgn reset at INITRUN, flipped once per bar after the row is written, X[6] set before the filter calls; 88 unconditional Y calls in fixed variant-major order, RoofingFilter(S, hp, ss) for P48S10/P30S10/P125S10/P48S20/NC1/NC1s; five inline bodies each defined once; no bare 'Period' identifier; decimal literals all float32-exact except 0.707 (three, inside rff_nco, exempted); raw file Data/GEN_RFF_raw.csv deleted at INITRUN, header written once; last row latched before quit(). C:/Zorro/Data/GEN_RFF_raw.csv does not exist yet."
