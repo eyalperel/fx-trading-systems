@@ -234,6 +234,14 @@ IMP_MODELS["ss3_hybrid(20, PI_ZORRO)"] = lambda: ss3_hybrid(20)
 for _p in (20, 30, 48, 125):
     IMP_MODELS["hp_code(%d, PI_ZORRO, SQRT_HALF)" % _p] = (lambda p=_p: hp_code(p, k=math.sqrt(2.0) / 2.0))
 IMP_MODELS["hp_code(48, PI_ZORRO, F32_0707)"] = lambda: hp_code(48)
+# HP negative controls, own models (c: names chosen here). Explicit entries, no eval; k = sqrt(2)/2, Zorro PI.
+_SQRT_HALF = math.sqrt(2.0) / 2.0
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, alpha_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, alpha_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, in_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, in_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, fb2_bump=1)"] = lambda: hp_code(48, k=_SQRT_HALF, fb2_bump=1)
+IMP_MODELS["hp_code(48, PI_ZORRO, SQRT_HALF, num=1st)"] = lambda: hp_code(48, k=_SQRT_HALF, num="1st")
+IMP_MODELS["hp_code(49, PI_ZORRO, SQRT_HALF)"] = lambda: hp_code(49, k=_SQRT_HALF)
+IMP_MODELS["hp_code(20, PI_ZORRO, SQRT_HALF, deg)"] = lambda: hp_code(20, k=_SQRT_HALF, deg=True)
 
 
 def bump3(v, units=1):
