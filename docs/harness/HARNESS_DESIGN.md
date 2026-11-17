@@ -225,7 +225,8 @@ Sourcing note (a)/(b), 2026-11-16: Ehlers published three different high-pass fi
 
 **D4 rule 5 applied, 2026-11-17 (HP_ArticleFidelity, 2069d86).** Defaults recorded under D2 rule 1:
 **phase 3e-5 rad** (HP floor 8.1e-7 = the `PI` gap; NCA 37x), **ramp residual 1e-9** (floor 2.8e-16), **start-up 1e-6**
-(floor 1.2e-9). Phase gate 0.05 (judgement (c); binds first in RoofingFilter, gain 0 at T = 2). Each later spec checks
+(floor 1.2e-9). Phase gate 0.05 (judgement (c); binds first in RoofingFilter, gain 0 at T = 2: (b) RFF run 1, alt phase
+SKIP in all 11 variants; a period-2 sine is impossible, sin(pi*n) = 0, so T = 2 uses an alternating input). Each later spec checks
 them against its own measured window (D2 rule 3) and states another value with its reason if the window requires it.
 
 **D5 - DECIDED 2026-11-17: how an amendment changes a pre-registered value.** The pre-registered text is never edited.
@@ -245,6 +246,10 @@ the value from run 1's data; the probe measured it independently; disclosed in t
   run record should carry every pre-registered exception (small tooling task).
 - Intermittent test errors: `test_checker_amend1.test_cli` MemoryError twice in Claude Code's shell; once 4/144
   ERRORs in the user's Git Bash, cause not captured (CLAUDE.md §8 now requires tracebacks and a rerun).
+- Cascade seeds (RFF Amendment 2, A2.2): the checker applies a variant's declared `seed = "price"` to a cascaded model as
+  ONE filter with output history = x[0], a start state no code has (b: NCO must_fail measured 1.9138e-2; per-stage price
+  seeding gives 9.07e-5; zero seeds 1.10 = the pre-registered value). Verdict unaffected (row needs > 1e-9). Fix before a
+  cascade must_pass row depends on a non-zero seed: declare seeds per stage.
 
 ## 7. Order of work
 
@@ -273,3 +278,9 @@ the value from run 1's data; the probe measured it independently; disclosed in t
    own-model replay 2.24e-7 (Zorro literal fold, probe `ba54022`). Amendment 2 `e29febd` (tooling `edfa8d5`,
    `3434866`). **Run 2 PASS** (`512781c`): 56/56, 8/8 controls, 14/14 IMP (<= 1.3e-11 except fire rows), 16/16 floor;
    Zorro vs article = `PI` gap (gain 4.0e-7, phase 8.1e-7 rad). 24 variant-runs (12 x 2) on one byte-identical raw file.
+   RFF status 2026-11-17: source TASC V.32:1 Roofing sidebar; code structure already matched (only GAP-1.31 header and local
+   renames, `b249142`). Tooling `f9f3561` (params list, include list, alternating input, gated alt phase SKIP, cascade models);
+   spec `b6b5c5d` (4 real x 16 checks, 7 controls incl. NCO = the pre-HP-fix pipeline; planning-chat back-check of tables,
+   floors, effects agreed <= 2e-9 rel.); Amendment 1 + script `a7b7262`. **Run 1 PASS** (`d1395d3`): 64/64, 7/7 controls, 13/13 IMP
+   (must_pass <= 3.5e-12), 16/16 floor, 11 alt-phase SKIP; Zorro vs article = `PI` gap (gain 5.6e-7, phase 1.6e-6 rad).
+   Amendment 2: post-run record (cascade-seed note, open items; `1.0/1000` residual INFO, gotchas 9d.8).
