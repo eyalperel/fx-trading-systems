@@ -163,6 +163,38 @@ class TestRFFCorrectedCode(unittest.TestCase):
         commented = "// " + self.lines.replace("\n", "\n// ") + "\n" + self.sig + " { return 0; }"
         self.assertFalse(T3.check_corrected(commented, self.lines, self.sig)[0])        # lines only in comments
 
+    # ---- (i) on the REAL file (enabled at stage 2, after the .c was written)
+    def real_text(self):
+        return T3.read(os.path.join(ROOT, *REL_C.split("/")))
+
+    def test_i_real_c_contains_lines_verbatim(self):
+        ok, why = T3.check_corrected(self.real_text(), self.lines, self.sig)
+        print("\n  [i] %s: %s" % (REL_C, why))
+        self.assertTrue(ok, why)
+
+    def test_i_real_c_guard_fires_on_temp_copies(self):
+        import tempfile
+        good = self.real_text()
+        alterations = (("rf_hp = series", "hp = series"),
+                       ("SuperSmoother2Pole(rf_hp, SSPeriod)", "SuperSmoother2Pole(rf_hp, HPPeriod)"),
+                       ("HPPeriod), 3)", "HPPeriod), 2)"),
+                       ("return rf_out", "return rf_hp"))
+        for a, b in alterations:
+            altered = good.replace(a, b, 1)
+            self.assertNotEqual(altered, good, a)
+            with tempfile.TemporaryDirectory() as d:
+                p = os.path.join(d, "RoofingFilter_alt.c")
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(altered)
+                ok, why = T3.check_corrected(T3.read(p), self.lines, self.sig)
+            print("\n  [fire] %s -> %s in temp copy: ok=%s (%s)" % (a, b, ok, why))
+            self.assertFalse(ok)
+
+    def test_i_real_c_has_no_removed_claims(self):
+        t = self.real_text()
+        for gone in ("Validated: EUR/USD", "only dominant cycle survives", "must be >> SSPeriod"):
+            self.assertNotIn(gone, t)
+
     # ---- blob hash recorded in the spec
     def test_blob_hash_resolves_and_matches_9b117fc(self):
         rc, out, err = git("cat-file", "-e", OLD_BLOB)
