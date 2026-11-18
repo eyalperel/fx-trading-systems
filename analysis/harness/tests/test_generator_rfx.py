@@ -63,8 +63,8 @@ class TestRfxSpecAndScript(unittest.TestCase):
         self.assertTrue(all("NOT met" not in i for i in infos))
         issues = G.lint_script(self.text, self.bodies, allow=G.lint_allowances(self.spec))
         stage2 = [m for r, m in issues if r == "L_INCLUDE" and "Reflex_Superseded.c" in m]
-        self.assertEqual([i for i in issues if i[0] != "L_INCLUDE" or "Reflex_Superseded.c" not in i[1]], [])
-        print("\n  lint: %d issue(s), all the stage-2 include: %s" % (len(issues), [s[:60] for s in stage2]))
+        self.assertEqual(issues, [])                       # stage 2: the three includes resolve, nothing else to report
+        print("\n  lint: %d issue(s)" % len(issues))
 
     def test_02_script_counts(self):
         t = self.text
@@ -73,9 +73,9 @@ class TestRfxSpecAndScript(unittest.TestCase):
         self.assertIn("\tvar Y[400];", t)
         calls = re.findall(r"^\tY\[\d+\] = \w+\(S\d+, [^;]*\);\t// \w+ \w+$", t, re.M)
         self.assertEqual(len(calls), 144)
-        self.assertEqual(len(re.findall(r"= ReflexCore\(S\d+, \d+, &Y\[\d+\], &Y\[\d+\]\);", t)), 80)       # 4 real x 18 inputs + NC1 x 8
+        self.assertEqual(len(re.findall(r"= ReflexCore\(S\d+, \d+, &rfx_o_sum, &rfx_o_ms\);", t)), 80)       # 4 real x 18 inputs + NC1 x 8
         self.assertEqual(len(re.findall(r"= Reflex_Superseded\(S\d+, \d+\);", t)), 16)
-        self.assertEqual(len(re.findall(r"= rfx_\w+\(S\d+, \d+, &Y\[\d+\], &Y\[\d+\]\);", t)), 48)           # 6 inline x 8 base inputs
+        self.assertEqual(len(re.findall(r"= rfx_\w+\(S\d+, \d+, &rfx_o_sum, &rfx_o_ms\);", t)), 48)           # 6 inline x 8 base inputs
         self.assertIn("340 columns", t)
         self.assertIn("144 filter calls per bar", t)
         self.assertNotRegex(G._strip(self.text.split("void run()")[1]), r"\bPI\b")
@@ -92,17 +92,44 @@ class TestRfxSpecAndScript(unittest.TestCase):
         self.assertIn("\tX[7] = lvl + slp * n;", t)
 
     def parse(self):
+        """Calls and their out-parameter copies: `Y[r] = fn(S, params, &rfx_o_sum, &rfx_o_ms);` is followed by one
+        `Y[s] = rfx_o_<out>;` line per out-parameter, in the listed output order."""
         calls = {}
         order = []
-        for m in re.finditer(r"^\tY\[(\d+)\] = (\w+)\(S(\d+), ([\d, ]+?)((?:, &Y\[\d+\])*)\);\t// (\w+) (\w+)$", self.text, re.M):
+        lines = self.text.split("\n")
+        call_re = re.compile(r"^\tY\[(\d+)\] = (\w+)\(S(\d+), ([\d, ]+?)((?:, &rfx_o_\w+)*)\);\t// (\w+) (\w+)$")
+        i = 0
+        while i < len(lines):
+            m = call_re.match(lines[i])
+            i += 1
+            if not m:
+                continue
             ret, fn, k, params, ptrs, vid, iid = m.groups()
-            slots = [int(s) for s in re.findall(r"&Y\[(\d+)\]", ptrs)] + [int(ret)]
             outs = [v for v in self.spec["variants"] if v["id"] == vid][0]["outputs"]
-            self.assertEqual(len(outs), len(slots), (vid, iid))
-            for o, s in zip(outs, slots):
-                calls[(o, vid, iid)] = s
+            names = re.findall(r"&rfx_o_(\w+)", ptrs)
+            self.assertEqual(names, outs[:-1], (vid, iid))
+            for o in names:
+                cm = re.match(r"^\tY\[(\d+)\] = rfx_o_%s;$" % o, lines[i])
+                self.assertIsNotNone(cm, (vid, iid, o, lines[i]))          # copied BEFORE the next call
+                calls[(o, vid, iid)] = int(cm.group(1))
+                i += 1
+            calls[(outs[-1], vid, iid)] = int(ret)
             order.append((fn, vid, iid, int(k)))
         return calls, order
+
+    def test_03b_out_parameters_go_through_two_local_scalars(self):
+        """Decided 2026-11-18 (stage 2): the proven `&scalar` form, never `&Y[k]` (gotchas 7)."""
+        t = self.text
+        self.assertNotIn("&Y[", t)
+        self.assertEqual(t.count("\tvar rfx_o_sum;"), 1)
+        self.assertEqual(t.count("\tvar rfx_o_ms;"), 1)
+        self.assertLess(t.index("\tvar rfx_o_ms;"), t.index("ReflexCore(S0"))             # declared once, before the first call
+        self.assertEqual(len(re.findall(r"&rfx_o_sum, &rfx_o_ms\);", t)), 128)               # 80 ReflexCore + 48 inline
+        self.assertEqual(len(re.findall(r"^\tY\[\d+\] = rfx_o_sum;$", t, re.M)), 128)
+        self.assertEqual(len(re.findall(r"^\tY\[\d+\] = rfx_o_ms;$", t, re.M)), 128)
+        # every call line is directly followed by its two copies (the locals are reused by the next call)
+        pat = r"&rfx_o_sum, &rfx_o_ms\);[^\n]*\n\tY\[\d+\] = rfx_o_sum;\n\tY\[\d+\] = rfx_o_ms;\n"
+        self.assertEqual(len(re.findall(pat, t)), 128)
 
     def test_04_header_and_slots_agree_with_the_checker(self):
         calls, _ = self.parse()

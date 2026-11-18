@@ -786,6 +786,13 @@ def build_script(spec):
     a("\tint n;")
     a("\tvar X[%d];" % nin)
     a("\tvar Y[%d];" % nslots)
+    ptr_names = []                           # out-parameter locals (RFX): declared ONCE, reused by every call (copied right after it)
+    for v in variants:
+        for o in (v.get("outputs") or [])[:-1]:
+            if o not in ptr_names:
+                ptr_names.append(o)
+    for o in ptr_names:
+        a("\tvar %s_o_%s;" % (p, o))
     a("\tn = %s_n;" % p)
     a("")
     a("\t// --- constants built at RUN TIME from integers (gotchas 9d.1, 9d.2) ---")
@@ -818,9 +825,12 @@ def build_script(spec):
     for v, (ks, nout, first) in zip(variants, plan):
         for j, k in enumerate(ks):
             s0 = first + j * nout
-            ptrs = "".join(", &Y[%d]" % (s0 + q) for q in range(nout - 1))      # out-parameters (RFX): all outputs but the last
+            outs = (v.get("outputs") or [])[:-1]
+            ptrs = "".join(", &%s_o_%s" % (p, o) for o in outs)      # out-parameters (RFX): all outputs but the last, via local scalars
             a("\tY[%d] = %s(S%d, %s%s);\t// %s %s" % (s0 + nout - 1, _fn_of(spec, v), k,
                                                       ", ".join("%d" % i for i in call_params(v)), ptrs, v["id"], ids[k]))
+            for q, o in enumerate(outs):                              # copied before the next call overwrites the local
+                a("\tY[%d] = %s_o_%s;" % (s0 + q, p, o))
     a("")
     a("\t// --- write one row per fed bar ---")
     a("\tif(!%s_done) {" % p)
