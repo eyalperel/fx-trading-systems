@@ -1,0 +1,592 @@
+# USE_ArticleFidelity.toml -- UltimateSmootherE (Ehlers V.42:04 UltimateSmoother), SOURCE FIDELITY + IMPLEMENTATION
+# (HARNESS_DESIGN §1, both questions).
+# Pre-registration: this file, committed BEFORE the corrected UltimateSmootherE.c is written and BEFORE the generated script is
+# run (CLAUDE.md §4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of USE stage 1 (planning chat 2026-11-17, decisions D-1 and D-2 accepted by the user; brief docs/harness/USE_STAGE1_PROMPT.md),
+# built on tooling that adds the seed mode `pass<n>`, `[checks].startup_seed`, the complement model `one_minus`, the article model
+# `us_article(P)` and the variant role `info` (generator / checker / reference, this branch).
+# Format: as specs/RFF_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from RFF:
+#   * One integer parameter per call (Period); real variants P10 / P14 / P20 (the article's example) / P30.
+#   * DC gain 1 (D4 rule 1): the ramp-lag check applies, expected 0 (structural). No resid check.
+#   * Start-up rule of the source: the first 3 outputs equal Price (EasyLanguage CurrentBar < 4). Reference seed `pass3`
+#     ([checks].startup_seed). Start-up is checked on flat, ramp AND s20: (b) a 3-bar and a 4-bar seed are IDENTICAL on flat and
+#     ramp and differ by up to 8.337e-4 on s20, so s20 is the only input that sees the D-2 off-by-one.
+#   * The alt phase row is SKIP in every variant: the numerator has a zero at z = -1, so the expected alt gain is ~1e-16 (< phase_gate).
+#   * NCL (role info) is the article AS PRINTED (1.414, 3.14159): run and reported, never PASS/FAIL (D1 rule 3).
+#
+# Decisions recorded here:
+#   D-1  corrected code: `1.414 * PI` (folded literal product, gotchas 9d.8; D1 rule 1) -> `us_k * PI` with us_k = sqrt(2.0).
+#   D-2  corrected code: global `Bar < 4` (base unconfirmed; the comment says 4 bars, the source 3) -> a per-instance counter us_n,
+#        EasyLanguage CurrentBar (1 on this instance's first call).
+#   4    Every variant declares a seed and is replayed by IMP over n >= 0.
+
+[batch]
+name = "USE_ArticleFidelity"
+id_prefix = "USE"
+indicator = "UltimateSmootherE"            # Light-C function called by `params` variants (corrected file)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/USE_ArticleFidelity.toml (this file)"
+script_name = "GEN_USE_UltimateSmootherE"   # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'The Ultimate Smoother', Technical Analysis of Stocks & Commodities V.42:04 (2024), pp. 8-15, sidebar 'UltimateSmoother Function, In EasyLanguage'"
+formula = """
+(a) a1 = expvalue(-1.414*3.14159 / Period);
+    b1 = 2*a1*Cosine(1.414*180 / Period);
+    c2 = b1;  c3 = -a1*a1;
+    c1 = (1 + c2 - c3) / 4;
+    If CurrentBar >= 4 Then US = (1 - c1)*Price + (2*c1 - c2)*Price[1] - (c1 + c3)*Price[2] + c2*US[1] + c3*US[2];
+    If CurrentBar < 4 Then US = Price;
+(a) Transfer function stated in the article: US = 1 - HP, HP = c1 (1 - 2 z^-1 + z^-2) / (1 - c2 z^-1 - c3 z^-2): the V.42:04
+    $HighPass, NOT the HP-A of V.32:1 that HighPassFilter.c implements. Article example Period = 20. Article claim: 'zero lag in the pass band'.
+    Cosine takes degrees: 1.414*180/P deg = sqrt(2)*pi/P rad. D1 rule 1: 1.414 -> sqrt(2), 3.14159 -> pi.
+(a) Start-up: EasyLanguage CurrentBar starts at 1, so the first 3 outputs equal Price (seed pass3); the recursion starts on the 4th
+    call with US[1], US[2] = the Price of calls 3, 2.
+"""
+reference = "analysis/harness/reference.py us_article(P) (exact constants), seed pass3"
+other_forms = "(a) Not tested here: the SuperSmoother / HP forms of other articles. NCX is the wrong-high-pass control (HP-A of V.32:1)."
+
+[[literal_replacements]]
+literal = "1.414"
+exact = 1.4142135623730951
+name = "sqrt(2)"
+rule = "D1 rule 1"
+source = "(a) a1 and b1 lines. 1.414 = sqrt(2) to 4 significant digits (D1 rule 1, decided: replace). 180 in the degrees form is exact pi rad."
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+rule = "D1 rule 1"
+source = "(a) a1 line. 3.14159 = pi to its printed digits (D1 rule 1)."
+
+# Pre-registered lines of the corrected indicators/ehlers/UltimateSmootherE.c (D-1, D-2). The .c is written to these lines
+# after this file is committed; a test asserts the .c contains them verbatim (whitespace-normalised, comments stripped).
+# reference.us_code(P) with simulate(seed='pass3') implements exactly these lines.
+[corrected_code]
+file = "indicators/ehlers/UltimateSmootherE.c"
+function = "var UltimateSmootherE(vars Price, int Period)"
+lines = """
+var us_k = sqrt(2.0);
+var us_a1 = exp(-us_k*PI/Period);
+var us_b1 = 2.0*us_a1*cos(us_k*PI/Period);
+var us_c2 = us_b1;
+var us_c3 = -us_a1*us_a1;
+var us_c1 = (1.0 + us_c2 - us_c3)/4.0;
+vars us_n = series(0, 2);
+us_n[0] = us_n[1] + 1;
+vars us_US = series(Price[0], 3);
+if(us_n[0] < 4) {
+    us_US[0] = Price[0];
+    return us_US[0];
+}
+us_US[0] = (1.0 - us_c1)*Price[0] + (2.0*us_c1 - us_c2)*Price[1]
+         - (us_c1 + us_c3)*Price[2] + us_c2*us_US[1] + us_c3*us_US[2];
+return us_US[0];"""
+notes = """(b) Changed vs the current .c (git blob c545c201140e2927e9a5c1ec7664440ded1b3350 at ddbf9fa): D-1 lines 47-48 `1.414 * PI` (folded literal product, gotchas 9d.8; D1 rule 1) -> `us_k*PI`; D-2 `Bar < 4` (global, base unconfirmed, the comment says 4 bars vs the source's 3) -> the per-instance counter `us_n` = EasyLanguage CurrentBar (1 on this instance's first call). Everything else (coefficient lines, recursion, series(Price[0], 3)) is unchanged.
+(c) `series(0, 2)` giving `us_n[1] = 0` on the first call is expected from gotchas 9d.6, not proven: the start-up check on s20 detects an off-by-one (finding 7; NCS is that control). Both series() calls are unconditional (gotchas 3.1). Both series() calls precede the early return.
+No NCH-style control: the old file's folded `1.414 * PI` would need a probe value (gotchas 9d.8); NCS and NCL cover its two deviations separately.
+Header to write with the .c: source V.42:04 sidebar; keep the construction comment; correct the warm-up comment (3 bars, source); add a verification line pointing at this spec. Pre-run (ii): record the current file's blob hash (above)."""
+
+[zorro]
+include = ["../../indicators/ehlers/HighPassFilter.c", "../../indicators/ehlers/UltimateSmootherE.c"]   # dependency order (gotchas 5.3), resolved from strategies/tests/; HighPassFilter.c is needed by NCX
+raw_file = "Data/GEN_USE_raw.csv"
+marker_file = "Data/GEN_USE_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # as SS2F / RFF, incl. the alternating input
+n_bars = 3000
+warmup = 500
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+alternating = true          # extra input id `alt`: level + amp*(-1)^n, after the sines and before ramp
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D4
+dc_gain = 1.0
+phase_gate = 0.05
+startup_inputs = ["flat", "ramp", "s20"]
+startup_seed = "pass3"       # the source start-up rule: first 3 outputs = Price (reference.simulate seed pass3); default zero
+source = """(b) DC gain 1 exactly for any c1 (numerator sum (1-c1) + (2c1-c2) - (c1+c3) = 1 - c2 - c3 = denominator sum): D4 rule 1 applies, ramp-lag check, expected 0 (HP numerator c1 (1-q)^2 has a double zero at DC, so the ramp lag is 0 for any c1, c2, c3). (b) No control changes DC gain or ramp lag: the ramp check is structural only (its effect is ~0 for every control). phase_gate (c): judgement, as HPF / RFF. (b) Smallest expected sine gain in the four tables is 0.20555513441232293 (P30, T = 5) >= 0.05, so all 20 sine phases are checked; the expected alt gain is ~1e-16 (the numerator has a zero at z = -1: 1 - 4c1 + c2 - c3 = 0): the alt phase is SKIP for every variant (the gate binds)."""
+
+[tolerances.flat]
+value = 1e-9
+source = "(a) H1 criteria section 5 (unchanged). DC gain 1: expected output = level (D4 rule 2; m_flat measures |y - level|, expected deviation 0). (b) floor 0."
+[tolerances.gain]
+value = 3e-5
+source = "(c) HPF / SS2F / RFF default (D4 rule 5). (b) window: floor x10 <= 3e-5, see [floor].gain. Applies to the five sine gains and the alt gain."
+[tolerances.phase]
+value = 3e-5
+source = "(c) HPF / RFF default (D4 rule 5), radians. (b) window: floor x10 <= 3e-5, see [floor].phase. Applies to the five sine phases; the alt phase is gated out."
+[tolerances.lag]
+value = 1e-3
+source = "(a) H1 default (D4 rule 5). USED here: DC gain 1 (D4 rule 1), expected ramp lag 0 (structural, finding 3). (b) window: floor x10 <= 1e-3, see [floor].lag."
+[tolerances.startup]
+value = 1e-6
+source = "(c) HPF / RFF default (D4 rule 5). (b) window: floor x10 <= 1e-6, see [floor].startup. Inputs flat, ramp, s20; the reference start-up is the article model with seed pass3 ([checks].startup_seed)."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers the alt input."
+[tolerances.imp]
+value = 1e-9
+source = "(c) As HPF / SS3F / RFF. (b) Fire tests: see [imp.fire_test]."
+
+# D2 floor per quantity: largest known accepted difference, corrected code (Zorro PI) vs THIS spec's (article) tables.
+[floor]
+gain = 6.522800181096855e-07
+phase = 7.596948385923952e-07
+lag = 1.687538997430238e-12
+startup = 1.4834682593445336e-08
+flat = 0.0
+source = """(b) 2026-11-17: reference.us_code(P) (Zorro PI, seed pass3), simulated 3000 bars and measured with the checker's own functions (check_rows: m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the us_article tables below, max over the four real variants; per variant in [floor.per_variant.*]. = the Zorro PI gap only (D3). The Zorro-side implementation residual is measured by IMP in the run; pass item 7 guards it. The gain floor includes the alt gain."""
+
+[floor.per_variant.P10]
+gain = 5.271301788400962e-07
+phase = 7.552589118553499e-07
+lag = 7.993605777301127e-13
+startup = 3.995172415116599e-09
+flat = 0.0
+
+[floor.per_variant.P14]
+gain = 6.346180881910968e-07
+phase = 6.450711245165053e-07
+lag = 1.687538997430238e-12
+startup = 7.005334312637501e-09
+flat = 0.0
+
+[floor.per_variant.P20]
+gain = 5.699066697451016e-07
+phase = 7.596948385923952e-07
+lag = 9.547918011776346e-13
+startup = 1.0173304199057043e-08
+flat = 0.0
+
+[floor.per_variant.P30]
+gain = 6.522800181096855e-07
+phase = 6.130887886257597e-07
+lag = 6.439293542825908e-13
+startup = 1.4834682593445336e-08
+flat = 0.0
+
+# Expected tables: from reference.us_article (exact constants, D1). Never from the .c file. Stored at full precision.
+
+[expected.P10]
+flat = 0.0
+gains = [0.639144947483887, 1.197811901055237, 1.1851429681345604, 1.0584360008402927, 1.0099083253478935]
+gain_alt = 3.541671941645266e-17
+phases = { 5 = -1.198853291315531, 10 = -0.6317566670651846, 20 = -0.14456046061656466, 40 = -0.021474407826424735, 100 = -0.0014482787183584618 }
+lag = 0.0
+article = "us_article(10)"
+source = "(b) reference.us_article(10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; lag = 0 exactly (structural: double zero at DC; reference.ramp_lag gives -2.220446049250313e-16, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P14]
+flat = 0.0
+gains = [0.45062166458729136, 0.9813903497603206, 1.2585036497015527, 1.1071063602170828, 1.0192106231742593]
+gain_alt = 7.872920746799051e-17
+phases = { 5 = -1.326123310358609, 10 = -0.9327735214062288, 20 = -0.31894619699245097, 40 = -0.0548035174208161, 100 = -0.003870355605526808 }
+lag = 0.0
+article = "us_article(14)"
+source = "(b) reference.us_article(14) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; lag = 0 exactly (structural: double zero at DC; reference.ramp_lag gives 0.0, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P20]
+flat = 0.0
+gains = [0.3111895913971734, 0.7061322838536964, 1.218026967050796, 1.1873768956922388, 1.0383782872038956]
+gain_alt = 3.7270763542244456e-17
+phases = { 5 = -1.4085322832040272, 10 = -1.1651717789452467, 20 = -0.6194039409919986, 40 = -0.1414708831480573, 100 = -0.010965416173332174 }
+lag = 0.0
+article = "us_article(20)"
+source = "(b) reference.us_article(20) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; lag = 0 exactly (structural: double zero at DC; reference.ramp_lag gives 0.0, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.P30]
+flat = 0.0
+gains = [0.20555513441232293, 0.4662358766247712, 0.9460546187090454, 1.2691485386156178, 1.081852283181575]
+gain_alt = 9.698417603402851e-17
+phases = { 5 = -1.4660399556347676, 10 = -1.3220832336858641, 20 = -0.9761837724349671, 40 = -0.36578356496087766, 100 = -0.03513561337436378 }
+lag = 0.0
+article = "us_article(30)"
+source = "(b) reference.us_article(30) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at; lag = 0 exactly (structural: double zero at DC; reference.ramp_lag gives 0.0, round-off), flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "P10"
+role = "real"
+label = "P=10"
+kind = "param"
+params = [10]
+expected = "P10"
+seed = "pass3"
+
+[[variants]]
+id = "P14"
+role = "real"
+label = "P=14"
+kind = "param"
+params = [14]
+expected = "P14"
+seed = "pass3"
+
+[[variants]]
+id = "P20"
+role = "real"
+label = "P=20"
+kind = "param"
+params = [20]
+expected = "P20"
+seed = "pass3"
+
+[[variants]]
+id = "P30"
+role = "real"
+label = "P=30"
+kind = "param"
+params = [30]
+expected = "P30"
+seed = "pass3"
+
+[[variants]]
+id = "NCL"
+role = "info"
+label = "NCL: article as printed (1.414, 3.14159) vs P20 article"
+kind = "inline"
+function = "use_ncl"
+params = [20]
+expected = "P20"
+seed = "pass3"
+comment = """INFO variant (not a control, not in [detect]; D1 rule 3): the article as PRINTED, 1.414 and 3.14159 built from integers at run time (1414/1000, 314159/100000, gotchas 9d.1 / 9d.8) in the exponent; the cosine's 180 degrees is the PI macro (Zorro float32 PI, as in the other variants). Everything else as [corrected_code]. P = 20. Reported, never PASS/FAIL."""
+body = '''
+var use_ncl(vars Price, int USP)
+{
+	var ncl_f = 1414;
+	ncl_f = ncl_f / 1000;
+	var ncl_g = 314159;
+	ncl_g = ncl_g / 100000;
+	var ncl_a1 = exp(-ncl_f * ncl_g / USP);
+	var ncl_b1 = 2.0 * ncl_a1 * cos(ncl_f * PI / USP);
+	var ncl_c2 = ncl_b1;
+	var ncl_c3 = -ncl_a1 * ncl_a1;
+	var ncl_c1 = (1.0 + ncl_c2 - ncl_c3) / 4.0;
+	vars ncl_n = series(0, 2);
+	ncl_n[0] = ncl_n[1] + 1;
+	vars ncl_US = series(Price[0], 3);
+	if(ncl_n[0] < 4) {
+		ncl_US[0] = Price[0];
+		return ncl_US[0];
+	}
+	ncl_US[0] = (1.0 - ncl_c1) * Price[0] + (2.0 * ncl_c1 - ncl_c2) * Price[1]
+	          - (ncl_c1 + ncl_c3) * Price[2] + ncl_c2 * ncl_US[1] + ncl_c3 * ncl_US[2];
+	return ncl_US[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.00010723909126852949
+lag = 1.7985612998927536e-12
+phase = 0.00014296252794387954
+startup = 1.914477635756029e-06
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NCA: pole factor a1 + 1/1000 vs P20 article"
+kind = "inline"
+function = "use_nca"
+params = [20]
+expected = "P20"
+seed = "pass3"
+comment = """NCA: realistic copying error in the pole factor (D2 rule 4). [corrected_code] except a1 + 1/1000 (1/1000 built from a variable, 9d.8 addendum) BEFORE b1, c3 and c1 are derived, so the DC gain stays 1 and the ramp lag stays 0."""
+body = '''
+var use_nca(vars Price, int USP)
+{
+	var nca_k = sqrt(2.0);
+	var nca_e = 1;
+	nca_e = nca_e / 1000;
+	var nca_a1 = exp(-nca_k * PI / USP);
+	nca_a1 = nca_a1 + nca_e;
+	var nca_b1 = 2.0 * nca_a1 * cos(nca_k * PI / USP);
+	var nca_c2 = nca_b1;
+	var nca_c3 = -nca_a1 * nca_a1;
+	var nca_c1 = (1.0 + nca_c2 - nca_c3) / 4.0;
+	vars nca_n = series(0, 2);
+	nca_n[0] = nca_n[1] + 1;
+	vars nca_US = series(Price[0], 3);
+	if(nca_n[0] < 4) {
+		nca_US[0] = Price[0];
+		return nca_US[0];
+	}
+	nca_US[0] = (1.0 - nca_c1) * Price[0] + (2.0 * nca_c1 - nca_c2) * Price[1]
+	          - (nca_c1 + nca_c3) * Price[2] + nca_c2 * nca_US[1] + nca_c3 * nca_US[2];
+	return nca_US[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.0028353862817227515
+lag = 5.262457136723242e-12
+phase = 0.003947795350132566
+startup = 4.917043381169606e-05
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCB"
+role = "neg_control"
+label = "NCB: c1 divisor 4.01 vs P20 article"
+kind = "inline"
+function = "use_ncb"
+params = [20]
+expected = "P20"
+seed = "pass3"
+comment = """NCB: copying error in the c1 divisor: 4 -> 4.01 (built as 401/100). The numerator stays D - c1*(1 - q)^2 with the changed c1, so the DC gain stays 1 and the ramp lag 0."""
+body = '''
+var use_ncb(vars Price, int USP)
+{
+	var ncb_k = sqrt(2.0);
+	var ncb_d = 401;
+	ncb_d = ncb_d / 100;
+	var ncb_a1 = exp(-ncb_k * PI / USP);
+	var ncb_b1 = 2.0 * ncb_a1 * cos(ncb_k * PI / USP);
+	var ncb_c2 = ncb_b1;
+	var ncb_c3 = -ncb_a1 * ncb_a1;
+	var ncb_c1 = (1.0 + ncb_c2 - ncb_c3) / ncb_d;
+	vars ncb_n = series(0, 2);
+	ncb_n[0] = ncb_n[1] + 1;
+	vars ncb_US = series(Price[0], 3);
+	if(ncb_n[0] < 4) {
+		ncb_US[0] = Price[0];
+		return ncb_US[0];
+	}
+	ncb_US[0] = (1.0 - ncb_c1) * Price[0] + (2.0 * ncb_c1 - ncb_c2) * Price[1]
+	          - (ncb_c1 + ncb_c3) * Price[2] + ncb_c2 * ncb_US[1] + ncb_c3 * ncb_US[2];
+	return ncb_US[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.002493765585202608
+lag = 1.7763568394002505e-12
+phase = 0.00791757704620899
+startup = 1.783525311838119e-05
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: start-up seeded 4 bars vs P20 article"
+kind = "inline"
+function = "use_ncs"
+params = [20]
+expected = "P20"
+seed = "pass4"
+comment = """NCS: start-up seeded 4 bars (counter < 5): the old `Bar < 4` if Bar is 0-based (D-2). Model seed pass4. Only the s20 start-up transient differs (flat and ramp are identical under pass3 / pass4)."""
+body = '''
+var use_ncs(vars Price, int USP)
+{
+	var ncs_k = sqrt(2.0);
+	var ncs_a1 = exp(-ncs_k * PI / USP);
+	var ncs_b1 = 2.0 * ncs_a1 * cos(ncs_k * PI / USP);
+	var ncs_c2 = ncs_b1;
+	var ncs_c3 = -ncs_a1 * ncs_a1;
+	var ncs_c1 = (1.0 + ncs_c2 - ncs_c3) / 4.0;
+	vars ncs_n = series(0, 2);
+	ncs_n[0] = ncs_n[1] + 1;
+	vars ncs_US = series(Price[0], 3);
+	if(ncs_n[0] < 5) {
+		ncs_US[0] = Price[0];
+		return ncs_US[0];
+	}
+	ncs_US[0] = (1.0 - ncs_c1) * Price[0] + (2.0 * ncs_c1 - ncs_c2) * Price[1]
+	          - (ncs_c1 + ncs_c3) * Price[2] + ncs_c2 * ncs_US[1] + ncs_c3 * ncs_US[2];
+	return ncs_US[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 5.699066697451016e-07
+lag = 9.547918011776346e-13
+phase = 7.596948385923952e-07
+startup = 0.0008336536206108303
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NCX"
+role = "neg_control"
+label = "NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article"
+kind = "inline"
+function = "use_ncx"
+params = [20]
+expected = "P20"
+seed = "zero"
+comment = """NCX: the wrong high-pass: US = x - HighPassFilter(x, 20), the verified HP-A of V.32:1 (k = sqrt(2)/2, 2nd-order numerator), NOT the $HighPass of V.42:04 that the article defines. Model one_minus(hp_code(20, k = sqrt(2)/2)), HP seed zero."""
+body = '''
+var use_ncx(vars Price, int USP)
+{
+	var ncx_hp = HighPassFilter(Price, USP);
+	return Price[0] - ncx_hp;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.21987518285315732
+lag = 2.220446049250313e-14
+phase = 0.13319981550240634
+startup = 0.004608691241655194
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: P=21 vs P20 article"
+kind = "param"
+params = [21]
+expected = "P20"
+seed = "pass3"
+[variants.effect]
+flat = 0.0
+gain = 0.03380269755055243
+lag = 5.306866057708248e-12
+phase = 0.04604121154630425
+startup = 0.0006227123323223616
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "NC2: cos arg in degrees vs P20 article"
+kind = "inline"
+function = "use_nc2"
+params = [20]
+expected = "P20"
+seed = "pass3"
+comment = """NC2: gross units bug (gotchas section 2, mixed-file mode): cosine argument in degrees (sqrt(2)*180/P), exponent unchanged. Stable at P = 20 (a1 = 0.80)."""
+body = '''
+var use_nc2(vars Price, int USP)
+{
+	var nc2_k = sqrt(2.0);
+	var nc2_a1 = exp(-nc2_k * PI / USP);
+	var nc2_b1 = 2.0 * nc2_a1 * cos(nc2_k * 180.0 / USP);
+	var nc2_c2 = nc2_b1;
+	var nc2_c3 = -nc2_a1 * nc2_a1;
+	var nc2_c1 = (1.0 + nc2_c2 - nc2_c3) / 4.0;
+	vars nc2_n = series(0, 2);
+	nc2_n[0] = nc2_n[1] + 1;
+	vars nc2_US = series(Price[0], 3);
+	if(nc2_n[0] < 4) {
+		nc2_US[0] = Price[0];
+		return nc2_US[0];
+	}
+	nc2_US[0] = (1.0 - nc2_c1) * Price[0] + (2.0 * nc2_c1 - nc2_c2) * Price[1]
+	          - (nc2_c1 + nc2_c3) * Price[2] + nc2_c2 * nc2_US[1] + nc2_c3 * nc2_US[2];
+	return nc2_US[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.10262000836262719
+lag = 1.687538997430238e-12
+phase = 0.05557402149814372
+startup = 0.0014720490807587083
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_lag / m_startup) vs the expected table named above, max over that kind's checks; computed 2026-11-17"
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (ratios: NCA gain 94.5x, lag 5.26e-09x, phase 132x, startup 49.2x; NCB gain 83.1x, lag 1.78e-09x, phase 264x, startup 17.8x; NCS gain 0.019x, lag 9.55e-10x, phase 0.0253x, startup 834x; NCX gain 7.33e+03x, lag 2.22e-11x, phase 4.44e+03x, startup 4.61e+03x; NC1 gain 1.13e+03x, lag 5.31e-09x, phase 1.53e+03x, startup 623x; NC2 gain 3.42e+03x, lag 1.69e-09x, phase 1.85e+03x, startup 1.47e+03x). Kinds below 10x are not required. The ramp-lag effect is ~0 for every control (finding 3), so lag is never listed."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* / gain-alt | phase-T* | ramp-lag | startup-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL. NCL (role info) is not a control and is not listed."
+[detect.required]
+NCA = ["gain", "phase", "startup"]
+NCB = ["gain", "phase", "startup"]
+NCS = ["startup"]
+NCX = ["gain", "phase", "startup"]
+NC1 = ["gain", "phase", "startup"]
+NC2 = ["gain", "phase", "startup"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the recursion in Python (reference.simulate_any, each model carries its own seed) with the named model on the x columns EXPORTED by Zorro; residual = max |y_Zorro - y_replay| over n >= 0 (every variant declares a seed, decision 4), per input (flat, five sines, alt, ramp) and overall."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { P10 = "us_code(10, pass3)", P14 = "us_code(14, pass3)", P20 = "us_code(20, pass3)", P30 = "us_code(30, pass3)", NCL = "us_printed(20, pass3)", NCA = "us_nca(20, pass3)", NCB = "us_code(20, pass3, c1_div=4.01)", NCS = "us_code(20, pass4)", NCX = "us_nx(20)", NC1 = "us_code(21, pass3)", NC2 = "us_code(20, pass3, deg)" }
+must_fail = { P20 = "us_nx(20)", NCS = "us_code(20, pass3)" }
+fire_test_effect = "(b) standalone model, 2026-11-17, numbers at full precision in [imp.fire_test]: P20 output vs the NCX-model replay (x - HighPassFilter) and NCS output vs the P20 (pass3) model replay, both > 1e-9; own-model replays exactly 0; every variant's own-model output differs from the P20 (pass3) model by more than 1e-9 except P20 itself (must_pass discriminates)."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs article). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. P20 must_fail = the wrong high-pass (NCX) is absent from the run output; NCS must_fail = the pass3 start-up of the corrected file is what ran (a pass4 replay of P20 would not fail)."""
+
+[imp.fire_test]
+p20_vs_ncx_model = 0.030052340972303693
+ncs_vs_p20_pass3_model = 0.05795663678501617
+source = "(b) 2026-11-17: reference.simulate_any on the exported-input model of the harness (3000 bars, all 8 inputs), max over n >= 0 and inputs"
+[imp.fire_test.discrimination]
+NCL = 7.297085609314635e-06
+NCA = 0.00017168717919746612
+NCB = 9.88285728613647e-05
+NCS = 0.05795663678501617
+NCX = 0.030052340972303693
+NC1 = 0.00242219470079319
+NC2 = 0.005739277919984076
+# source: (b) variant own-model output vs the P20 (pass3) model, max over n >= 0 and all inputs; each > [tolerances.imp]
+
+# ----------------------------------------------------------------------------- findings (planning chat 2026-11-17, reproduced here with reference.py)
+[findings]
+dc_gain_dev_max = 2.220446049250313e-16
+nyquist_gain_max = 9.698417603402851e-17
+ramp_lag_abs_max = 2.220446049250313e-16
+floor_gain_analytic = 6.522800702901677e-07
+floor_phase_analytic = 7.59694844032488e-07
+startup_s20_pass3_vs_pass4 = 0.0008336549639900159
+peak_gain_P10 = 1.2585133267949147
+peak_T_P10 = 13.099999999999806
+phase_at_T_eq_P_P10 = -0.6317566670651846
+peak_gain_P14 = 1.2649346823103567
+peak_T_P14 = 18.0799999999997
+phase_at_T_eq_P_P14 = -0.6235897238144481
+peak_gain_P20 = 1.268496162377244
+peak_T_P20 = 25.62999999999954
+phase_at_T_eq_P_P20 = -0.6194039409919986
+peak_gain_P30 = 1.2704411677264829
+peak_T_P30 = 38.28999999999927
+phase_at_T_eq_P_P30 = -0.6172121512162745
+source = """(b) 2026-11-17, reference.py. Findings 1-3: DC gain = 1, Nyquist gain 0 (numerator zero at z = -1), ramp lag 0, for any c1 (max deviation over P = 10/14/20/30 above). Finding 5 (INFO): passband gain > 1; peak over T in [4, 400] on a 0.01 grid. Finding 6: analytic Zorro-PI floor over P = 10/14/20/30 and T = 5/10/20/40/100. Finding 7: pass3 vs pass4 seed on s20 (P = 20, level 1.1, amp 0.01, rows 0-11 differ)."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """UltimateSmootherE source fidelity and implementation PASS only if ALL of the following hold; any other outcome is
+FAIL, recorded and kept (CLAUDE.md section 4.8), and its cause found before anything is changed:
+1. All 64 real checks PASS: 4 variants (P10, P14, P20, P30) x 16 checks (flat, 5 sine gains, alt gain, 5 sine phases,
+   ramp lag, start-up flat, start-up ramp, start-up s20), against the article tables above at the tolerances above.
+   The alt phase row of every variant (11 rows: 4 real, 1 info, 6 controls) is SKIP (expected gain < phase_gate), not PASS, and is not
+   one of the 64. A SKIP row where the checker should have checked (or the reverse) is a failed run.
+2. Each of the 6 negative controls FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] vs recomputed incl. alt, tol 1e-12; clock range), no row is ERROR in ANY variant, real, control or info,
+   no NaN / infinite value. The NCL rows (role info) are written as INFO, never PASS / FAIL, and are not counted in item 1.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check
+   (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 4 real + 6 negative controls + 1 info (NCL) = 11 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 (11 variants), and every [imp].must_fail replay > 1e-9 (2 rows; guards seen to fire).
+7. Floor guard: for every real variant, max |Zorro - article| <= tolerance / 10 for gain (3e-6), phase (3e-6 rad),
+   lag (1e-4) and start-up (1e-7) (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT
+   accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done by Claude Code before the [Test] click and recorded in Amendment 1:
+   (i) the corrected UltimateSmootherE.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current UltimateSmootherE.c blob (c545c201140e2927e9a5c1ec7664440ded1b3350 at ddbf9fa) is recorded and differs from
+        [corrected_code] only by D-1 (`1.414 * PI` -> `us_k*PI`, plus the us_k line) and D-2 (`Bar < 4` -> the us_n counter);
+   (iii) reference.py reproduces this file's expected tables, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 (relative
+        1e-9 for values > 1). Every number is stored at full precision (HPF Amendment 1, A1.2). Each inline control body is
+        checked at run time, not by reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every margin >= 10x)."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_PASSBAND = "(b) The article's 'zero lag' holds at DC (ramp lag 0, finding 3), not across the pass band: gain > 1 across the passband and phase at T = P about -0.62 rad. P10: max gain 1.258513 at T = 13.10; phase at T = P -0.631757 rad (1.005 bars); P14: max gain 1.264935 at T = 18.08; phase at T = P -0.623590 rad (1.389 bars); P20: max gain 1.268496 at T = 25.63; phase at T = P -0.619404 rad (1.972 bars); P30: max gain 1.270441 at T = 38.29; phase at T = P -0.617212 rad (2.947 bars)."
+O_NYQUIST = "(b) T = 2 cannot be a sine (sin(pi*n) = 0), hence the alternating input. The article gain there is ~1e-16 (numerator zero at z = -1), so the alt phase is undefined and SKIPped."
+O_STARTUP = "(b) The 3-bar and 4-bar seed are identical on flat and ramp; per-input max |pass3 - pass4| (P = 20, article model, 3000 bars): flat 0.000e+00, s5 1.177e-02, s10 5.263e-03, s20 8.337e-04, s40 1.102e-04, s100 7.167e-06, alt 5.796e-02, ramp 0.000e+00. [checks].startup_inputs = flat, ramp, s20 as the planning-chat brief fixes; s5 and alt see the seed difference 14x / 70x more strongly than s20 (not added: a spec decision, flagged in the stage-1 report)."
+O_NCL = "(b) NCL = the article as printed (1.414, 3.14159), INFO, never PASS/FAIL (D1 rule 3): effect vs the exact article gain 1.0724e-04 (3.6x tol), phase 1.4296e-04 rad (4.8x tol) with the PI macro in the cosine; 1.0708e-04 / 1.4277e-04 with exact pi in the cosine."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-article residual per kind per real variant; the latter is the measured floor (expected ~ the PI gap)."
+O_CONTROLS_STRUCTURAL = "(b) No control changes DC gain or ramp lag (every ratio of the lag kind ~1e-9 of its tolerance): the ramp-lag check is structural only."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
