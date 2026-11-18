@@ -590,3 +590,31 @@ O_CONTROLS_STRUCTURAL = "(b) No control changes DC gain or ramp lag (every ratio
 
 # ----------------------------------------------------------------------------- amendments
 # (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-18, BEFORE any run. Base: ca4454b (spec; tooling baa74a9). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings].
+[amendment_1]
+date = "2026-11-18"
+base_commit = "ca4454b"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_use_corrected_code.py (13 tests): indicators/ehlers/UltimateSmootherE.c contains [corrected_code].lines verbatim (whitespace-normalised, comments stripped) inside 'var UltimateSmootherE(vars Price, int Period)'. Guard seen to fire on temp-file copies: us_n[0] < 4 -> < 5, us_k*PI -> 1.414*PI, /4.0 -> /4.01, us_n = series(0, 2) -> series(0, 3), and series(0, 2) + us_n increment moved after the early return: all reported not-ok. Wrong function name and lines-only-in-comments also not-ok. Both series() calls precede the early return (asserted)."
+cond_ii = "PASS. Same test file: git blob c545c201140e2927e9a5c1ec7664440ded1b3350 (UltimateSmootherE.c at ddbf9fa, confirmed by git rev-parse) with D-1 and D-2 applied is token-identical to the new function. Alignment-independent token multiset diff: removed {1.414: 2, Bar: 1}; added = us_k x3 (two uses + the declaration), 'var us_k = sqrt(2.0);', 'vars us_n = series(0, 2); us_n[0] = us_n[1] + 1;', us_n[0] in place of Bar. No other token differs; whitespace-only differences (e.g. '2.0 * us_a1' vs '2.0*us_a1', line breaks) are not tokens. Guards seen to fire: five extra single-token changes in copies of the new file. Comment-only edits do not matter."
+cond_iii = "PASS. analysis/harness/tests/test_reference_use_spec.py, 18 tests OK. Largest deviation per section: expected 2.220e-16, floor 0.000e+00, effects 0.000e+00, findings 0.000e+00, imp_fire_test 0.000e+00."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/USE_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0. INFO: D2 floors gain 6.523e-07, lag 1.688e-12, flat 0, phase 7.597e-07, startup 1.483e-08 (x10 each within tolerance: window ok). Control margins (all >= 10x): NCA phase 132x, NCB phase 264x, NCS startup 834x, NCX gain 7.33e+03x, NC1 phase 1.53e+03x, NC2 gain 3.42e+03x. NCL (role info): effect/tolerance gain 3.57x, lag 1.8e-09x, flat 0x, phase 4.77x, startup 1.91x; reported, never PASS/FAIL."
+tests_before = 348
+tests_after = 361
+tests_added = 13
+suite = "bash analysis/harness/run_tests.sh: TOTAL 361  PASS 361  FAIL 0  ERROR 0  SKIP 0"
+blob_UltimateSmootherE_c_old = "c545c201140e2927e9a5c1ec7664440ded1b3350"
+blob_UltimateSmootherE_c_new = "80c078959ef506266468c345ea0507182abe2615"
+blob_source = "(b) git rev-parse ddbf9fa:indicators/ehlers/UltimateSmootherE.c (old); git hash-object indicators/ehlers/UltimateSmootherE.c (new), 2026-11-18, Claude Code shell"
+script = "strategies/tests/GEN_USE_UltimateSmootherE.c"
+script_sha256 = "9e5069e1d3e7b030ef72c40a9c079abaef1bac50dafe27dcb2358be0d0eae47e"
+script_check = "(b) read-through 2026-11-18: includes HighPassFilter.c then UltimateSmootherE.c (as [zorro].include); alt input X[6] = lvl + amp*use_sgn, static use_sgn reset to 1 at INITRUN, flipped once per fed bar after the row is written (before the next bar's filter calls); 88 unconditional calls in fixed variant-major order, UltimateSmootherE(S, P) for P10/P14/P20/P30 and NC1 (21); six inline bodies (use_ncl, use_nca, use_ncb, use_ncs, use_ncx, use_nc2) defined once each with unique locals; no bare 'Period' identifier; no decimal-literal product starting an expression; NCL commented as INFO; raw file Data/GEN_USE_raw.csv deleted at INITRUN, header written once, last row latched (use_done) before quit(). C:/Zorro/Data/GEN_USE_raw.csv does not exist yet."
