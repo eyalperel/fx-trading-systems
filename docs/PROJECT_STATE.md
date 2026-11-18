@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-17 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter and RoofingFilter verified; order C decided; next: UltimateSmootherE)
+**As of:** 2026-11-18 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter and UltimateSmootherE verified; order C decided; next: UltimateChannelBands or the oscillator harness family, to decide)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -22,11 +22,11 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 |---|---|---|
 | Smoothers | SuperSmoother 2-pole | **Implementation verified** (H1 run 2 PASS, f59f6e4) **and source fidelity verified** (SS2F run 1 PASS, 763601e, 2026-11-12): Zorro output matches Ehlers' TASC V.42:04 formula (√2 and π exact per D1) within gain 5.7e-7 / lag 5.4e-6 bars, which is the Zorro `PI` gap (D3); tolerances 3e-5 / 1e-3; 4 negative controls detected; 8 variants. Not tested: start-up seeding (article: output = Price for the first 3 bars; excluded by warmup) |
 | Smoothers | SuperSmoother 3-pole | **Corrected and verified 2026-11-16.** The previous file was a hybrid matching neither cited source (real pole a1 instead of a1², 2-pole input average); it had been listed as "Validated". Kept as `SuperSmoother3Pole_Hybrid_Superseded.c`. Corrected to *Cybernetic Analysis* (2004) Fig. 13.11 with √3 (D1 Amendment 1: the printed 1.738 is a typo, the book's Table 13.4 uses 1.732). SS3F run 1 PASS (`09c05ad`): 28/28, 6 controls detected, IMP replay ≤ 3.4e-14, Zorro vs book = `PI` gap (gain 9.0e-7, lag 7.7e-6); 10 variants. Passband overshoot to gain 1.0046 (P = 10) |
-| Smoothers | UltimateSmootherE | **Reviewed** |
+| Smoothers | UltimateSmootherE | **Corrected and verified 2026-11-18.** Source: Ehlers, "The Ultimate Smoother", TASC V.42:04 (2024): US = input − HP, with the V.42:04 $HighPass (a third HP, not HP-A of `HighPassFilter.c`). Two deviations corrected (`ad8eae5`): D-1 folded literal `1.414 * PI` (gotchas 9d.8) → `us_k*PI`, `us_k = sqrt(2.0)` (D1 rule 1); D-2 global `Bar < 4` (comment said 4 bars; source seeds 3) → per-instance counter `us_n` = EasyLanguage CurrentBar (gotchas 9d.9). Spec `USE_ArticleFidelity.toml` (`ca4454b` + Amendments 1–2). **Run 1 PASS** (`41c8d76`): 64/64 (flat, 5 gains, alt gain, 5 phases, ramp lag, 3 start-ups) × P = 10/14/20/30; 6 controls (incl. NCS = 4-bar seed, detected by start-up only, 834×; NCX = x − HP-A); IMP ≤ 8.0e-15; Zorro vs article = `PI` gap (gain 6.5e-7, phase 7.6e-7 rad). (b) DC gain 1, Nyquist gain 0, ramp lag 0; but passband gain up to ~1.27 (T ≈ 1.3P) and phase at T = P ≈ −0.62 rad: the article's "zero lag" holds at DC only |
 | Superseded | `UltimateSmoother_W5_Superseded.c` — does not implement its cited article | Reviewed, retired |
 | High-pass family | HighPassFilter | **Corrected and verified 2026-11-17.** Source: HP-A, TASC V.32:1 (2014), same lines in V.33:09 / V.36:03 (Ehlers published three different HPs; HARNESS_DESIGN D4 note). Two deviations corrected (`d22ef57`): `0.707` → √2/2 (D1 rule 1) and price-level seed → zero seed (GAP-1.26). Spec `HP_ArticleFidelity.toml` (`2069d86` + Amendments 1–2). **Run 1 FAIL** (`a361e4b`, one control-model row: Zorro literal fold, gotchas 9d.8) → **run 2 PASS** (`512781c`): 56/56 (flat, gain, **phase**, ramp residual, start-up), 8 controls, IMP ≤ 6.7e-15 on the real variants; Zorro vs article = `PI` gap (gain 4.0e-7, phase 8.1e-7 rad). Leads price: 1.81 bars at T = 20, P = 48 (INFO) |
 | High-pass family | RoofingFilter | **Verified 2026-11-17.** Source: TASC V.32:1 Roofing sidebar (HP-A(48) → SuperSmoother(10) on `(HP + HP[1])/2`, both histories start at 0). Code already matched; header corrected (GAP-1.31) and locals prefixed (`b249142`). Spec `RFF_ArticleFidelity.toml` (`b6b5c5d` + Amendments 1–2). **Run 1 PASS** (`d1395d3`): 64/64 (flat, 5 gains, Nyquist gain via a new alternating input, 5 phases, ramp residual, 3 start-ups) × (48,10), (30,10), (125,10), (48,20); 7 controls; IMP ≤ 3.5e-12; Zorro vs article = `PI` gap (gain 5.6e-7, phase 1.6e-6 rad). Start-up equals the source's zero start (HP's first output is 0). Gain at T = 20: 0.8900165 (§5 corrected) |
-| High-pass family | Decycler | Not reviewed — may be identical to UltimateSmootherE |
+| High-pass family | Decycler | Not reviewed. (c) Probably not the same filter as UltimateSmootherE: same construction (price − HP) but the *Decyclers* article (V.33:09) uses HP-A, while UltimateSmootherE uses the V.42:04 HP; unchecked until Decycler.c is read |
 | Baselines | MAMA, FAMA, FRAMA, Laguerre Filter, DSMA | Not reviewed; Week 9 (FRAMA/Laguerre/DSMA) not reproducible from repo |
 | Oscillators | CyberCycle, Elegant Oscillator, Fisher, Inverse Fisher, COG, Reflex, MESA Stochastic, RSIH, Laguerre Osc, Laguerre RSI | Not reviewed |
 | Zero-lag / noise | InstantTrendline, DominantCycle, Recursive Median, RMO, Alpha-Beta, Correlation Cycle | Not reviewed |
@@ -108,11 +108,11 @@ indicators through the new test harness — not settled answers.
 | GAP-1.26 | HP seeding — first output starts far from steady state | **Fixed in HighPassFilter.c 2026-11-17** (`d22ef57`, zero seed as the source). RoofingFilter re-verified 2026-11-17 (RFF run 1 PASS). Not yet re-verified: MESAStochastic, Decycler, RMO |
 | — | Week 9 validation not reproducible (no tracked file reads its CSVs) | FRAMA, Laguerre, DSMA status unsupported |
 | — | `CyberCycle.c` statics may lack `cc_` prefix | Unconfirmed after four sittings |
-| — | Decycler vs UltimateSmootherE — possibly the same filter | Unchecked |
+| — | Decycler vs UltimateSmootherE — possibly the same filter | (c) 2026-11-18: probably different HPs (V.33:09 HP-A vs V.42:04 HP); USE run 1 control NCX (= x − HP-A(20)) differs from UltimateSmootherE(20) by gain 0.22. Confirm when Decycler is reviewed |
 | — | `SuperSmoother2Pole.c` "First bar" comments are misleading: `Init` is `is(INITRUN)`, not the first bar (b, `include/variables.h:182`; gotchas 9d.5) | Comment only; output unaffected (H1 run 2) |
 | — | Generated scripts' EXITRUN `printf` + marker file never fire (gotchas 9d.4; no marker from any run, re-confirmed SS2F run 1) | Dead code presented as a check; run cards must not rely on it. Remove or replace with a check written before `quit()` |
 | — | Harness ramp-lag check assumes DC gain 1: a DC-gain error reads as lag ((x − y)/s = (1 − G)·x/s + G·τ; NC-B 35 bars) | **Resolved 2026-11-16:** HARNESS_DESIGN D4 (`032d766`): sine phase + ramp residual; ramp lag only at DC gain 1; `m_flat` generalised |
-| — | Literal products folded at compile time to an unpredictable float32 (gotchas 9d.8, probe `ba54022`) | Remaining in UltimateSmootherE.c:47–48, DominantCycle.c:24–25/46–47, InstantTrendline.c:63; each spec replaces them |
+| — | Literal products folded at compile time to an unpredictable float32 (gotchas 9d.8, probe `ba54022`) | UltimateSmootherE.c fixed 2026-11-18 (`ad8eae5`). Remaining in DominantCycle.c:24–25/46–47, InstantTrendline.c:63; each spec replaces them |
 | — | `L_FLOAT32` exemption is not written to the results header (lint output only) | Run records should carry every pre-registered exception; small tooling task |
 | — | Intermittent test errors (`test_cli` MemoryError in Claude Code's shell, ×2; once 4/144 ERRORs in Git Bash, cause not captured) | CLAUDE.md §8 now requires tracebacks + rerun; watch |
 | — | `docs/indicators/SuperSmoother_Notes.md`: SS3 sections dated before 2026-11-16 describe the superseded hybrid (Key Finding 2, coefficients, SS3 table rows, SS3 Period column) | Flagged by a notice in the file; not re-measured for the corrected SS3 |
@@ -236,7 +236,12 @@ file's first rows exactly.
    this spec: two-parameter variants, include lists, alternating (Nyquist) input, phase gate binding (alt phase SKIP), cascade
    reference models. Read twice: planning-chat back-check agreed on every verdict row. Tooling 286/286. Raw sha256
    `edb3400f…c810`.
-   Next: UltimateSmootherE (fix the literal `1.414 * PI`, 9d.8), then the oscillator harness family for MESAStochastic / Reflex.
+   **UltimateSmootherE: run 1 PASS 2026-11-18** (`41c8d76`, branch `harness-use`; details §1.1 and HARNESS_DESIGN §7). New in
+   this spec: start-up seed mode `pass<n>` (the source's first-n-bars = Price rule), complement model `one_minus`, variant role `info`
+   (NCL, article as printed, reported never PASS/FAIL), per-instance CurrentBar counter in the corrected .c (gotchas 9d.9). Read twice:
+   planning-chat back-check agreed on every verdict and FAIL count. Tooling 361/361. Raw sha256 `b47897d9…4745c74`.
+   Next (to decide): UltimateChannelBands (stops slot; uses UltimateSmootherE on price and on true range — true range is not a
+   linear-filter input, so it needs checks beyond harness v1) or the oscillator harness family for MESAStochastic / Reflex.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
