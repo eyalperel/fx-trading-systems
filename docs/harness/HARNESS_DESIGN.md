@@ -284,3 +284,11 @@ the value from run 1's data; the probe measured it independently; disclosed in t
    floors, effects agreed <= 2e-9 rel.); Amendment 1 + script `a7b7262`. **Run 1 PASS** (`d1395d3`): 64/64, 7/7 controls, 13/13 IMP
    (must_pass <= 3.5e-12), 16/16 floor, 11 alt-phase SKIP; Zorro vs article = `PI` gap (gain 5.6e-7, phase 1.6e-6 rad).
    Amendment 2: post-run record (cascade-seed note, open items; `1.0/1000` residual INFO, gotchas 9d.8).
+   USE status 2026-11-18: source TASC V.42:04 UltimateSmoother sidebar; DC gain 1, so D4 rule 1 (ramp lag, expected 0 exactly:
+   the HP numerator has a double zero at DC). Two deviations: D-1 folded `1.414 * PI` (9d.8), D-2 global `Bar < 4` start-up. Tooling
+   `baa74a9` (seed mode `pass<n>`, `one_minus`, `us_article`, role `info`); spec `ca4454b` (4 real x 16, 6 controls + NCL info; NCL at
+   3.6x / 4.8x could not meet the 10x rule and is information only under D1 rule 3); corrected .c + test `ad8eae5`; Amendment 1 +
+   script `1aa5d21`. **Run 1 PASS** (`41c8d76`): 64/64, 6/6 controls, 13/13 IMP (must_pass <= 8.0e-15), 16/16 floor, 11 alt-phase
+   SKIP; Zorro vs article = `PI` gap (gain 6.5e-7, phase 7.6e-7 rad). (b) The ramp check is structural only for this family: no
+   control moved DC gain or ramp lag; detection came from gain, phase, alt gain and start-up. (b) A 3- vs 4-bar seed is invisible on
+   flat and ramp; only a sine start-up sees it. Amendment 2: post-run record.
