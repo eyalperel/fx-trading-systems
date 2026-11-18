@@ -1,0 +1,267 @@
+check_id,indicator,params,asset,input,expected,actual,abs_diff,tolerance,ratio,result,role
+USE-P10-flat,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+USE-P10-gain-T5,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=5,0.639144947483887,0.6391444203536999,5.271e-07,3e-05,1.757e-02,PASS,real
+USE-P10-gain-T10,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=10,1.197811901055237,1.197811563335451,3.377e-07,3e-05,1.126e-02,PASS,real
+USE-P10-gain-T20,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=20,1.1851429681345604,1.185143170313467,2.022e-07,3e-05,6.739e-03,PASS,real
+USE-P10-gain-T40,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=40,1.0584360008402927,1.05843608859197,8.775e-08,3e-05,2.925e-03,PASS,real
+USE-P10-gain-T100,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=100,1.0099083253478935,1.0099083411297547,1.578e-08,3e-05,5.261e-04,PASS,real
+USE-P10-gain-alt,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.541671941645266e-17,7.993605777301127e-15,7.958e-15,3e-05,2.653e-10,PASS,real
+USE-P10-ramp-lag,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),ramp,0.0,-2.220446049250313e-14,2.220e-14,0.001,2.220e-11,PASS,real
+USE-P10-phase-T5,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=5,-1.198853291315531,-1.1988536784048938,3.871e-07,3e-05,1.290e-02,PASS,real
+USE-P10-phase-T10,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=10,-0.6317566670651846,-0.6317574223240935,7.553e-07,3e-05,2.518e-02,PASS,real
+USE-P10-phase-T20,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=20,-0.14456046061656466,-0.14456075228153675,2.917e-07,3e-05,9.722e-03,PASS,real
+USE-P10-phase-T40,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=40,-0.021474407826424735,-0.021474456548918667,4.872e-08,3e-05,1.624e-03,PASS,real
+USE-P10-phase-T100,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),sine T=100,-0.0014482787183584618,-0.0014482821189564885,3.401e-09,3e-05,1.134e-04,PASS,real
+USE-P10-phase-alt,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.541671941645266e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-P10-startup-flat,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+USE-P10-startup-ramp,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.5543122344752192e-15,1.554e-15,1e-06,1.554e-09,PASS,real
+USE-P10-startup-s20,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,3.995171748982784e-09,3.995e-09,1e-06,3.995e-03,PASS,real
+USE-P14-flat,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+USE-P14-gain-T5,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=5,0.45062166458729136,0.450621285020825,3.796e-07,3e-05,1.265e-02,PASS,real
+USE-P14-gain-T10,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=10,0.9813903497603206,0.9813897151422352,6.346e-07,3e-05,2.115e-02,PASS,real
+USE-P14-gain-T20,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=20,1.2585036497015527,1.258503754658453,1.050e-07,3e-05,3.499e-03,PASS,real
+USE-P14-gain-T40,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=40,1.1071063602170828,1.1071065089492493,1.487e-07,3e-05,4.958e-03,PASS,real
+USE-P14-gain-T100,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=100,1.0192106231742593,1.0192106535351608,3.036e-08,3e-05,1.012e-03,PASS,real
+USE-P14-gain-alt,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),alt (-1)^n,7.872920746799051e-17,9.769962616701378e-15,9.691e-15,3e-05,3.230e-10,PASS,real
+USE-P14-ramp-lag,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),ramp,0.0,-1.7985612998927536e-12,1.799e-12,0.001,1.799e-09,PASS,real
+USE-P14-phase-T5,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=5,-1.326123310358609,-1.3261235466890477,2.363e-07,3e-05,7.878e-03,PASS,real
+USE-P14-phase-T10,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=10,-0.9327735214062288,-0.9327741664773493,6.451e-07,3e-05,2.150e-02,PASS,real
+USE-P14-phase-T20,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=20,-0.31894619699245097,-0.31894675323948224,5.562e-07,3e-05,1.854e-02,PASS,real
+USE-P14-phase-T40,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=40,-0.0548035174208161,-0.05480363870005651,1.213e-07,3e-05,4.043e-03,PASS,real
+USE-P14-phase-T100,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),sine T=100,-0.003870355605526808,-0.0038703647465600575,9.141e-09,3e-05,3.047e-04,PASS,real
+USE-P14-phase-alt,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 7.872920746799051e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-P14-startup-flat,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+USE-P14-startup-ramp,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,1.9984014443252818e-15,1.998e-15,1e-06,1.998e-09,PASS,real
+USE-P14-startup-s20,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,7.005334978771316e-09,7.005e-09,1e-06,7.005e-03,PASS,real
+USE-P20-flat,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+USE-P20-gain-T5,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.31118933257073184,2.588e-07,3e-05,8.628e-03,PASS,real
+USE-P20-gain-T10,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.7061317139470238,5.699e-07,3e-05,1.900e-02,PASS,real
+USE-P20-gain-T20,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.2180266357272709,3.313e-07,3e-05,1.104e-02,PASS,real
+USE-P20-gain-T40,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.187377101444992,2.058e-07,3e-05,6.858e-03,PASS,real
+USE-P20-gain-T100,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0383783465526077,5.935e-08,3e-05,1.978e-03,PASS,real
+USE-P20-gain-alt,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,7.993605777301127e-15,7.956e-15,3e-05,2.652e-10,PASS,real
+USE-P20-ramp-lag,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),ramp,0.0,-1.199040866595169e-12,1.199e-12,0.001,1.199e-09,PASS,real
+USE-P20-phase-T5,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.4085324287306984,1.455e-07,3e-05,4.851e-03,PASS,real
+USE-P20-phase-T10,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1651721898869976,4.109e-07,3e-05,1.370e-02,PASS,real
+USE-P20-phase-T20,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6194047006868354,7.597e-07,3e-05,2.532e-02,PASS,real
+USE-P20-phase-T40,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.1414711742947033,2.911e-07,3e-05,9.705e-03,PASS,real
+USE-P20-phase-T100,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.010965441889286139,2.572e-08,3e-05,8.572e-04,PASS,real
+USE-P20-phase-alt,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-P20-startup-flat,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+USE-P20-startup-ramp,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.886579864025407e-15,2.887e-15,1e-06,2.887e-09,PASS,real
+USE-P20-startup-s20,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.0173305087235462e-08,1.017e-08,1e-06,1.017e-02,PASS,real
+USE-P30-flat,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,real
+USE-P30-gain-T5,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=5,0.20555513441232293,0.20555496590022695,1.685e-07,3e-05,5.617e-03,PASS,real
+USE-P30-gain-T10,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=10,0.4662358766247712,0.46623548850428753,3.881e-07,3e-05,1.294e-02,PASS,real
+USE-P30-gain-T20,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=20,0.9460546187090454,0.946053966429047,6.523e-07,3e-05,2.174e-02,PASS,real
+USE-P30-gain-T40,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=40,1.2691485386156178,1.269148587428513,4.881e-08,3e-05,1.627e-03,PASS,real
+USE-P30-gain-T100,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=100,1.081852283181575,1.0818524022486704,1.191e-07,3e-05,3.969e-03,PASS,real
+USE-P30-gain-alt,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),alt (-1)^n,9.698417603402851e-17,1.199040866595169e-14,1.189e-14,3e-05,3.964e-10,PASS,real
+USE-P30-ramp-lag,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),ramp,0.0,9.103828801926284e-13,9.104e-13,0.001,9.104e-10,PASS,real
+USE-P30-phase-T5,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=5,-1.4660399556347676,-1.4660400446786255,8.904e-08,3e-05,2.968e-03,PASS,real
+USE-P30-phase-T10,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=10,-1.3220832336858641,-1.3220834656028444,2.319e-07,3e-05,7.731e-03,PASS,real
+USE-P30-phase-T20,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=20,-0.9761837724349671,-0.9761843772191798,6.048e-07,3e-05,2.016e-02,PASS,real
+USE-P30-phase-T40,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=40,-0.36578356496087766,-0.36578417804966556,6.131e-07,3e-05,2.044e-02,PASS,real
+USE-P30-phase-T100,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),sine T=100,-0.03513561337436378,-0.03513569348079818,8.011e-08,3e-05,2.670e-03,PASS,real
+USE-P30-phase-alt,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 9.698417603402851e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-P30-startup-flat,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,real
+USE-P30-startup-ramp,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,5.551115123125783e-15,5.551e-15,1e-06,5.551e-09,PASS,real
+USE-P30-startup-s20,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.4834682149356127e-08,1.483e-08,1e-06,1.483e-02,PASS,real
+USE-NCL-flat,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,INFO,info
+USE-NCL-gain-T5,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.3111408868582338,4.870e-05,3e-05,1.623e+00,INFO,info
+USE-NCL-gain-T10,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.7060250447624493,1.072e-04,3e-05,3.575e+00,INFO,info
+USE-NCL-gain-T20,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.2179646091162148,6.236e-05,3e-05,2.079e+00,INFO,info
+USE-NCL-gain-T40,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.1874156159011966,3.872e-05,3e-05,1.291e+00,INFO,info
+USE-NCL-gain-T100,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0383894565130374,1.117e-05,3e-05,3.723e-01,INFO,info
+USE-NCL-gain-alt,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,7.993605777301127e-15,7.956e-15,3e-05,2.652e-10,INFO,info
+USE-NCL-ramp-lag,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),ramp,0.0,1.3766765505351941e-12,1.377e-12,0.001,1.377e-09,INFO,info
+USE-NCL-phase-T5,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.408559672473328,2.739e-05,3e-05,9.130e-01,INFO,info
+USE-NCL-phase-T10,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1652491124723636,7.733e-05,3e-05,2.578e+00,INFO,info
+USE-NCL-phase-T20,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6195469035199413,1.430e-04,3e-05,4.765e+00,INFO,info
+USE-NCL-phase-T40,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.14152567705204697,5.479e-05,3e-05,1.826e+00,INFO,info
+USE-NCL-phase-T100,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.0109702560321936,4.840e-06,3e-05,1.613e-01,INFO,info
+USE-NCL-phase-alt,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NCL-startup-flat,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,INFO,info
+USE-NCL-startup-ramp,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.220446049250313e-15,2.220e-15,1e-06,2.220e-09,INFO,info
+USE-NCL-startup-s20,UltimateSmootherE,"NCL: article as printed (1.414, 3.14159) vs P20 article",synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.9144776359780735e-06,1.914e-06,1e-06,1.914e+00,INFO,info
+USE-NCA-flat,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NCA-gain-T5,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.30954332258264516,1.646e-03,3e-05,5.488e+01,FAIL,neg_control
+USE-NCA-gain-T10,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.7032968975719741,2.835e-03,3e-05,9.451e+01,FAIL,neg_control
+USE-NCA-gain-T20,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.2179860357574508,4.093e-05,3e-05,1.364e+00,FAIL,neg_control
+USE-NCA-gain-T40,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.188542444663397,1.166e-03,3e-05,3.885e+01,FAIL,neg_control
+USE-NCA-gain-T100,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0385991830507293,2.209e-04,3e-05,7.363e+00,FAIL,neg_control
+USE-NCA-gain-alt,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,9.769962616701378e-15,9.733e-15,3e-05,3.244e-10,PASS,neg_control
+USE-NCA-ramp-lag,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),ramp,0.0,-5.617728504603292e-12,5.618e-12,0.001,5.618e-09,PASS,neg_control
+USE-NCA-phase-T5,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.4102519023175664,1.720e-03,3e-05,5.732e+01,FAIL,neg_control
+USE-NCA-phase-T10,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1688016569145327,3.630e-03,3e-05,1.210e+02,FAIL,neg_control
+USE-NCA-phase-T20,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6233517363421315,3.948e-03,3e-05,1.316e+02,FAIL,neg_control
+USE-NCA-phase-T40,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.14239793643415652,9.271e-04,3e-05,3.090e+01,FAIL,neg_control
+USE-NCA-phase-T100,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.011027960147066024,6.254e-05,3e-05,2.085e+00,FAIL,neg_control
+USE-NCA-phase-alt,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NCA-startup-flat,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NCA-startup-ramp,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.220446049250313e-15,2.220e-15,1e-06,2.220e-09,PASS,neg_control
+USE-NCA-startup-s20,UltimateSmootherE,NCA: pole factor a1 + 1/1000 vs P20 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,4.917043381169606e-05,4.917e-05,1e-06,4.917e+01,FAIL,neg_control
+USE-NCB-flat,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NCB-gain-T5,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.31082591692032974,3.637e-04,3e-05,1.212e+01,FAIL,neg_control
+USE-NCB-gain-T10,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.7053585296764234,7.738e-04,3e-05,2.579e+01,FAIL,neg_control
+USE-NCB-gain-T20,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.2170205082350307,1.006e-03,3e-05,3.355e+01,FAIL,neg_control
+USE-NCB-gain-T40,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.1868849653276847,4.919e-04,3e-05,1.640e+01,FAIL,neg_control
+USE-NCB-gain-T100,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0382824903879604,9.580e-05,3e-05,3.193e+00,FAIL,neg_control
+USE-NCB-gain-alt,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,0.002493765585187102,2.494e-03,3e-05,8.313e+01,FAIL,neg_control
+USE-NCB-ramp-lag,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),ramp,0.0,2.042810365310288e-12,2.043e-12,0.001,2.043e-09,PASS,neg_control
+USE-NCB-phase-T5,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.4006147061578165,7.918e-03,3e-05,2.639e+02,FAIL,neg_control
+USE-NCB-phase-T10,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.161923606160167,3.248e-03,3e-05,1.083e+02,FAIL,neg_control
+USE-NCB-phase-T20,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6182151091146443,1.189e-03,3e-05,3.963e+01,FAIL,neg_control
+USE-NCB-phase-T40,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.14117491954109584,2.960e-04,3e-05,9.865e+00,FAIL,neg_control
+USE-NCB-phase-T100,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.010939105421286635,2.631e-05,3e-05,8.770e-01,PASS,neg_control
+USE-NCB-phase-alt,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NCB-startup-flat,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NCB-startup-ramp,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.886579864025407e-15,2.887e-15,1e-06,2.887e-09,PASS,neg_control
+USE-NCB-startup-s20,UltimateSmootherE,NCB: c1 divisor 4.01 vs P20 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,1.78352531179371e-05,1.784e-05,1e-06,1.784e+01,FAIL,neg_control
+USE-NCS-flat,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NCS-gain-T5,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.31118933257073184,2.588e-07,3e-05,8.628e-03,PASS,neg_control
+USE-NCS-gain-T10,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.7061317139470238,5.699e-07,3e-05,1.900e-02,PASS,neg_control
+USE-NCS-gain-T20,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.2180266357272709,3.313e-07,3e-05,1.104e-02,PASS,neg_control
+USE-NCS-gain-T40,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.187377101444992,2.058e-07,3e-05,6.858e-03,PASS,neg_control
+USE-NCS-gain-T100,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0383783465526077,5.935e-08,3e-05,1.978e-03,PASS,neg_control
+USE-NCS-gain-alt,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,3.9968028886505635e-15,3.960e-15,3e-05,1.320e-10,PASS,neg_control
+USE-NCS-ramp-lag,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),ramp,0.0,-1.199040866595169e-12,1.199e-12,0.001,1.199e-09,PASS,neg_control
+USE-NCS-phase-T5,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.4085324287306984,1.455e-07,3e-05,4.851e-03,PASS,neg_control
+USE-NCS-phase-T10,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1651721898869976,4.109e-07,3e-05,1.370e-02,PASS,neg_control
+USE-NCS-phase-T20,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6194047006868354,7.597e-07,3e-05,2.532e-02,PASS,neg_control
+USE-NCS-phase-T40,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.1414711742947033,2.911e-07,3e-05,9.705e-03,PASS,neg_control
+USE-NCS-phase-T100,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.010965441889286139,2.572e-08,3e-05,8.572e-04,PASS,neg_control
+USE-NCS-phase-alt,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NCS-startup-flat,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NCS-startup-ramp,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.886579864025407e-15,2.887e-15,1e-06,2.887e-09,PASS,neg_control
+USE-NCS-startup-s20,UltimateSmootherE,NCS: start-up seeded 4 bars vs P20 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0008336536206108303,8.337e-04,1e-06,8.337e+02,FAIL,neg_control
+USE-NCX-flat,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NCX-gain-T5,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.30083243343774185,1.036e-02,3e-05,3.452e+02,FAIL,neg_control
+USE-NCX-gain-T10,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.6231313106614006,8.300e-02,3e-05,2.767e+03,FAIL,neg_control
+USE-NCX-gain-T20,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,0.9981517841976465,2.199e-01,3e-05,7.329e+03,FAIL,neg_control
+USE-NCX-gain-T40,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.154699446459514,3.268e-02,3e-05,1.089e+03,FAIL,neg_control
+USE-NCX-gain-T100,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0634281376025536,2.505e-02,3e-05,8.350e+02,FAIL,neg_control
+USE-NCX-gain-alt,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,7.993605777301127e-15,7.956e-15,3e-05,2.652e-10,PASS,neg_control
+USE-NCX-ramp-lag,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),ramp,0.0,1.021405182655144e-12,1.021e-12,0.001,1.021e-09,PASS,neg_control
+USE-NCX-phase-T5,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.3427603294530341,6.577e-02,3e-05,2.192e+03,FAIL,neg_control
+USE-NCX-phase-T10,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.0794583833800437,8.571e-02,3e-05,2.857e+03,FAIL,neg_control
+USE-NCX-phase-T20,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6822809881826827,6.288e-02,3e-05,2.096e+03,FAIL,neg_control
+USE-NCX-phase-T40,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.27467069865046356,1.332e-01,3e-05,4.440e+03,FAIL,neg_control
+USE-NCX-phase-T100,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.03611991490776924,2.515e-02,3e-05,8.385e+02,FAIL,neg_control
+USE-NCX-phase-alt,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NCX-startup-flat,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NCX-startup-ramp,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,0.00016534036235404947,1.653e-04,1e-06,1.653e+02,FAIL,neg_control
+USE-NCX-startup-s20,UltimateSmootherE,"NCX: x - HighPassFilter (HP-A, V.32:1) vs P20 article",synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.00460869124165475,4.609e-03,1e-06,4.609e+03,FAIL,neg_control
+USE-NC1-flat,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NC1-gain-T5,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.29594262334020527,1.525e-02,3e-05,5.082e+02,FAIL,neg_control
+USE-NC1-gain-T10,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.672329586303145,3.380e-02,3e-05,1.127e+03,FAIL,neg_control
+USE-NC1-gain-T20,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.1959435146402877,2.208e-02,3e-05,7.361e+02,FAIL,neg_control
+USE-NC1-gain-T40,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.1998529718728717,1.248e-02,3e-05,4.159e+02,FAIL,neg_control
+USE-NC1-gain-T100,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0421307674881504,3.752e-03,3e-05,1.251e+02,FAIL,neg_control
+USE-NC1-gain-alt,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,7.993605777301127e-15,7.956e-15,3e-05,2.652e-10,PASS,neg_control
+USE-NC1-ramp-lag,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),ramp,0.0,5.46229728115577e-12,5.462e-12,0.001,5.462e-09,PASS,neg_control
+USE-NC1-phase-T5,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.4170623207217126,8.530e-03,3e-05,2.843e+02,FAIL,neg_control
+USE-NC1-phase-T10,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1891762211034738,2.400e-02,3e-05,8.001e+02,FAIL,neg_control
+USE-NC1-phase-T20,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6654451525383007,4.604e-02,3e-05,1.535e+03,FAIL,neg_control
+USE-NC1-phase-T40,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.16006420300719107,1.859e-02,3e-05,6.198e+02,FAIL,neg_control
+USE-NC1-phase-T100,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.012634061591142533,1.669e-03,3e-05,5.562e+01,FAIL,neg_control
+USE-NC1-phase-alt,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NC1-startup-flat,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NC1-startup-ramp,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.6645352591003757e-15,2.665e-15,1e-06,2.665e-09,PASS,neg_control
+USE-NC1-startup-s20,UltimateSmootherE,NC1: P=21 vs P20 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0006227123323230277,6.227e-04,1e-06,6.227e+02,FAIL,neg_control
+USE-NC2-flat,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),flat,0.0,0.0,0.000e+00,1e-09,0.000e+00,PASS,neg_control
+USE-NC2-gain-T5,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,0.3111895913971734,0.30489609108289883,6.294e-03,3e-05,2.098e+02,FAIL,neg_control
+USE-NC2-gain-T10,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,0.7061322838536964,0.6615698001544587,4.456e-02,3e-05,1.485e+03,FAIL,neg_control
+USE-NC2-gain-T20,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,1.218026967050796,1.1154069586881539,1.026e-01,3e-05,3.421e+03,FAIL,neg_control
+USE-NC2-gain-T40,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,1.1873768956922388,1.1905386157447886,3.162e-03,3e-05,1.054e+02,FAIL,neg_control
+USE-NC2-gain-T100,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,1.0383782872038956,1.0482263942430563,9.848e-03,3e-05,3.283e+02,FAIL,neg_control
+USE-NC2-gain-alt,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),alt (-1)^n,3.7270763542244456e-17,5.773159728050814e-15,5.736e-15,3e-05,1.912e-10,PASS,neg_control
+USE-NC2-ramp-lag,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),ramp,0.0,-1.84297022087776e-12,1.843e-12,0.001,1.843e-09,PASS,neg_control
+USE-NC2-phase-T5,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=5,-1.4085322832040272,-1.3787203722276153,2.981e-02,3e-05,9.937e+02,FAIL,neg_control
+USE-NC2-phase-T10,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=10,-1.1651717789452467,-1.1299400220541473,3.523e-02,3e-05,1.174e+03,FAIL,neg_control
+USE-NC2-phase-T20,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=20,-0.6194039409919986,-0.6662006717165413,4.680e-02,3e-05,1.560e+03,FAIL,neg_control
+USE-NC2-phase-T40,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=40,-0.1414708831480573,-0.19704490464620125,5.557e-02,3e-05,1.852e+03,FAIL,neg_control
+USE-NC2-phase-T100,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),sine T=100,-0.010965416173332174,-0.01802345905902878,7.058e-03,3e-05,2.353e+02,FAIL,neg_control
+USE-NC2-phase-alt,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),"alt (-1)^n: SKIP, gain < phase_gate (expected 3.7270763542244456e-17 < 0.05)",nan,nan,nan,3e-05,nan,SKIP,skip
+USE-NC2-startup-flat,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),"flat, n < 500",0.0,0.0,0.000e+00,1e-06,0.000e+00,PASS,neg_control
+USE-NC2-startup-ramp,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),"ramp, n < 500",0.0,2.4424906541753444e-15,2.442e-15,1e-06,2.442e-09,PASS,neg_control
+USE-NC2-startup-s20,UltimateSmootherE,NC2: cos arg in degrees vs P20 article,synthetic (EURUSD D1 bar clock),"s20, n < 500",0.0,0.0014720490807582642,1.472e-03,1e-06,1.472e+03,FAIL,neg_control
+USE-P10-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(10, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,1.7763568394002505e-15,1.776e-15,1e-09,1.776e-06,PASS,imp
+USE-P14-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(14, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,2.220446049250313e-15,2.220e-15,1e-09,2.220e-06,PASS,imp
+USE-P20-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(20, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.9968028886505635e-15,3.997e-15,1e-09,3.997e-06,PASS,imp
+USE-P30-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(30, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,7.993605777301127e-15,7.994e-15,1e-09,7.994e-06,PASS,imp
+USE-NCL-imp-pass,UltimateSmootherE,"IMP must_pass: us_printed(20, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.774758283725532e-15,3.775e-15,1e-09,3.775e-06,PASS,imp
+USE-NCA-imp-pass,UltimateSmootherE,"IMP must_pass: us_nca(20, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.3306690738754696e-15,3.331e-15,1e-09,3.331e-06,PASS,imp
+USE-NCB-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(20, pass3, c1_div=4.01)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,4.440892098500626e-15,4.441e-15,1e-09,4.441e-06,PASS,imp
+USE-NCS-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(20, pass4)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.9968028886505635e-15,3.997e-15,1e-09,3.997e-06,PASS,imp
+USE-NCX-imp-pass,UltimateSmootherE,IMP must_pass: us_nx(20),synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,8.881784197001252e-16,8.882e-16,1e-09,8.882e-07,PASS,imp
+USE-NC1-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(21, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,3.3306690738754696e-15,3.331e-15,1e-09,3.331e-06,PASS,imp
+USE-NC2-imp-pass,UltimateSmootherE,"IMP must_pass: us_code(20, pass3, deg)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",0.0,5.329070518200751e-15,5.329e-15,1e-09,5.329e-06,PASS,imp
+USE-P20-imp-fail,UltimateSmootherE,IMP must_fail: us_nx(20),synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",1e-09,0.03005234097230325,3.005e-02,1e-09,3.005e+07,PASS,imp
+USE-NCS-imp-fail,UltimateSmootherE,"IMP must_fail: us_code(20, pass3)",synthetic (EURUSD D1 bar clock),"replay residual n>=0, overall",1e-09,0.05795663678501595,5.796e-02,1e-09,5.796e+07,PASS,imp
+USE-P10-floor-gain,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,5.271301870557465e-07,5.271e-07,3e-06,1.757e-01,PASS,floor
+USE-P10-floor-lag,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,2.220446049250313e-14,2.220e-14,0.0001,2.220e-10,PASS,floor
+USE-P10-floor-phase,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,7.552589087467254e-07,7.553e-07,3e-06,2.518e-01,PASS,floor
+USE-P10-floor-startup,UltimateSmootherE,P=10,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,3.995171748982784e-09,3.995e-09,1e-07,3.995e-02,PASS,floor
+USE-P14-floor-gain,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,6.346180854155392e-07,6.346e-07,3e-06,2.115e-01,PASS,floor
+USE-P14-floor-lag,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,1.7985612998927536e-12,1.799e-12,0.0001,1.799e-08,PASS,floor
+USE-P14-floor-phase,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,6.450711205197024e-07,6.451e-07,3e-06,2.150e-01,PASS,floor
+USE-P14-floor-startup,UltimateSmootherE,P=14,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,7.005334978771316e-09,7.005e-09,1e-07,7.005e-02,PASS,floor
+USE-P20-floor-gain,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,5.699066726316815e-07,5.699e-07,3e-06,1.900e-01,PASS,floor
+USE-P20-floor-lag,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,1.199040866595169e-12,1.199e-12,0.0001,1.199e-08,PASS,floor
+USE-P20-floor-phase,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,7.596948368160383e-07,7.597e-07,3e-06,2.532e-01,PASS,floor
+USE-P20-floor-startup,UltimateSmootherE,P=20,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,1.0173305087235462e-08,1.017e-08,1e-07,1.017e-01,PASS,floor
+USE-P30-floor-gain,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| gain,0.0,6.522799983477157e-07,6.523e-07,3e-06,2.174e-01,PASS,floor
+USE-P30-floor-lag,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| lag,0.0,9.103828801926284e-13,9.104e-13,0.0001,9.104e-09,PASS,floor
+USE-P30-floor-phase,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| phase,0.0,6.130887877375812e-07,6.131e-07,3e-06,2.044e-01,PASS,floor
+USE-P30-floor-startup,UltimateSmootherE,P=30,synthetic (EURUSD D1 bar clock),max |Zorro - book| startup,0.0,1.4834682149356127e-08,1.483e-08,1e-07,1.483e-01,PASS,floor
+USE-NCA-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+USE-NCB-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+USE-NCS-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,DETECTED:startup,DETECTED,,,,PASS,neg_control
+USE-NCX-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+USE-NC1-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+USE-NC2-verdict,UltimateSmootherE,control must FAIL at least one check of EVERY required kind,,all,"DETECTED:gain,phase,startup",DETECTED,,,,PASS,neg_control
+# batch=USE_ArticleFidelity variants_run=11 real=4 neg_control=6 info=1
+# real_checks=64 PASS=64 FAIL=0 ERROR=0
+# SKIP=11 (alt phase where the expected gain < phase_gate 0.05; not a PASS, not counted in real_checks): USE-P10-phase-alt,USE-P14-phase-alt,USE-P20-phase-alt,USE-P30-phase-alt,USE-NCL-phase-alt,USE-NCA-phase-alt,USE-NCB-phase-alt,USE-NCS-phase-alt,USE-NCX-phase-alt,USE-NC1-phase-alt,USE-NC2-phase-alt
+# NC NCA fails_as_required=True margin10_met=True max_ratio gain=9.451e+01 lag=5.618e-09 flat=0.000e+00 phase=1.316e+02 startup=4.917e+01 detected gain=True lag=False flat=False phase=True startup=True required=gain,phase,startup
+# NC NCB fails_as_required=True margin10_met=True max_ratio gain=8.313e+01 lag=2.043e-09 flat=0.000e+00 phase=2.639e+02 startup=1.784e+01 detected gain=True lag=False flat=False phase=True startup=True required=gain,phase,startup
+# NC NCS fails_as_required=True margin10_met=True max_ratio gain=1.900e-02 lag=1.199e-09 flat=0.000e+00 phase=2.532e-02 startup=8.337e+02 detected gain=False lag=False flat=False phase=False startup=True required=startup
+# NC NCX fails_as_required=True margin10_met=True max_ratio gain=7.329e+03 lag=1.021e-09 flat=0.000e+00 phase=4.440e+03 startup=4.609e+03 detected gain=True lag=False flat=False phase=True startup=True required=gain,phase,startup
+# NC NC1 fails_as_required=True margin10_met=True max_ratio gain=1.127e+03 lag=5.462e-09 flat=0.000e+00 phase=1.535e+03 startup=6.227e+02 detected gain=True lag=False flat=False phase=True startup=True required=gain,phase,startup
+# NC NC2 fails_as_required=True margin10_met=True max_ratio gain=3.421e+03 lag=1.843e-09 flat=0.000e+00 phase=1.852e+03 startup=1.472e+03 detected gain=True lag=False flat=False phase=True startup=True required=gain,phase,startup
+# INFO D2 floor gain: floor 6.523e-07 x10 = 6.523e-06 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor lag: floor 1.688e-12 x10 = 1.688e-11 <= tolerance 1.000e-03 -> window ok
+# INFO D2 floor flat: floor 0.000e+00 x10 = 0.000e+00 <= tolerance 1.000e-09 -> window ok
+# INFO D2 floor phase: floor 7.597e-07 x10 = 7.597e-06 <= tolerance 3.000e-05 -> window ok
+# INFO D2 floor startup: floor 1.483e-08 x10 = 1.483e-07 <= tolerance 1.000e-06 -> window ok
+# INFO D2 margin NCA: error/tolerance gain 94.5x, lag 5.26e-09x, flat 0x, phase 132x, startup 49.2x -> 10x margin met (phase)
+# INFO D2 margin NCB: error/tolerance gain 83.1x, lag 1.78e-09x, flat 0x, phase 264x, startup 17.8x -> 10x margin met (phase)
+# INFO D2 margin NCS: error/tolerance gain 0.019x, lag 9.55e-10x, flat 0x, phase 0.0253x, startup 834x -> 10x margin met (startup)
+# INFO D2 margin NCX: error/tolerance gain 7.33e+03x, lag 2.22e-11x, flat 0x, phase 4.44e+03x, startup 4.61e+03x -> 10x margin met (gain)
+# INFO D2 margin NC1: error/tolerance gain 1.13e+03x, lag 5.31e-09x, flat 0x, phase 1.53e+03x, startup 623x -> 10x margin met (phase)
+# INFO D2 margin NC2: error/tolerance gain 3.42e+03x, lag 1.69e-09x, flat 0x, phase 1.85e+03x, startup 1.47e+03x -> 10x margin met (gain)
+# INFO variant NCL (role info, not a control, not in [detect]): effect/tolerance gain 3.57x, lag 1.8e-09x, flat 0x, phase 4.77x, startup 1.91x; reported, never PASS/FAIL
+# IMP USE-P10-imp-pass residual overall=1.776e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=1.554e-15 s10=1.554e-15 s20=1.332e-15 s40=1.554e-15 s100=1.554e-15 alt=1.110e-15 ramp=1.776e-15
+# IMP USE-P14-imp-pass residual overall=2.220e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=2.220e-15 s10=2.220e-15 s20=1.776e-15 s40=2.220e-15 s100=1.776e-15 alt=4.441e-16 ramp=2.220e-15
+# IMP USE-P20-imp-pass residual overall=3.997e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=2.665e-15 s10=2.887e-15 s20=3.109e-15 s40=2.887e-15 s100=2.887e-15 alt=4.441e-16 ramp=3.997e-15
+# IMP USE-P30-imp-pass residual overall=7.994e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=4.663e-15 s10=4.441e-15 s20=3.997e-15 s40=4.663e-15 s100=3.997e-15 alt=4.441e-16 ramp=7.994e-15
+# IMP USE-NCL-imp-pass residual overall=3.775e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=2.887e-15 s10=2.665e-15 s20=2.665e-15 s40=2.665e-15 s100=2.887e-15 alt=4.441e-16 ramp=3.775e-15
+# IMP USE-NCA-imp-pass residual overall=3.331e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.109e-15 s10=2.887e-15 s20=2.887e-15 s40=2.887e-15 s100=2.665e-15 alt=4.441e-16 ramp=3.331e-15
+# IMP USE-NCB-imp-pass residual overall=4.441e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.109e-15 s10=2.665e-15 s20=2.887e-15 s40=3.109e-15 s100=2.442e-15 alt=4.441e-16 ramp=4.441e-15
+# IMP USE-NCS-imp-pass residual overall=3.997e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.109e-15 s10=2.887e-15 s20=3.109e-15 s40=2.887e-15 s100=2.887e-15 alt=4.441e-16 ramp=3.997e-15
+# IMP USE-NCX-imp-pass residual overall=8.882e-16 tol=1e-09 PASS per_input: flat=0.000e+00 s5=8.882e-16 s10=8.882e-16 s20=8.882e-16 s40=8.882e-16 s100=8.882e-16 alt=4.441e-16 ramp=6.661e-16
+# IMP USE-NC1-imp-pass residual overall=3.331e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.109e-15 s10=2.665e-15 s20=2.887e-15 s40=3.109e-15 s100=2.665e-15 alt=4.441e-16 ramp=3.331e-15
+# IMP USE-NC2-imp-pass residual overall=5.329e-15 tol=1e-09 PASS per_input: flat=0.000e+00 s5=3.775e-15 s10=3.331e-15 s20=2.887e-15 s40=4.441e-15 s100=2.665e-15 alt=4.441e-16 ramp=5.329e-15
+# IMP USE-P20-imp-fail residual overall=3.005e-02 tol=1e-09 PASS per_input: flat=0.000e+00 s5=7.698e-03 s10=6.183e-03 s20=4.609e-03 s40=2.523e-03 s100=1.034e-03 alt=3.005e-02 ramp=1.653e-04
+# IMP USE-NCS-imp-fail residual overall=5.796e-02 tol=1e-09 PASS per_input: flat=0.000e+00 s5=1.177e-02 s10=5.263e-03 s20=8.337e-04 s40=1.102e-04 s100=7.167e-06 alt=5.796e-02 ramp=3.997e-15
+# O_PEAK P10 max_measured_gain=1.197811563335451 (INFO)
+# O_PEAK P14 max_measured_gain=1.258503754658453 (INFO)
+# O_PEAK P20 max_measured_gain=1.2180266357272709 (INFO)
+# O_PEAK P30 max_measured_gain=1.269148587428513 (INFO)
+# O_IMP_RESIDUAL P10 imp=1.776e-15 zorro_vs_book_gain_max=5.271e-07 zorro_vs_book_lag=2.220e-14 zorro_vs_book_phase=7.553e-07 zorro_vs_book_startup=3.995e-09 (INFO)
+# O_IMP_RESIDUAL P14 imp=2.220e-15 zorro_vs_book_gain_max=6.346e-07 zorro_vs_book_lag=1.799e-12 zorro_vs_book_phase=6.451e-07 zorro_vs_book_startup=7.005e-09 (INFO)
+# O_IMP_RESIDUAL P20 imp=3.997e-15 zorro_vs_book_gain_max=5.699e-07 zorro_vs_book_lag=1.199e-12 zorro_vs_book_phase=7.597e-07 zorro_vs_book_startup=1.017e-08 (INFO)
+# O_IMP_RESIDUAL P30 imp=7.994e-15 zorro_vs_book_gain_max=6.523e-07 zorro_vs_book_lag=9.104e-13 zorro_vs_book_phase=6.131e-07 zorro_vs_book_startup=1.483e-08 (INFO)
+# raw_file=C:/Zorro/Data/GEN_USE_raw.csv sha256=b47897d9cc56d12d045e7f01b2d8502104431743915c3a7fe26f1a0034745c74
+# VERDICT: PASS
