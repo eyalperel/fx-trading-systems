@@ -11,6 +11,13 @@ Implements docs/harness/STEP2_HANDOFF.md "Stage 3" incl. Amendment 2.
   * write_script: exclusive create, never overwrites a file.
 No Zorro run happens here (stage 4).
 
+RFX stage 1 (HARNESS_DESIGN D6, oscillator family), all opt-in, older specs regenerate byte-identical scripts:
+  * variant `outputs = ["sum", "ms", "r"]`: the LAST name is the function's return value, the others are `var*`
+    out-parameters passed after the integer params (`Y[k] = ReflexCore(S, 20, &Y[a], &Y[b])`); raw columns <output>_<id>_<input>;
+  * [inputs.invariance] transforms: transformed copies of every sine (ids <tid><T>), called only by variants with
+    `invariance = true`, written for the return output only;
+  * [checks] trace_gate / bound / linear_output enable the trace, bound and invariance checks (checker.osc_rows).
+
 Usage: python analysis/harness/generator.py SPEC.toml [--out-dir DIR] [--lint-only]
 Labels: (a) source states, (b) verified here, (c) inference.
 """
@@ -31,7 +38,8 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
-DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup")      # checker._kind values (D4 adds the last three)
+DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance")   # checker._kind values (D4 adds three, D6 three)
+OUTPUT_NAMES = ("sum", "ms", "r")           # RFX variant outputs; the last one listed is the return value
 IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
 SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate); also 'pass<n>' (USE)
 
@@ -64,11 +72,24 @@ def alternating_of(spec):
     return spec["inputs"].get("alternating", False) is True
 
 
+def copies_of(spec):
+    """[inputs.invariance].transforms (D6 rule 4): [{id, level [n, d], amp [n, d]}], default none."""
+    inv = spec["inputs"].get("invariance")
+    return list(inv.get("transforms", [])) if isinstance(inv, dict) and isinstance(inv.get("transforms"), list) else []
+
+
+def osc_of(spec):
+    """True when [checks].trace_gate is present: the oscillator check set (trace / bound / invariance) is on."""
+    chk = spec.get("checks", {})
+    return isinstance(chk, dict) and chk.get("trace_gate") is not None
+
+
 def input_ids(spec):
-    """flat, sines, [alt], ramp. alt sits after the sines and before ramp, so without the flag the ids and slots are
-    exactly the old ones."""
+    """flat, sines, [alt], ramp, then the invariance copies. alt sits after the sines and before ramp, so without the flag
+    the ids and slots are exactly the old ones."""
     return (["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]]
-            + (["alt"] if alternating_of(spec) else []) + ["ramp"])
+            + (["alt"] if alternating_of(spec) else []) + ["ramp"]
+            + ["%s%d" % (tr["id"], t) for tr in copies_of(spec) for t in spec["inputs"]["sine_periods"]])
 
 
 def call_params(v):
@@ -180,9 +201,45 @@ def validate_spec(spec):
                     % (chk["startup_seed"], "/".join(SEEDS))))
     has_lag = dc == 1
     any_phases = any(phase_periods(t) for t in spec["expected"].values() if isinstance(t, dict))
+    # D6: oscillator check set (trace / bound / invariance), on when [checks].trace_gate is present
+    osc = osc_of(spec)
+    transforms = copies_of(spec)
+    inv = spec["inputs"].get("invariance")
+    if inv is not None:
+        tl = inv.get("transforms") if isinstance(inv, dict) else None
+        if not osc:
+            err.append(("INVARIANCE_BAD", "[inputs.invariance] needs [checks].trace_gate (the oscillator check set)"))
+        if not isinstance(tl, list) or not tl:
+            err.append(("INVARIANCE_BAD", "[inputs.invariance] needs a non-empty transforms list"))
+        else:
+            tids = set()
+            for tr in tl:
+                tid = tr.get("id") if isinstance(tr, dict) else None
+                if (not isinstance(tid, str) or not re.fullmatch(r"[A-Za-z_]+", tid) or tid in ("s", "flat", "alt", "ramp")
+                        or tid in tids):
+                    err.append(("INVARIANCE_BAD", "transform id %r must be unique letters, not s/flat/alt/ramp" % (tid,)))
+                    continue
+                tids.add(tid)
+                for k in ("level", "amp"):
+                    pr = tr.get(k)
+                    if (not isinstance(pr, list) or len(pr) != 2 or not all(isinstance(i, int) and not isinstance(i, bool)
+                                                                            and i > 0 for i in pr)):
+                        err.append(("INVARIANCE_BAD", "transform %s: %s %r must be [numerator, denominator], positive integers"
+                                    % (tid, k, pr)))
+    if osc:
+        tg, bd, lo = chk.get("trace_gate"), chk.get("bound"), chk.get("linear_output")
+        if not _is_num(tg) or tg <= 0:
+            err.append(("OSC_BAD", "[checks].trace_gate %r must be a positive number" % (tg,)))
+        if not _is_num(bd) or bd <= 0:
+            err.append(("OSC_BAD", "[checks].bound %r must be a positive number" % (bd,)))
+        if lo not in OUTPUT_NAMES or lo == "r":
+            err.append(("OSC_BAD", "[checks].linear_output %r must be one of sum / ms (the output the v1 checks read)" % (lo,)))
+    elif "bound" in chk or "linear_output" in chk:
+        err.append(("OSC_BAD", "[checks].bound / linear_output without [checks].trace_gate"))
     need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
         + (["phase"] if any_phases or alt else []) \
-        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else []) \
+        + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else [])
     for q in need_tol:
         t = spec["tolerances"].get(q)
         if not isinstance(t, dict) or "value" not in t:
@@ -243,6 +300,9 @@ def validate_spec(spec):
             if not isinstance(t.get("article"), str) or R.article_model(t.get("article")) is None:
                 err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
                             "reference.article_model (needed by the start-up check)" % (name, t.get("article"))))
+        if osc and (not isinstance(t.get("article"), str) or R.reflex_article_model(t.get("article")) is None):
+            err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
+                        "reference.reflex_article_model (needed by the trace check)" % (name, t.get("article"))))
 
     # variants
     roles = [v.get("role") for v in spec["variants"]]
@@ -263,6 +323,21 @@ def validate_spec(spec):
                 err.append(("PARAMS_BAD", "variant %s: params %r must be a non-empty list of integers" % (vid, pl)))
         elif not isinstance(v.get("param"), int):
             err.append(("STRUCT", "variant %s: param must be an integer" % vid))
+        if osc:
+            outs = v.get("outputs")
+            if (not isinstance(outs, list) or not outs or any(o not in OUTPUT_NAMES for o in outs)
+                    or len(set(outs)) != len(outs) or outs[-1] != "r"):
+                err.append(("OUTPUTS_BAD", "variant %s: outputs %r must be a list of unique names from %s ending in 'r' "
+                            "(the return value)" % (vid, outs, "/".join(OUTPUT_NAMES))))
+            elif v.get("role") == "real" and spec["checks"].get("linear_output") not in outs:
+                err.append(("OUTPUTS_BAD", "variant %s: a real variant must export the linear output %r"
+                            % (vid, spec["checks"].get("linear_output"))))
+            if "invariance" in v and not isinstance(v["invariance"], bool):
+                err.append(("INVARIANCE_BAD", "variant %s: invariance %r must be true or false" % (vid, v["invariance"])))
+            if v.get("invariance") is True and not transforms:
+                err.append(("INVARIANCE_BAD", "variant %s: invariance = true but [inputs.invariance] is missing" % vid))
+        elif "outputs" in v or "invariance" in v:
+            err.append(("OSC_BAD", "variant %s: outputs / invariance without [checks].trace_gate" % vid))
         if v.get("kind") == "inline":
             fn, body = v.get("function"), v.get("body")
             if not fn or not isinstance(body, str) or not re.search(r"\b%s\s*\(" % re.escape(fn), body):
@@ -296,7 +371,8 @@ def validate_spec(spec):
                     err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
                                 % vid))
                 applicable = ["flat", "gain"] + (["lag"] if has_lag else ["resid"]) \
-                    + (["phase"] if any_phases else []) + (["startup"] if sin else [])
+                    + (["phase"] if any_phases else []) + (["startup"] if sin else []) \
+                    + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else [])
                 if (not isinstance(kinds, list) or not kinds
                         or any(k not in DETECT_KINDS or k not in applicable for k in kinds)):
                     err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the "
@@ -412,7 +488,8 @@ def validate_spec(spec):
 
     # INFO only: D2 floor x 10 <= tolerance per quantity; per-control 10x margin
     kinds_on = ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else []) \
-        + (["resid"] if not has_lag else []) + (["startup"] if sin else [])
+        + (["resid"] if not has_lag else []) + (["startup"] if sin else []) \
+        + (["trace"] + (["invariance"] if transforms else []) if osc else [])
     tol = {q: spec["tolerances"][q]["value"] for q in kinds_on}
     fl = spec.get("floor")
     for q in kinds_on:
@@ -473,6 +550,10 @@ def to_checker_spec(spec):
             vd["resid"] = e["resid"]
         if "phases" in e:
             vd["phases"] = phase_periods(e)
+        if "outputs" in v:                       # RFX stage 1 (D6): only oscillator specs
+            vd["outputs"] = list(v["outputs"])
+            if v.get("invariance"):
+                vd["invariance"] = True
         if alternating_of(spec):                 # RFF stage 1 (2A): alt keys only when the flag is on
             vd["gain_alt"] = e["gain_alt"]
             if "phase_alt" in e:
@@ -499,6 +580,14 @@ def to_checker_spec(spec):
     if alternating_of(spec):
         d["alt"] = True
         d["phase_gate"] = spec["checks"]["phase_gate"]
+    if osc_of(spec):
+        d["osc"] = dict(gate=spec["checks"]["trace_gate"], bound=spec["checks"]["bound"],
+                        linear=spec["checks"]["linear_output"])
+        for q in ("trace", "bound", "invariance"):
+            if q in t:
+                d["tol_" + q] = t[q]["value"]
+    if copies_of(spec):
+        d["transforms"] = [dict(id=tr["id"], level=_frac(tr["level"]), amp=_frac(tr["amp"])) for tr in copies_of(spec)]
     if "detect" in spec:
         d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
     if "ox" in spec:
@@ -571,7 +660,9 @@ def lint_infos(allow):
 
 
 def _fn_of(spec, v):
-    return v["function"] if v["kind"] == "inline" else spec["batch"]["indicator"]
+    """The function a variant calls: inline -> its own; a param variant -> [batch].indicator unless it names an included
+    function (`function = ...`, RFX: the superseded Reflex_Superseded from its own include)."""
+    return v["function"] if (v["kind"] == "inline" or v.get("function")) else spec["batch"]["indicator"]
 
 
 def build_script(spec):
@@ -587,9 +678,28 @@ def build_script(spec):
     ids = input_ids(spec)
     alt = alternating_of(spec)
     nin = len(ids)
+    transforms = copies_of(spec)
+    nbase = nin - len(transforms) * len(ts)
     variants = spec["variants"]
     nvar = len(variants)
-    ncalls = nvar * nin
+    plan = []                                # per variant: (input indexes it is called on, outputs per call, first Y slot)
+    nslots = ncalls = 0
+    for v in variants:
+        ks = list(range(nin)) if v.get("invariance") else list(range(nbase))
+        nout = len(v.get("outputs") or [None])
+        plan.append((ks, nout, nslots))
+        nslots += nout * len(ks)
+        ncalls += len(ks)
+
+    def vcols(vi):
+        """[(raw column name, Y slot)] of variant vi, in raw-file order (= checker.variant_columns)."""
+        v = variants[vi]
+        ks, nout, first = plan[vi]
+        if not v.get("outputs"):
+            return [("y_%s_%s" % (v["id"], ids[k]), first + j) for j, k in enumerate(ks)]
+        return [("%s_%s_%s" % (o, v["id"], ids[k]), first + j * nout + q)
+                for q, o in enumerate(v["outputs"]) for j, k in enumerate(ks) if q == nout - 1 or k < nbase]
+    ycols = sum(len(vcols(vi)) for vi in range(nvar))
     N = inp["n_bars"]
     L = []
     a = L.append
@@ -610,13 +720,20 @@ def build_script(spec):
     a("//           build and the PI macro is 3.14159, so every constant is built at run time from integers.")
     a("//           %s is used only as a bar clock; clock_close is exported for the checker's magnitude guard." % z["clock_asset"])
     a("// OUTPUT:   %s  (%d rows n=0..%d + header; %d columns; values printed with 15 decimals)"
-      % (z["raw_file"], N, N - 1, 2 + nin + nvar * nin))
+      % (z["raw_file"], N, N - 1, 2 + nin + ycols))
+    if transforms:
+        a("//           copies %s: every sine again with the transform's level/amp (sc/of ...), for variants with invariance." %
+          ", ".join("%s (level %d/%d amp %d/%d)" % (tr["id"], tr["level"][0], tr["level"][1], tr["amp"][0], tr["amp"][1])
+                    for tr in transforms))
     a("// CALLS:    %d filter calls per bar, variant-major, unconditional, fixed order (gotchas 3.1)." % ncalls)
     a("// FEEDING:  every x[n], n=0..%d, reaches the filters exactly once; INITRUN and EXITRUN feed and write nothing." % (N - 1))
     a("// NO LOOKBACK GUARD: LookBack = 0, warmup bars are exported too; the checker requires n = 0..%d contiguous." % (N - 1))
     a("// SOURCES:  expected values and tolerances are in the spec, each with an (a)/(b)/(c) label.")
     a("//           Pattern copied from strategies/tests/H1_SuperSmoother2Pole_Harness.c (b: H1 run 2 PASS).")
-    a("// Y[] index = variant*%d + input." % nin)
+    if nslots == nvar * nin:
+        a("// Y[] index = variant*%d + input." % nin)
+    else:
+        a("// Y[] slots: variant-major; per call the outputs in the listed order (the last is the return value); see the call comments.")
     a("")
     a("#include <default.c>")
     for inc in includes(spec):
@@ -668,7 +785,7 @@ def build_script(spec):
     a("")
     a("\tint n;")
     a("\tvar X[%d];" % nin)
-    a("\tvar Y[%d];" % ncalls)
+    a("\tvar Y[%d];" % nslots)
     a("\tn = %s_n;" % p)
     a("")
     a("\t// --- constants built at RUN TIME from integers (gotchas 9d.1, 9d.2) ---")
@@ -676,6 +793,9 @@ def build_script(spec):
     a("\tvar amp = %d;\tamp = amp / %d;" % tuple(inp["amp"]))
     a("\tvar slp = %d;\tslp = slp / %d;" % tuple(inp["slope"]))
     a("\tvar pi_x = 4;\tpi_x = pi_x * atan(1);")
+    for tr in transforms:
+        a("\tvar lvl_%s = %d;\tlvl_%s = lvl_%s / %d;" % (tr["id"], tr["level"][0], tr["id"], tr["id"], tr["level"][1]))
+        a("\tvar amp_%s = %d;\tamp_%s = amp_%s / %d;" % (tr["id"], tr["amp"][0], tr["id"], tr["id"], tr["amp"][1]))
     a("")
     a("\t// --- inputs from the bar counter (radians); no decimal literal, no PI macro ---")
     a("\tX[0] = lvl;")
@@ -683,27 +803,33 @@ def build_script(spec):
         a("\tX[%d] = lvl + amp * sin(2 * pi_x * n / %d);" % (k, t))
     if alt:
         a("\tX[%d] = lvl + amp * %s_sgn;" % (len(ts) + 1, p))
-    a("\tX[%d] = lvl + slp * n;" % (nin - 1))
+    a("\tX[%d] = lvl + slp * n;" % (nbase - 1))
+    kk = nbase
+    for tr in transforms:
+        for t in ts:
+            a("\tX[%d] = lvl_%s + amp_%s * sin(2 * pi_x * n / %d);" % (kk, tr["id"], tr["id"], t))
+            kk += 1
     a("")
     a("\t// --- input series: %d unconditional calls, fixed order ---" % nin)
     for k in range(nin):
         a("\tvars S%d = series(X[%d], %d);" % (k, k, z["series_len"]))
     a("")
     a("\t// --- %d filter calls, variant-major, unconditional, fixed order ---" % ncalls)
-    slot = 0
-    for v in variants:
-        for k, iid in enumerate(ids):
-            a("\tY[%d] = %s(S%d, %s);\t// %s %s" % (slot, _fn_of(spec, v), k,
-                                                   ", ".join("%d" % i for i in call_params(v)), v["id"], iid))
-            slot += 1
+    for v, (ks, nout, first) in zip(variants, plan):
+        for j, k in enumerate(ks):
+            s0 = first + j * nout
+            ptrs = "".join(", &Y[%d]" % (s0 + q) for q in range(nout - 1))      # out-parameters (RFX): all outputs but the last
+            a("\tY[%d] = %s(S%d, %s%s);\t// %s %s" % (s0 + nout - 1, _fn_of(spec, v), k,
+                                                      ", ".join("%d" % i for i in call_params(v)), ptrs, v["id"], ids[k]))
     a("")
     a("\t// --- write one row per fed bar ---")
     a("\tif(!%s_done) {" % p)
     a("\t\tif(!%s_hdr) {" % p)
     hdr_cols = ["n", "clock_close"] + ["x_" + i for i in ids]
     a('\t\t\tfile_append(%s_RAW, "%s", 0);' % (P, ",".join(hdr_cols)))
-    for v in variants:
-        a('\t\t\tfile_append(%s_RAW, ",%s", 0);' % (P, ",".join("y_%s_%s" % (v["id"], i) for i in ids)))
+    for vi in range(nvar):
+        for hc in _chunks([c for c, _ in vcols(vi)], 9) if len(vcols(vi)) > 9 else [[c for c, _ in vcols(vi)]]:
+            a('\t\t\tfile_append(%s_RAW, ",%s", 0);' % (P, ",".join(hc)))      # > 9 columns (RFX): several short appends
     a('\t\t\tfile_append(%s_RAW, "\\n", 0);' % P)
     a("\t\t\t%s_hdr = 1;" % p)
     a("\t\t}")
@@ -713,7 +839,7 @@ def build_script(spec):
         args = ", ".join(e for _, e in ch)
         a('\t\tfile_append(%s_RAW, strf("%s%s", %s), 0);' % (P, "," if ci else "", fmt, args))
     for vi in range(nvar):
-        for ci, ch in enumerate(_chunks(list(range(vi * nin, (vi + 1) * nin)), 9)):
+        for ci, ch in enumerate(_chunks([s for _, s in vcols(vi)], 9)):
             fmt = ",".join("%.15f" for _ in ch)
             args = ",".join("Y[%d]" % j for j in ch)
             a('\t\tfile_append(%s_RAW, strf(",%s", %s), 0);' % (P, fmt, args))
