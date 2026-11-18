@@ -296,13 +296,102 @@ def simulate_cascade(stages, x):
 
 
 def simulate_any(model, x, seed=None):
-    """simulate() for a Filter, simulate_cascade() for a Cascade (its stages carry their own seeds; `seed` unused)."""
+    """simulate() for a Filter, simulate_cascade() for a Cascade (its stages carry their own seeds; `seed` unused),
+    Seeded: its own seed, Complement: x - f(x) with f's own seed (USE stage 1)."""
     if isinstance(model, Cascade):
         return simulate_cascade(model.stages, x)
+    if isinstance(model, Seeded):
+        return simulate(model.filter, x, seed=model.seed)
+    if isinstance(model, Complement):
+        x = np.asarray(x, dtype=float)
+        return x - simulate(model.f, x, seed=model.seed)
     return simulate(model, x, seed=seed)
 
 
+# ---------------------------------------------------------------------------------------------------
+# UltimateSmoother (USE stage 1). (a) Source: Ehlers, "The Ultimate Smoother", TASC V.42:04 (2024), sidebar
+# "UltimateSmoother Function, In EasyLanguage":
+#     a1 = expvalue(-1.414*3.14159 / Period);  b1 = 2*a1*Cosine(1.414*180 / Period);  c2 = b1;  c3 = -a1*a1;
+#     c1 = (1 + c2 - c3) / 4;
+#     If CurrentBar >= 4 Then US = (1 - c1)*Price + (2*c1 - c2)*Price[1] - (c1 + c3)*Price[2] + c2*US[1] + c3*US[2];
+#     If CurrentBar < 4 Then US = Price;
+# D1 rule 1: 1.414 -> sqrt(2), 3.14159 -> pi, degrees -> radians. Start-up: the first 3 outputs equal Price
+# (seed "pass3"); the recursion starts on the 4th call.
+# ---------------------------------------------------------------------------------------------------
+Seeded = namedtuple("Seeded", "filter seed")          # a Filter that carries its own seed (IMP models, USE stage 1)
+Complement = namedtuple("Complement", "f seed")       # y = x - f(x), f simulated with its own seed
+
+
+def _us_filter(a1, arg, c1_div=4.0):
+    """Coefficient block of the UltimateSmoother: a1 = pole factor, arg = cosine argument (radians)."""
+    b1 = 2.0 * a1 * math.cos(arg)
+    c2, c3 = b1, -a1 * a1
+    c1 = (1.0 + c2 - c3) / c1_div
+    return Filter(b=(1.0 - c1, 2.0 * c1 - c2, -(c1 + c3)), a=(c2, c3))
+
+
+def us_article(period):
+    """UltimateSmoother from the article formula with the D1 replacements (exact sqrt(2) and pi)."""
+    return _us_filter(math.exp(-math.sqrt(2.0) * math.pi / period), math.sqrt(2.0) * math.pi / period)
+
+
+def us_code(period, pi_value=PI_ZORRO, c1_div=4.0, deg=False):
+    """The [corrected_code] lines of the USE spec (indicators/ehlers/UltimateSmootherE.c after the fix):
+        us_k = sqrt(2.0); us_a1 = exp(-us_k*PI/Period); us_b1 = 2.0*us_a1*cos(us_k*PI/Period); us_c2 = us_b1;
+        us_c3 = -us_a1*us_a1; us_c1 = (1.0 + us_c2 - us_c3)/4.0; 3-term numerator, 2 feedback terms.
+    Control hooks (default off): c1_div = NCB (divisor of c1, 4 -> 4.01); deg = NC2 (cosine argument sqrt(2)*180/P,
+    exponent unchanged). The start-up seed is NOT part of the coefficients: simulate(seed='pass3')."""
+    a1 = math.exp(-math.sqrt(2.0) * pi_value / period)
+    arg = math.sqrt(2.0) * 180.0 / period if deg else math.sqrt(2.0) * pi_value / period
+    return _us_filter(a1, arg, c1_div)
+
+
+def us_nca(period, add=1.0 / 1000, pi_value=PI_ZORRO):
+    """NCA: a1 + `add` BEFORE b1, c3 and c1 are derived; the cosine argument is unchanged. The control body writes
+    `us_a1 = us_a1 + <1/1000 built from a variable>` (gotchas 9d.8)."""
+    a1 = math.exp(-math.sqrt(2.0) * pi_value / period) + add
+    return _us_filter(a1, math.sqrt(2.0) * pi_value / period)
+
+
+def us_printed(period, pi_value=PI_ZORRO):
+    """NCL (INFO): the article as printed, 1.414 and 3.14159 built from integers (1414/1000, 314159/100000) in the
+    exponent; the cosine's 180 degrees is the library's PI (Zorro float32 PI, as ss3_printed): cos(1.414*PI/P).
+    (b) With exact pi in the cosine instead the effect vs us_article(20) is gain 1.0708e-4 / phase 1.4277e-4; with Zorro
+    PI it is 1.0724e-4 / 1.4296e-4 (the planning chat's 1.072e-4 / 1.430e-4 are the Zorro-PI values)."""
+    k = 1414.0 / 1000
+    a1 = math.exp(-k * (314159.0 / 100000) / period)
+    return _us_filter(a1, k * pi_value / period)
+
+
+def one_minus(f, seed="zero"):
+    """Complement model y = x - f(x) with f simulated under its own `seed` (NCX: f = the verified HighPassFilter,
+    k = sqrt(2)/2, seed zero)."""
+    return Complement(f=f, seed=seed)
+
+
+def one_minus_filter(f):
+    """The complement as ONE Filter: H = 1 - N/D = (D - N)/D, so b = D - f.b (padded), a = f.a. (b: test_one_minus)
+    As one filter it equals the Complement model when the output history is x[0] ('price' seed) and f's history is 0."""
+    d = [1.0] + [-a for a in f.a]
+    n = max(len(d), len(f.b))
+    d += [0.0] * (n - len(d))
+    b = list(f.b) + [0.0] * (n - len(f.b))
+    return Filter(b=tuple(float(di - bi) for di, bi in zip(d, b)), a=f.a)
+
+
+def as_filter(model):
+    """The Filter whose analytic H the model has (for gain_at / phase_at): Filter, Seeded, Complement. Cascade: None."""
+    if isinstance(model, Filter):
+        return model
+    if isinstance(model, Seeded):
+        return model.filter
+    if isinstance(model, Complement):
+        return one_minus_filter(model.f)
+    return None
+
+
 _ARTICLE_RE = re.compile(r"hp_article\((\d{1,4})\)")
+_US_ARTICLE_RE = re.compile(r"us_article\((\d{1,4})\)")
 _ROOF_ARTICLE_RE = re.compile(r"roof_article\((\d{1,4}),\s*(\d{1,4})\)")
 
 
@@ -317,6 +406,9 @@ def article_model(name):
     m = _ROOF_ARTICLE_RE.fullmatch(name)
     if m and int(m.group(1)) > 0 and int(m.group(2)) > 0:
         return roof_article(int(m.group(1)), int(m.group(2)))
+    m = _US_ARTICLE_RE.fullmatch(name)
+    if m and int(m.group(1)) > 0:
+        return us_article(int(m.group(1)))
     return None
 
 
@@ -350,6 +442,18 @@ IMP_MODELS["roof_code(48, 10, ss_deg)"] = lambda: roof_code(48, 10, ss_deg=True)
 IMP_MODELS["roof_code(49, 10)"] = lambda: roof_code(49, 10)
 IMP_MODELS["roof_code(48, 11)"] = lambda: roof_code(48, 11)
 IMP_MODELS["roof_nco(48, 10)"] = lambda: roof_nco(48, 10)
+
+# UltimateSmootherE (USE stage 1; c: names chosen here). Every model carries its own seed (Seeded / Complement), so a
+# must_fail replay can use another seed than the variant declares (NCS replayed with the pass3 model).
+for _p in (10, 14, 20, 30):
+    IMP_MODELS["us_code(%d, pass3)" % _p] = (lambda p=_p: Seeded(us_code(p), "pass3"))
+IMP_MODELS["us_code(21, pass3)"] = lambda: Seeded(us_code(21), "pass3")                          # NC1
+IMP_MODELS["us_code(20, pass4)"] = lambda: Seeded(us_code(20), "pass4")                          # NCS
+IMP_MODELS["us_code(20, pass3, c1_div=4.01)"] = lambda: Seeded(us_code(20, c1_div=401.0 / 100), "pass3")    # NCB
+IMP_MODELS["us_code(20, pass3, deg)"] = lambda: Seeded(us_code(20, deg=True), "pass3")           # NC2
+IMP_MODELS["us_nca(20, pass3)"] = lambda: Seeded(us_nca(20), "pass3")                            # NCA
+IMP_MODELS["us_printed(20, pass3)"] = lambda: Seeded(us_printed(20), "pass3")                    # NCL (INFO variant)
+IMP_MODELS["us_nx(20)"] = lambda: one_minus(hp_code(20, k=math.sqrt(2.0) / 2.0), "zero")         # NCX: x - HighPassFilter
 
 
 def bump3(v, units=1):
@@ -440,19 +544,36 @@ AMP = 0.01              # h1_check.AMP
 RAMP_SLOPE = 0.0001     # h1_check.RAMP_SLOPE
 
 
+_PASS_RE = re.compile(r"pass(\d+)")
+
+
+def pass_n(seed):
+    """n of a 'pass<n>' seed string, else None."""
+    m = _PASS_RE.fullmatch(seed) if isinstance(seed, str) else None
+    return int(m.group(1)) if m else None
+
+
 def simulate(f, x, seed=None):
     """Run the recursion on array x. Input history before n = 0 is x[0] (Zorro series seeding, gotchas 9d.6).
     Output history before n = 0 (`seed`):
         None or "price"  y[-k] = x[0]  (as h1_check.simulate; = series(Price[0], n) in the .c). Default: SS2/SS3
                          behaviour byte-identical.
-        "zero"           y[-k] = 0     (the article's EasyLanguage `Vars: HP(0)`, HP-A)."""
-    if seed not in (None, "price", "zero"):
-        raise ValueError("seed must be None, 'price' or 'zero', got %r" % (seed,))
+        "zero"           y[-k] = 0     (the article's EasyLanguage `Vars: HP(0)`, HP-A).
+        "pass<n>"        USE stage 1: output = input for the first n samples (y[k] = x[k], k < n), recursion from
+                         sample n on with the real input history and the output history = those passthrough outputs
+                         (EasyLanguage `If CurrentBar < n+1 Then US = Price`, V.42:04). Output history before 0
+                         (only reachable when n < len(a)) is x[0]."""
+    n_pass = pass_n(seed)
+    if seed not in (None, "price", "zero") and n_pass is None:
+        raise ValueError("seed must be None, 'price', 'zero' or 'pass<n>', got %r" % (seed,))
     x = np.asarray(x, dtype=float)
     y = np.empty(len(x))
     nb, na = len(f.b), len(f.a)
     y_hist = 0.0 if seed == "zero" else x[0]
     for n in range(len(x)):
+        if n_pass is not None and n < n_pass:
+            y[n] = x[n]
+            continue
         acc = 0.0
         for k in range(nb):
             acc += f.b[k] * (x[n - k] if n - k >= 0 else x[0])

@@ -33,7 +33,12 @@ LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
 DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup")      # checker._kind values (D4 adds the last three)
 IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
-SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate)
+SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate); also 'pass<n>' (USE)
+
+
+def seed_ok(s):
+    """A variant / start-up seed: zero, price or pass<n> (n >= 1; USE stage 1, reference.simulate)."""
+    return s in SEEDS or (isinstance(s, str) and R.pass_n(s) is not None and R.pass_n(s) >= 1)
 
 
 class SpecError(Exception):
@@ -170,6 +175,9 @@ def validate_spec(spec):
         ids_ok = input_ids(spec)
         if not isinstance(sin, list) or not sin or any(i not in ids_ok for i in sin):
             err.append(("STARTUP_BAD", "[checks].startup_inputs %r: need a non-empty list of %s" % (sin, ids_ok)))
+    if "startup_seed" in chk and not seed_ok(chk["startup_seed"]):
+        err.append(("STARTUP_BAD", "[checks].startup_seed %r must be one of %s or pass<n>"
+                    % (chk["startup_seed"], "/".join(SEEDS))))
     has_lag = dc == 1
     any_phases = any(phase_periods(t) for t in spec["expected"].values() if isinstance(t, dict))
     need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
@@ -240,12 +248,12 @@ def validate_spec(spec):
     roles = [v.get("role") for v in spec["variants"]]
     for v in spec["variants"]:
         vid = v.get("id")
-        if v.get("role") not in ("real", "neg_control"):
-            err.append(("STRUCT", "variant %s: role must be real or neg_control" % vid))
+        if v.get("role") not in ("real", "neg_control", "info"):
+            err.append(("STRUCT", "variant %s: role must be real, neg_control or info" % vid))
         if v.get("expected") not in spec["expected"]:
             err.append(("STRUCT", "variant %s: expected table %r not defined" % (vid, v.get("expected"))))
-        if "seed" in v and v["seed"] not in SEEDS:
-            err.append(("SEED_BAD", "variant %s: seed %r must be one of %s" % (vid, v["seed"], "/".join(SEEDS))))
+        if "seed" in v and not seed_ok(v["seed"]):
+            err.append(("SEED_BAD", "variant %s: seed %r must be one of %s or pass<n>" % (vid, v["seed"], "/".join(SEEDS))))
         if "params" in v and "param" in v:
             err.append(("PARAMS_BAD", "variant %s: give param or params, not both" % vid))
         elif "params" in v:
@@ -434,6 +442,13 @@ def validate_spec(spec):
         info.append("INFO D2 margin %s: error/tolerance %s -> %s%s"
                     % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items()),
                        "10x margin met (%s)" % best if ratios[best] >= 10 else "10x margin NOT met", note))
+    for v in spec["variants"]:                      # role "info" (USE stage 1): run and reported, never PASS/FAIL
+        if v["role"] == "info":
+            eff = v.get("effect") or {}
+            ratios = {q: eff[q] / tol[q] for q in kinds_on if q in eff}
+            info.append("INFO variant %s (role info, not a control, not in [detect]): effect/tolerance %s; "
+                        "reported, never PASS/FAIL" % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items())
+                                                       or "no measured effect in spec"))
     info.extend(corr_info)
     return err, info
 
@@ -476,6 +491,8 @@ def to_checker_spec(spec):
         d["dc_gain"] = spec["checks"].get("dc_gain", 1.0)
         if spec["checks"].get("startup_inputs"):
             d["startup"] = list(spec["checks"]["startup_inputs"])
+        if "startup_seed" in spec["checks"]:
+            d["startup_seed"] = spec["checks"]["startup_seed"]
         for q in ("phase", "resid", "startup"):
             if q in t:
                 d["tol_" + q] = t[q]["value"]
@@ -582,7 +599,8 @@ def build_script(spec):
     a("//")
     a("// PURPOSE:  Batch harness %s. Feeds synthetic inputs through %s (%d variants:" % (b["id_prefix"], b["indicator"], nvar))
     a("//           %s) and writes the RAW outputs. It does NOT judge anything." % ", ".join(
-        v["id"] + (" [control]" if v["role"] == "neg_control" else "") for v in variants))
+        v["id"] + (" [control]" if v["role"] == "neg_control" else (" [info]" if v["role"] == "info" else ""))
+        for v in variants))
     a("//           Python (analysis/harness/checker.py) measures and writes PASS/FAIL.")
     a("// PREREG:   %s" % b["prereg"])
     a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s%s | ramp level+slope*n"

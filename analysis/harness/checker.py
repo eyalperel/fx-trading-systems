@@ -253,7 +253,9 @@ def check_rows(spec, variant, x, yv, xe=None):
                 add("startup-%s" % i, "%s, n < %d" % (i, spec["w"]), 0.0, float("nan"), spec["tol_startup"],
                     float("nan"), res="ERROR")
                 continue
-            yref = R.simulate(model, np.asarray(xs[i], dtype=float)[:spec["w"]], seed="zero")
+            # the source's start-up rule: 'zero' (EasyLanguage Vars x(0), HP/RFF) unless the spec says otherwise
+            # ([checks].startup_seed, e.g. 'pass3' for the UltimateSmoother: first 3 outputs = Price)
+            yref = R.simulate(model, np.asarray(xs[i], dtype=float)[:spec["w"]], seed=spec.get("startup_seed", "zero"))
             a = m_startup(spec, yv[i], yref)
             add("startup-%s" % i, "%s, n < %d" % (i, spec["w"]), 0.0, a, spec["tol_startup"], a)
     return rows
@@ -480,7 +482,14 @@ def evaluate(spec, raw):
     rows = []
     for v in spec["variants"]:
         yv = {i: raw.cols["y_%s_%s" % (v["id"], i)] for i in input_names(spec)}
-        rows += check_rows(spec, v, x, yv, xe=xe)
+        vr = check_rows(spec, v, x, yv, xe=xe)
+        if v["role"] == "info":              # USE stage 1: an INFO variant is measured and reported, never PASS/FAIL
+            for r in vr:
+                if r["result"] in ("PASS", "FAIL"):
+                    r["result"] = "INFO"
+                if r["result"] != "SKIP":
+                    r["role"] = "info"
+        rows += vr
     nc = nc_report(spec, rows)
     if spec.get("imp"):
         rows += imp_rows(spec, raw, x) + floor_rows(spec, rows)
@@ -603,16 +612,18 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
         ext = bool(spec.get("extended_report"))
         nreal = sum(v["role"] == "real" for v in spec["variants"])
         nneg = sum(v["role"] == "neg_control" for v in spec["variants"])
+        ninfo = sum(v["role"] == "info" for v in spec["variants"])
+        xinfo = (" info=%d" % ninfo) if ninfo else ""
         if not ext:
             f.write("# batch=%s variants_run=%d\n" % (spec["batch"], len(spec["variants"]) if not errs
                                                        else 0))
         elif not errs:
-            f.write("# batch=%s variants_run=%d real=%d neg_control=%d\n"
-                    % (spec["batch"], len(spec["variants"]), nreal, nneg))
+            f.write("# batch=%s variants_run=%d real=%d neg_control=%d%s\n"
+                    % (spec["batch"], len(spec["variants"]), nreal, nneg, xinfo))
         else:
             gids = sorted(set(g for g, _ in errs))
             f.write("# batch=%s variants NOT evaluated (guard fired: %s) variants_defined=%d real=%d "
-                    "neg_control=%d\n" % (spec["batch"], ",".join(gids), len(spec["variants"]), nreal, nneg))
+                    "neg_control=%d%s\n" % (spec["batch"], ",".join(gids), len(spec["variants"]), nreal, nneg, xinfo))
         f.write("# real_checks=%d PASS=%d FAIL=%d ERROR=%d\n"
                 % (c["n_real"], c["n_pass"], c["n_fail"], c["n_err"]))
         if spec.get("alt"):
