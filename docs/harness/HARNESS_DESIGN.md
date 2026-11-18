@@ -282,6 +282,16 @@ Rejected: trace replay on every input (fails on rounding noise, finding above); 
 without exporting the linear stage (linear-stage fidelity hidden inside a nonlinear comparison; floor harder to read).
 (c) MESAStochastic reuses rules 2-4 and adds a gate on its min/max range (HH - LL).
 
+**D6 defaults recorded under D2 rule 1 (2026-11-18, RFX_ArticleFidelity spec).** New quantities, first set in the Reflex spec:
+**trace 3e-5** (absolute, normalised output; Reflex floor 1.57e-6 = the `PI` gap, floor x10 = 1.57e-5: inside the window but
+with only ~1.9x margin, the thinnest so far; floor guard tol/10 = 3e-6), **bound: relative allowance 1e-12** on the exact bound
+(Reflex |r| <= 5, attained on the first non-zero Sum row), **invariance 1e-9** (float64 floor ~1.2e-12 to 2.2e-12), **trace gate
+g = 0.01** (judgement (c); smallest margin on a correct variant 0.037, L14), **W = 700** (Reflex MS memory). The gate is evaluated
+on the MODEL's MS, never on the run's, so a broken variant cannot gate away its own rows; a sine with every row gated is an ERROR.
+(b) Back-check of the spec draft (planning chat, independent code): NCS / NCT effects with ONE static MS shared by all 16 calls per
+bar (8 inputs x 2 instances, variant-major) reproduced 1.347901 / 1.878025, the same for three input orders; the old float32 weights
+give |r| = 1/sqrt(float32(0.04)) = 5.000000055879 on the first superseded call, so the bound check also fires on NCS (not required).
+
 **Open items (2026-11-17).**
 - The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
   run record should carry every pre-registered exception (small tooling task).
