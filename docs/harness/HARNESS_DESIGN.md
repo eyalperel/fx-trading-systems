@@ -32,6 +32,7 @@ SuperSmoother 2-pole and 3-pole, HighPassFilter, RoofingFilter, UltimateSmoother
 
 Bounded / rescaling oscillators (stochastics, RSI-type, Fisher) are out of scope for version 1:
 the ramp method fails silently on them (gotchas 9c.2). They get a second harness family later.
+**Oscillator family: D6 (decided 2026-11-18), first indicator Reflex.**
 
 ## 3. Components
 
@@ -240,6 +241,46 @@ traceable to the pre-registration), a new spec for a one-model change (re-runs e
 (gotchas 9d.8). The fold was measured by a probe (ba54022), the model corrected by Amendment 2 (e29febd), and run 2
 (same script, byte-identical raw) PASSED (512781c). Run 1 stays recorded as FAIL. The planning chat had first fitted
 the value from run 1's data; the probe measured it independently; disclosed in the amendment.
+
+**D6 - DECIDED 2026-11-18 (planning chat, user): check set for the oscillator family (normalised / bounded outputs).**
+First indicator: Reflex (TASC V.38:02; source review `docs/harness/REFLEX_SOURCE_REVIEW.md`, `05be788`). Order within the
+family: Reflex, then MESAStochastic (C1).
+
+Evidence (b), planning chat, independent float64 model of the article Reflex (L = 20; inputs as SS2F: level 1.1, sine
+amplitude 0.01, ramp slope 1e-4; 3000 bars; price seed):
+- Reflex = Sum/sqrt(MS) is scale-invariant, so it also normalises rounding noise. On the ramp, Sum falls to ~3e-17 by row
+  200 while sqrt(MS) keeps decaying (1.3e-10 at row 700, 1.4e-16 at row 1500): **the article model itself** gives
+  max |Reflex| = 2.86 over rows >= 700 (-1.39 at row 1500). "Flat -> 0, ramp -> 0" is not a valid known answer for the
+  normalised output. Flat gave exactly 0 here only because every bar rounds identically (c: not to be relied on in Zorro).
+- Sines are well conditioned: max |Reflex| over rows >= 700 is 1.397 (T = 20) / 1.400 (T = 40), near sqrt(2) for a pure sine.
+- Zorro `PI` gap (float32(3.14159) vs pi) on Reflex, max |diff| over rows >= 700, sines T = 5/10/20/40/100: <= 1.6e-6
+  for L = 14/20/21/30 (largest 1.57e-6, L = 20, T = 10).
+- Start-up memory: MS decays as 0.96^n, below 1e-12 after ln(1e-12)/ln(0.96) = 676.87 bars.
+
+Rules (apply to every oscillator spec; each spec states how they map to its indicator):
+1. **Expose the linear stage.** Where the indicator has a linear front end, the corrected code exports it through a
+   core function with out-parameters (Reflex: `ReflexCore(Price, Length, &sum, &ms)`; `Reflex(Price, Length)` is a thin
+   wrapper, so callers do not change). The linear stage gets the existing v1 checks unchanged (flat, gains, phases,
+   alternating input, ramp residual; D4). (b) Reflex Sum = FIR on Filt with weights (L-1)/(2L) at lags 0 and L, -1/L at
+   lags 1..L-1: DC gain 0 and a double zero at DC (ramp residual 0).
+2. **Trace replay (new quantity).** The normalised output is compared row by row with the article model, rows >= W
+   (W pre-registered, >= the start-up memory of every state, e.g. 677 for Reflex), on well-conditioned inputs only
+   (sines). A conditioning gate, pre-registered per spec (Reflex: sqrt(MS) / input amplitude >= g), excludes rows where
+   the denominator is near zero; gated rows are counted and reported. Flat and ramp rows of the normalised output are
+   INFO, never PASS/FAIL. Tolerance per D2 (floor = `PI` gap + IMP residual).
+3. **Structural bound.** Every row of every input satisfies the indicator's exact bound (Reflex: MS >= 0.04 Sum^2, so
+   |Reflex| <= 5). No model needed; it also covers the ill-conditioned rows.
+4. **Invariance.** The same sine scaled (x k) and offset (other level) must give the same normalised output within
+   tolerance (Zorro-internal comparison, no model). Catches a missing / wrong normalisation and DC leakage. Needs extra
+   input copies in the generator.
+5. **Multiple instances.** Several instances run every bar in the standard layout; a shared-state control (Reflex: the
+   superseded `static rx_MS` body, called as two instances) must fail trace replay.
+6. **Start-up** where the source states no rule: INFO only (Reflex R-4).
+D2 per-control detection (Amendment 1) and the D5 amendment mechanism are unchanged.
+
+Rejected: trace replay on every input (fails on rounding noise, finding above); checking only the normalised output
+without exporting the linear stage (linear-stage fidelity hidden inside a nonlinear comparison; floor harder to read).
+(c) MESAStochastic reuses rules 2-4 and adds a gate on its min/max range (HH - LL).
 
 **Open items (2026-11-17).**
 - The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
