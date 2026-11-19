@@ -19,6 +19,16 @@ RFX stage 1 (HARNESS_DESIGN D6, oscillator family), all opt-in, older specs rege
   * [checks] trace_gate / bound / linear_output enable the trace, bound and invariance checks (checker.osc_rows).
 MST stage 1 (MESAStochastic): output names roof / stoc / out (the return value is `r` or `out`); [checks].bound may be a two-sided
 absolute pair [lo, hi] read from [checks].bound_output; variants may carry `startup_info = true` (INFO start-up row).
+LRSI stage 1 (Laguerre RSI), all opt-in, older specs regenerate byte-identical scripts:
+  * real-valued call parameters ([batch].real_params = true, opt-in): a `params` element may be a pair [n, d] (positive integers): the script builds it at run time,
+    `var <p>_g<n>_<d> = n; <p>_g<n>_<d> = <p>_g<n>_<d> / d;` (gotchas 9d.1, 9d.8), and passes the variable;
+  * output names l0 / l3 (linear) and den; [checks].linear_output may be a LIST (each linear output gets the v1 checks against its
+    own table: variant key `expected_outputs = { l0 = "<table>", l3 = "<table>" }`);
+  * [inputs].ramp_down: input `rampdn` (level - slope*n) after `ramp`;
+  * [checks].ramp_exact = { ramp = 1.0, rampdn = 0.0 } (known answers of the normalised output, rows >= W) and
+    [checks].startup_output = true (start-up rows < W of the normalised output vs the model, PASS/FAIL);
+  * variant key `skip_inputs = [...]` (base inputs other than the sines): no call, no raw column, no check for those pairs;
+  * [lint].no_static = [files]: the pre-run structural check that a file has no `static` token (comments excluded).
 
 Usage: python analysis/harness/generator.py SPEC.toml [--out-dir DIR] [--lint-only]
 Labels: (a) source states, (b) verified here, (c) inference.
@@ -40,10 +50,12 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
-DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance")   # checker._kind values (D4 adds three, D6 three)
-OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out")   # variant outputs (RFX: sum / ms / r, MST: roof / stoc / out)
+DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance",
+                "ramp_exact")                # checker._kind values (D4 adds three, D6 three, LRSI one)
+OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out", "l0", "l3", "den")   # variant outputs (RFX, MST, LRSI: l0 / l3 / den / out)
 RETURN_NAMES = ("r", "out")                  # the last output listed is the function's return value, one of these
-LINEAR_NAMES = ("sum", "ms", "roof")         # outputs the v1 checks may read
+LINEAR_NAMES = ("sum", "ms", "roof", "l0", "l3")   # outputs the v1 checks may read
+SKIPPABLE = ("flat", "alt", "ramp", "rampdn")      # base inputs a variant may skip (never a sine: trace / start-up need them)
 IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
 SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate); also 'pass<n>' (USE)
 
@@ -88,20 +100,64 @@ def osc_of(spec):
     return isinstance(chk, dict) and chk.get("trace_gate") is not None
 
 
+def ramp_down_of(spec):
+    """[inputs].ramp_down (LRSI stage 1): adds the falling ramp 'rampdn' (level - slope*n) after 'ramp'. Default off."""
+    return spec["inputs"].get("ramp_down", False) is True
+
+
 def input_ids(spec):
-    """flat, sines, [alt], ramp, then the invariance copies. alt sits after the sines and before ramp, so without the flag
-    the ids and slots are exactly the old ones."""
+    """flat, sines, [alt], ramp, [rampdn], then the invariance copies. alt sits after the sines and before ramp, rampdn right
+    after ramp, so without the flags the ids and slots are exactly the old ones."""
     return (["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]]
-            + (["alt"] if alternating_of(spec) else []) + ["ramp"]
+            + (["alt"] if alternating_of(spec) else []) + ["ramp"] + (["rampdn"] if ramp_down_of(spec) else [])
             + ["%s%d" % (tr["id"], t) for tr in copies_of(spec) for t in spec["inputs"]["sine_periods"]])
 
 
+def linear_outputs_of(spec):
+    """[checks].linear_output as a list ([] without it). A string is the one-output form of RFX / MST."""
+    lo = spec.get("checks", {}).get("linear_output") if isinstance(spec.get("checks"), dict) else None
+    if lo is None:
+        return []
+    return list(lo) if isinstance(lo, list) else [lo]
+
+
+def multi_linear(spec):
+    """True when [checks].linear_output is a list (LRSI: l0 and l3, each against its own table; check ids carry -<output>)."""
+    return isinstance(spec.get("checks", {}).get("linear_output"), list)
+
+
 def call_params(v):
-    """Integer arguments of a variant's call after the input series: `params = [48, 10]` (RFF stage 1, decision 1A) or
-    `param = 48` (old form). None if neither is given."""
+    """Arguments of a variant's call after the input series: `params = [48, 10]` (RFF stage 1, decision 1A) or `param = 48` (old
+    form); an element may be a pair [n, d] (LRSI: a real value built at run time). None if neither is given."""
     if "params" in v:
         return v["params"]
     return [v["param"]] if "param" in v else None
+
+
+def _is_pair(p):
+    return (isinstance(p, list) and len(p) == 2
+            and all(isinstance(i, int) and not isinstance(i, bool) and i > 0 for i in p))
+
+
+def real_param_name(prefix, pair):
+    """Light-C name of a real-valued parameter n/d: <prefix>_g<n>_<d> (LRSI stage 1)."""
+    return "%s_g%d_%d" % (prefix, pair[0], pair[1])
+
+
+def real_params(spec):
+    """Distinct [n, d] pairs used by any variant, in first-use order."""
+    out = []
+    for v in spec["variants"]:
+        for p in call_params(v) or []:
+            if _is_pair(p) and p not in out:
+                out.append(p)
+    return out
+
+
+def skips_of(v):
+    """skip_inputs of a variant (LRSI stage 1, Amendment 1 A): base input ids not called. Default none."""
+    s = v.get("skip_inputs")
+    return list(s) if isinstance(s, list) else []
 
 
 def includes(spec):
@@ -165,9 +221,13 @@ def validate_spec(spec):
             err.append(("ID_NOT_C", "%s %r is not a valid C identifier fragment [A-Za-z0-9_]" % (what, v)))
 
     idcheck("batch id_prefix", b["id_prefix"])
+    if "real_params" in b and not isinstance(b["real_params"], bool):
+        err.append(("PARAMS_BAD", "[batch].real_params %r must be true or false" % (b["real_params"],)))
     if "alternating" in spec["inputs"] and not isinstance(spec["inputs"]["alternating"], bool):
         err.append(("ALT_BAD", "[inputs].alternating %r must be true or false" % (spec["inputs"]["alternating"],)))
     alt = alternating_of(spec)
+    if "ramp_down" in spec["inputs"] and not isinstance(spec["inputs"]["ramp_down"], bool):
+        err.append(("RAMPDN_BAD", "[inputs].ramp_down %r must be true or false" % (spec["inputs"]["ramp_down"],)))
     inc = spec["zorro"].get("include")
     if not (isinstance(inc, str) and inc) and not (isinstance(inc, list) and inc
                                                    and all(isinstance(i, str) and i for i in inc)):
@@ -244,15 +304,33 @@ def validate_spec(spec):
             err.append(("OSC_BAD", "[checks].bound %r must be a positive number or a pair [lo, hi]" % (bd,)))
         elif "bound_output" in chk:
             err.append(("OSC_BAD", "[checks].bound_output is only valid with a two-sided bound [lo, hi]"))
-        if lo not in LINEAR_NAMES:
+        if isinstance(lo, list):                         # LRSI: several linear outputs, each with its own table
+            if not lo or len(set(lo)) != len(lo) or any(o not in LINEAR_NAMES for o in lo):
+                err.append(("OSC_BAD", "[checks].linear_output %r must be a non-empty list of distinct names from %s"
+                            % (lo, "/".join(LINEAR_NAMES))))
+        elif lo not in LINEAR_NAMES:
             err.append(("OSC_BAD", "[checks].linear_output %r must be one of %s (the output the v1 checks read)"
                         % (lo, "/".join(LINEAR_NAMES))))
-    elif "bound" in chk or "linear_output" in chk or "bound_output" in chk:
-        err.append(("OSC_BAD", "[checks].bound / linear_output / bound_output without [checks].trace_gate"))
+        rex = chk.get("ramp_exact")
+        if rex is not None:
+            want = ["ramp"] + (["rampdn"] if ramp_down_of(spec) else [])
+            if (not isinstance(rex, dict) or not rex or any(k not in want for k in rex)
+                    or not all(_is_num(v_) for v_ in rex.values())):
+                err.append(("RAMP_EXACT_BAD", "[checks].ramp_exact %r must map inputs from %s to a number" % (rex, want)))
+        so = chk.get("startup_output")
+        if so is not None and not isinstance(so, bool):
+            err.append(("OSC_BAD", "[checks].startup_output %r must be true or false" % (so,)))
+    elif ("bound" in chk or "linear_output" in chk or "bound_output" in chk or "ramp_exact" in chk
+          or "startup_output" in chk):
+        err.append(("OSC_BAD", "[checks].bound / linear_output / bound_output / ramp_exact / startup_output without "
+                               "[checks].trace_gate"))
+    osu = osc and chk.get("startup_output") is True               # start-up of the normalised output, PASS/FAIL
+    orex = osc and isinstance(chk.get("ramp_exact"), dict) and bool(chk.get("ramp_exact"))
     need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
         + (["phase"] if any_phases or alt else []) \
-        + (["resid"] if not has_lag else []) + (["startup"] if sin else []) \
-        + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else [])
+        + (["resid"] if not has_lag else []) + (["startup"] if sin or osu else []) \
+        + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else []) \
+        + (["ramp_exact"] if orex else [])
     for q in need_tol:
         t = spec["tolerances"].get(q)
         if not isinstance(t, dict) or "value" not in t:
@@ -315,7 +393,7 @@ def validate_spec(spec):
                             "reference.article_model (needed by the start-up check)" % (name, t.get("article"))))
         if osc and (not isinstance(t.get("article"), str) or R.osc_article_model(t.get("article")) is None):
             err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
-                        "reference.osc_article_model (reflex_article / mesa_article; needed by the trace check)"
+                        "reference.osc_article_model (reflex_article / mesa_article / lrsi_article; needed by the trace check)"
                         % (name, t.get("article"))))
 
     # variants
@@ -332,21 +410,44 @@ def validate_spec(spec):
             err.append(("PARAMS_BAD", "variant %s: give param or params, not both" % vid))
         elif "params" in v:
             pl = v["params"]
+            rp = b.get("real_params") is True            # LRSI: [n, d] pairs only in a spec that opts in (older specs refuse them)
             if (not isinstance(pl, list) or not pl
-                    or not all(isinstance(i, int) and not isinstance(i, bool) for i in pl)):
-                err.append(("PARAMS_BAD", "variant %s: params %r must be a non-empty list of integers" % (vid, pl)))
+                    or not all((isinstance(i, int) and not isinstance(i, bool)) or (rp and _is_pair(i)) for i in pl)):
+                err.append(("PARAMS_BAD", "variant %s: params %r must be a non-empty list of integers%s" % (
+                    vid, pl, " or [n, d] pairs of positive integers (a real value built at run time)" if rp
+                    else " ([n, d] pairs need [batch].real_params = true)")))
         elif not isinstance(v.get("param"), int):
             err.append(("STRUCT", "variant %s: param must be an integer" % vid))
         if osc:
             outs = v.get("outputs")
+            lins = linear_outputs_of(spec)
             if (not isinstance(outs, list) or not outs or any(o not in OUTPUT_NAMES for o in outs)
                     or len(set(outs)) != len(outs) or outs[-1] not in RETURN_NAMES
                     or any(o in RETURN_NAMES for o in outs[:-1])):
                 err.append(("OUTPUTS_BAD", "variant %s: outputs %r must be a list of unique names from %s ending in %s "
                             "(the return value, once)" % (vid, outs, "/".join(OUTPUT_NAMES), " or ".join(RETURN_NAMES))))
-            elif v.get("role") == "real" and spec["checks"].get("linear_output") not in outs:
+            elif v.get("role") == "real" and any(o not in outs for o in lins):
                 err.append(("OUTPUTS_BAD", "variant %s: a real variant must export the linear output %r"
                             % (vid, spec["checks"].get("linear_output"))))
+            elif multi_linear(spec):                     # LRSI: one expected table per exported linear output
+                eo = v.get("expected_outputs")
+                mine = [o for o in outs if o in lins]
+                if mine and (not isinstance(eo, dict) or sorted(eo) != sorted(mine)
+                             or any(eo[o] not in spec["expected"] for o in mine)):
+                    err.append(("EXPECTED_OUTPUTS_BAD", "variant %s: expected_outputs %r must name a defined expected table for "
+                                "each exported linear output %s" % (vid, eo, mine)))
+                elif not mine and "expected_outputs" in v:
+                    err.append(("EXPECTED_OUTPUTS_BAD", "variant %s: expected_outputs without a linear output" % vid))
+            sk = v.get("skip_inputs")
+            if sk is not None:
+                ok_ids = [i for i in SKIPPABLE if i in input_ids(spec)]
+                if (not isinstance(sk, list) or not sk or len(set(sk)) != len(sk)
+                        or any(i not in ok_ids for i in sk)):
+                    err.append(("SKIP_BAD", "variant %s: skip_inputs %r must be a non-empty list of distinct ids from %s "
+                                "(never a sine: trace and start-up need them)" % (vid, sk, ok_ids)))
+                elif isinstance(outs, list) and any(o in lins for o in outs):
+                    err.append(("SKIP_BAD", "variant %s: skip_inputs on a variant that exports a linear output (its v1 checks "
+                                "need every base input)" % vid))
             if "invariance" in v and not isinstance(v["invariance"], bool):
                 err.append(("INVARIANCE_BAD", "variant %s: invariance %r must be true or false" % (vid, v["invariance"])))
             if "startup_info" in v and not isinstance(v["startup_info"], bool):
@@ -355,6 +456,10 @@ def validate_spec(spec):
                 err.append(("INVARIANCE_BAD", "variant %s: invariance = true but [inputs.invariance] is missing" % vid))
         elif "outputs" in v or "invariance" in v or "startup_info" in v:
             err.append(("OSC_BAD", "variant %s: outputs / invariance / startup_info without [checks].trace_gate" % vid))
+        if "skip_inputs" in v and not osc:
+            err.append(("SKIP_BAD", "variant %s: skip_inputs without [checks].trace_gate" % vid))
+        if "expected_outputs" in v and not multi_linear(spec):
+            err.append(("EXPECTED_OUTPUTS_BAD", "variant %s: expected_outputs needs [checks].linear_output as a list" % vid))
         if v.get("kind") == "inline":
             fn, body = v.get("function"), v.get("body")
             if not fn or not isinstance(body, str) or not re.search(r"\b%s\s*\(" % re.escape(fn), body):
@@ -388,8 +493,9 @@ def validate_spec(spec):
                     err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
                                 % vid))
                 applicable = ["flat", "gain"] + (["lag"] if has_lag else ["resid"]) \
-                    + (["phase"] if any_phases else []) + (["startup"] if sin else []) \
-                    + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else [])
+                    + (["phase"] if any_phases else []) + (["startup"] if sin or osu else []) \
+                    + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else []) \
+                    + (["ramp_exact"] if orex else [])
                 if (not isinstance(kinds, list) or not kinds
                         or any(k not in DETECT_KINDS or k not in applicable for k in kinds)):
                     err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the "
@@ -427,6 +533,13 @@ def validate_spec(spec):
         if "rule" in r and (not isinstance(r["rule"], str) or not r["rule"].strip()):
             err.append(("LITERAL_INCOMPLETE", "literal replacement %r: rule must be a non-empty string"
                         % r.get("literal")))
+    lt = spec.get("lint")
+    if lt is not None:
+        ns = lt.get("no_static") if isinstance(lt, dict) else None
+        if not isinstance(ns, list) or not ns or not all(isinstance(p, str) and p for p in ns):
+            err.append(("LINT_SECTION_BAD", "[lint].no_static %r must be a non-empty list of repo-relative paths" % (ns,)))
+        elif not _has_label(lt.get("source")):
+            err.append(("SOURCE_MISSING", "[lint] has no (a)/(b)/(c) source label"))
     cc = spec.get("corrected_code")
     if cc is not None:
         for k in ("file", "function", "lines"):
@@ -505,8 +618,9 @@ def validate_spec(spec):
 
     # INFO only: D2 floor x 10 <= tolerance per quantity; per-control 10x margin
     kinds_on = ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else []) \
-        + (["resid"] if not has_lag else []) + (["startup"] if sin else []) \
-        + (["trace"] + (["invariance"] if transforms else []) if osc else [])
+        + (["resid"] if not has_lag else []) + (["startup"] if sin or osu else []) \
+        + (["trace"] + (["invariance"] if transforms else []) if osc else []) \
+        + (["ramp_exact"] if orex else [])
     tol = {q: spec["tolerances"][q]["value"] for q in kinds_on}
     fl = spec.get("floor")
     for q in kinds_on:
@@ -577,6 +691,21 @@ def to_checker_spec(spec):
             vd["gain_alt"] = e["gain_alt"]
             if "phase_alt" in e:
                 vd["phase_alt"] = e["phase_alt"]
+        if skips_of(v):                          # LRSI stage 1 (Amendment 1 A): skipped base inputs
+            vd["skip"] = skips_of(v)
+        if multi_linear(spec) and v.get("expected_outputs"):     # LRSI: one table per linear output
+            lt = {}
+            for o, tname in v["expected_outputs"].items():
+                te = spec["expected"][tname]
+                td = dict(table=tname, expected=(te["flat"], list(te["gains"]), te.get("lag")))
+                if "phases" in te:
+                    td["phases"] = phase_periods(te)
+                if alternating_of(spec):
+                    td["gain_alt"] = te["gain_alt"]
+                    if "phase_alt" in te:
+                        td["phase_alt"] = te["phase_alt"]
+                lt[o] = td
+            vd["linear_tables"] = {o: lt[o] for o in linear_outputs_of(spec) if o in lt}
         variants.append(vd)
     d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"],
              asset=b["asset_label"],
@@ -599,12 +728,19 @@ def to_checker_spec(spec):
     if alternating_of(spec):
         d["alt"] = True
         d["phase_gate"] = spec["checks"]["phase_gate"]
+    if ramp_down_of(spec):
+        d["rampdn"] = True
     if osc_of(spec):
+        lin = spec["checks"]["linear_output"]
         d["osc"] = dict(gate=spec["checks"]["trace_gate"], bound=spec["checks"]["bound"],
-                        linear=spec["checks"]["linear_output"])
+                        linear=list(lin) if isinstance(lin, list) else lin)
         if "bound_output" in spec["checks"]:
             d["osc"]["bound_output"] = spec["checks"]["bound_output"]
-        for q in ("trace", "bound", "invariance"):
+        if spec["checks"].get("ramp_exact"):
+            d["osc"]["ramp_exact"] = dict(spec["checks"]["ramp_exact"])
+        if spec["checks"].get("startup_output") is True:
+            d["osc"]["startup"] = True
+        for q in ("trace", "bound", "invariance", "ramp_exact"):
             if q in t:
                 d["tol_" + q] = t[q]["value"]
     if copies_of(spec):
@@ -625,6 +761,8 @@ def to_checker_spec(spec):
             d["imp"][c["list"]][vid] = c["model"]
     if "detect" in spec or "ox" in spec or "literal_info" in spec or "imp_corrections" in spec:
         d["info_lines"] = list(infos)
+        if "lint" in spec:                       # LRSI Amendment 1 C: the pre-run no-static record goes into the results header
+            d["info_lines"] += no_static_lines(no_static_report(spec))
         d["extended_report"] = True
     return d
 
@@ -705,8 +843,10 @@ def build_script(spec):
     nvar = len(variants)
     plan = []                                # per variant: (input indexes it is called on, outputs per call, first Y slot)
     nslots = ncalls = 0
+    rdn = ramp_down_of(spec)
     for v in variants:
         ks = list(range(nin)) if v.get("invariance") else list(range(nbase))
+        ks = [k for k in ks if ids[k] not in skips_of(v)]          # LRSI: skipped inputs get no call (the rest keep their order)
         nout = len(v.get("outputs") or [None])
         plan.append((ks, nout, nslots))
         nslots += nout * len(ks)
@@ -735,7 +875,8 @@ def build_script(spec):
     a("//           Python (analysis/harness/checker.py) measures and writes PASS/FAIL.")
     a("// PREREG:   %s" % b["prereg"])
     a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s%s | ramp level+slope*n"
-      % (",".join(str(t) for t in ts), " | alt level+amp*(-1)^n" if alternating_of(spec) else ""))
+      % (",".join(str(t) for t in ts), " | alt level+amp*(-1)^n" if alternating_of(spec) else "")
+      + (" | rampdn level-slope*n" if rdn else ""))
     a("//           level=%d/%d amp=%d/%d slope=%d/%d. (b, H1 run 1) Decimal literals are float32 in this Zorro"
       % (inp["level"][0], inp["level"][1], inp["amp"][0], inp["amp"][1], inp["slope"][0], inp["slope"][1]))
     a("//           build and the PI macro is 3.14159, so every constant is built at run time from integers.")
@@ -747,6 +888,12 @@ def build_script(spec):
           ", ".join("%s (level %d/%d amp %d/%d)" % (tr["id"], tr["level"][0], tr["level"][1], tr["amp"][0], tr["amp"][1])
                     for tr in transforms))
     a("// CALLS:    %d filter calls per bar, variant-major, unconditional, fixed order (gotchas 3.1)." % ncalls)
+    skipped = [(v["id"], i) for v in variants for i in skips_of(v)]
+    if skipped:
+        a("// SKIPPED:  no call, no column, no check for %s (spec skip_inputs)." % ", ".join("%s on %s" % s for s in skipped))
+    if real_params(spec):
+        a("// REALS:    real-valued parameters built at run time from integers (gotchas 9d.1, 9d.8): %s."
+          % ", ".join("%s = %d/%d" % (real_param_name(p, pr), pr[0], pr[1]) for pr in real_params(spec)))
     a("// FEEDING:  every x[n], n=0..%d, reaches the filters exactly once; INITRUN and EXITRUN feed and write nothing." % (N - 1))
     a("// NO LOOKBACK GUARD: LookBack = 0, warmup bars are exported too; the checker requires n = 0..%d contiguous." % (N - 1))
     a("// SOURCES:  expected values and tolerances are in the spec, each with an (a)/(b)/(c) label.")
@@ -824,6 +971,9 @@ def build_script(spec):
     for tr in transforms:
         a("\tvar lvl_%s = %d;\tlvl_%s = lvl_%s / %d;" % (tr["id"], tr["level"][0], tr["id"], tr["id"], tr["level"][1]))
         a("\tvar amp_%s = %d;\tamp_%s = amp_%s / %d;" % (tr["id"], tr["amp"][0], tr["id"], tr["id"], tr["amp"][1]))
+    for pr in real_params(spec):
+        nm = real_param_name(p, pr)
+        a("\tvar %s = %d;\t%s = %s / %d;" % (nm, pr[0], nm, nm, pr[1]))
     a("")
     a("\t// --- inputs from the bar counter (radians); no decimal literal, no PI macro ---")
     a("\tX[0] = lvl;")
@@ -831,7 +981,9 @@ def build_script(spec):
         a("\tX[%d] = lvl + amp * sin(2 * pi_x * n / %d);" % (k, t))
     if alt:
         a("\tX[%d] = lvl + amp * %s_sgn;" % (len(ts) + 1, p))
-    a("\tX[%d] = lvl + slp * n;" % (nbase - 1))
+    a("\tX[%d] = lvl + slp * n;" % (nbase - 2 if rdn else nbase - 1))
+    if rdn:
+        a("\tX[%d] = lvl - slp * n;" % (nbase - 1))
     kk = nbase
     for tr in transforms:
         for t in ts:
@@ -848,8 +1000,8 @@ def build_script(spec):
             s0 = first + j * nout
             outs = (v.get("outputs") or [])[:-1]
             ptrs = "".join(", &%s_o_%s" % (p, o) for o in outs)      # out-parameters (RFX): all outputs but the last, via local scalars
-            a("\tY[%d] = %s(S%d, %s%s);\t// %s %s" % (s0 + nout - 1, _fn_of(spec, v), k,
-                                                      ", ".join("%d" % i for i in call_params(v)), ptrs, v["id"], ids[k]))
+            args = ", ".join(real_param_name(p, i) if _is_pair(i) else "%d" % i for i in call_params(v))
+            a("\tY[%d] = %s(S%d, %s%s);\t// %s %s" % (s0 + nout - 1, _fn_of(spec, v), k, args, ptrs, v["id"], ids[k]))
             for q, o in enumerate(outs):                              # copied before the next call overwrites the local
                 a("\tY[%d] = %s_o_%s;" % (s0 + q, p, o))
     a("")
@@ -960,11 +1112,65 @@ def lint_script(text, inline_bodies=(), include_base=DEFAULT_OUT, allow=()):
 
 
 # ----------------------------------------------------------------------------- writer
+_STATIC_RE = re.compile(r"\bstatic\b")
+_STATIC_NAME_RE = re.compile(r"\bstatic\s+(?:\w+\s*\*?\s+)*?\**\s*(\w+)\s*(?:[=;\[,(])")
+
+
+def lint_no_static(text):
+    """[(line, name)] of every `static` token outside comments and strings (LRSI Amendment 1 C: the corrected LaguerreRSI.c must
+    have none). `name` is the declared identifier when it can be read, else '?'."""
+    clean = _strip(text)
+    hits = []
+    for m in _STATIC_RE.finditer(clean):
+        nm = _STATIC_NAME_RE.match(clean, m.start())
+        hits.append((clean[:m.start()].count("\n") + 1, nm.group(1) if nm else "?"))
+    return hits
+
+
+def no_static_report(spec, root=REPO):
+    """[(path, hits or None if the file is missing)] for every file in [lint].no_static (paths relative to the repo root)."""
+    out = []
+    for p in (spec.get("lint") or {}).get("no_static", []):
+        full = os.path.normpath(os.path.join(root, p))
+        if not os.path.isfile(full):
+            out.append((p, None))
+            continue
+        with open(full, encoding="utf-8", errors="replace") as f:
+            out.append((p, lint_no_static(f.read())))
+    return out
+
+
+def no_static_issues(report):
+    """Lint issues (rule L_NO_STATIC) for a no_static_report: a missing file or any static token refuses the script."""
+    out = []
+    for p, hits in report:
+        if hits is None:
+            out.append(("L_NO_STATIC", "%s not found (the no-static check needs the file)" % p))
+        elif hits:
+            out.append(("L_NO_STATIC", "%s has %d static token(s): %s" % (p, len(hits), ", ".join(
+                "%s (line %d)" % (n, ln) for ln, n in hits))))
+    return out
+
+
+def no_static_lines(report):
+    """INFO lines for the results header / lint output (one per file)."""
+    lines = []
+    for p, hits in report:
+        if hits is None:
+            lines.append("INFO L_NO_STATIC %s: file not found (no-static check not done)" % p)
+        elif not hits:
+            lines.append("INFO L_NO_STATIC %s: 0 static tokens (comments excluded): PASS" % p)
+        else:
+            lines.append("INFO L_NO_STATIC %s: %d static token(s) (comments excluded): FAIL %s"
+                         % (p, len(hits), ", ".join("%s line %d" % (n, ln) for ln, n in hits)))
+    return lines
+
+
 def write_script(spec, out_dir, include_base=DEFAULT_OUT):
     """Lint, then write <out_dir>/<script_name>.c with exclusive create (FileExistsError if the
     file exists: an existing .c is never overwritten). Returns the path."""
     text, bodies = build_script(spec)
-    issues = lint_script(text, bodies, include_base, allow=lint_allowances(spec))
+    issues = lint_script(text, bodies, include_base, allow=lint_allowances(spec)) + no_static_issues(no_static_report(spec))
     if issues:
         raise LintError(issues)
     path = os.path.join(out_dir, spec["batch"]["script_name"] + ".c")
@@ -989,8 +1195,9 @@ def main():
         sys.exit(2)
     text, bodies = build_script(spec)
     allow = lint_allowances(spec)
-    issues = lint_script(text, bodies, allow=allow)
-    for i in lint_infos(allow):
+    nsr = no_static_report(spec)
+    issues = lint_script(text, bodies, allow=allow) + no_static_issues(nsr)
+    for i in lint_infos(allow) + no_static_lines(nsr):
         print(i)
     for r, m in issues:
         print("LINT REFUSED %s: %s" % (r, m))

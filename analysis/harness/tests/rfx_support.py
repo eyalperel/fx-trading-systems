@@ -46,14 +46,16 @@ def own_model_outputs(path=SPEC_PATH):
         return c["outs"]
     models = {v["id"]: R.IMP_MODELS[spec["imp"]["must_pass"][v["id"]]]() for v in cs["variants"]}
     shared = {}
-    for v in cs["variants"]:                         # slot order = the generator's call order (variant-major)
+    shared_types = (R.SharedModel, R.LrsiShared)     # Reflex shared MS (RFX); Laguerre RSI shared lr_init / lr_prevRSI (LRS)
+    for v in cs["variants"]:                         # slot order = the generator's call order (variant-major, skipped inputs omitted)
         m = models[v["id"]]
-        if isinstance(m, R.SharedModel):
+        if isinstance(m, shared_types):
             for i in C.variant_inputs(cs, v):
-                shared.setdefault(m.Ls, []).append((v["id"], i, m.Ls[m.index]))
+                shared.setdefault((type(m).__name__, m[0]), []).append((v["id"], i, m[0][m.index]))
     sims = {}
-    for Ls, slots in shared.items():
-        outs = R.simulate_shared([s[2] for s in slots], [x[s[1]] for s in slots])
+    for (kind, _), slots in shared.items():
+        sim = R.simulate_shared if kind == "SharedModel" else R.simulate_lrsi_shared
+        outs = sim([s[2] for s in slots], [x[s[1]] for s in slots])
         for s, o in zip(slots, outs):
             sims[(s[0], s[1])] = o
     out = {}
@@ -61,7 +63,7 @@ def own_model_outputs(path=SPEC_PATH):
         m = models[v["id"]]
         ov = {}
         for o, i, _ in C.variant_columns(cs, v):
-            mo = sims[(v["id"], i)] if isinstance(m, R.SharedModel) else C.model_out(m, x[i])
+            mo = sims[(v["id"], i)] if isinstance(m, shared_types) else C.model_out(m, x[i])
             ov.setdefault(o, {})[i] = getattr(mo, o)
         out[v["id"]] = ov
     c["outs"] = out
