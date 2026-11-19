@@ -699,8 +699,8 @@ def mesa_article_model(name):
 
 
 def osc_article_model(name):
-    """Article model of an oscillator spec: reflex_article(L) or mesa_article(L,hp,ss); None if unknown."""
-    return reflex_article_model(name) or mesa_article_model(name)
+    """Article model of an oscillator spec: reflex_article(L), mesa_article(L,hp,ss) or lrsi_article(n/d); None if unknown."""
+    return reflex_article_model(name) or mesa_article_model(name) or lrsi_article_model(name)
 
 
 def mesa_roof_filter(hp, ss):
@@ -717,6 +717,198 @@ IMP_MODELS["mesa_code(20,48,10,win=21)"] = lambda: mesa_code(20, 48, 10, win=21)
 IMP_MODELS["mesa_code(20,48,10,da_final=1/1000)"] = lambda: mesa_code(20, 48, 10, da_final=1.0 / 1000)   # NCA
 IMP_MODELS["mesa_printed(20,48,10)"] = lambda: mesa_article(20, 48, 10, literals="printed")        # NCL
 IMP_MODELS["mesa_superseded(20,48,10)"] = lambda: mesa_superseded(20, 48, 10)                      # NCS
+
+
+# ---------------------------------------------------------------------------------------------------
+# Laguerre RSI (LRSI stage 1; HARNESS_DESIGN D6, docs/harness/LAGUERRERSI_SOURCE_REVIEW.md). (a) Source: Ehlers, Cybernetic Analysis
+# for Stocks and Futures (Wiley 2004), ch. 14, Fig. 14.8, p. 221:
+#     L0 = (1 - gamma)*Close + gamma*L0[1];
+#     L1 = - gamma *L0 + L0[1] + gamma *L1[1];   L2, L3 likewise;
+#     CU = 0; CD = 0; If L0 >= L1 then CU = L0 - L1 Else CD = L1 - L0;  (L1/L2, L2/L3 likewise, accumulated)
+#     If CU + CD <> 0 then RSI = CU / (CU + CD);
+# All variables start at 0 (Vars: L0(0) ... RSI(0)); bar 1 is computed (L-1); RSI holds its previous value when CU + CD = 0, initial 0
+# (L-2). No trig, no PI, no decimal literal in the corrected code: model = code (no Zorro-PI variant). The model uses the BOOK term order.
+# (b) Transfer functions: L0 = (1 - g)/(1 - g z^-1); each later stage multiplies by the allpass A = (z^-1 - g)/(1 - g z^-1).
+# ---------------------------------------------------------------------------------------------------
+LrsiModel = namedtuple("LrsiModel", "g g_l0 form seed hold0")
+LrsiOut = namedtuple("LrsiOut", "l0 l1 l2 l3 den out")
+LrsiShared = namedtuple("LrsiShared", "gs index")     # old LaguerreRSI.c: file statics lr_init / lr_prevRSI shared by the listed calls
+LRSI_FORMS = ("book", "tasc2025")
+LRSI_SEEDS = ("zero", "price")
+
+
+def lrsi_article(g, g_l0=None, form="book", seed="zero", hold0=0.0):
+    """The Fig. 14.8 Laguerre RSI as a model. Keyword hooks (default = the source) are the controls / INFO variants:
+        g_l0   gamma used in the L0 line only (NCG: g + 1/1000); L1..L3 keep g
+        form   "book" (Fig. 14.8: L1 = -g*L0 + L0[1] + g*L1[1]) | "tasc2025" (NC25, review L-6: L1 = -g*L0[1] + L0[1] + g*L1[1],
+               a delayed EMA, not an allpass)
+        seed   "zero" (the source, L-1) | "price" (NCP: the old start-up per instance: on the first call every stage = Close, the
+               bar is not computed, the call returns 0.5, l0 = l3 = Close and den = 0 on that row; the hold is not touched)
+        hold0  initial held RSI (source 0; NCH: 1/2, L-2)"""
+    if form not in LRSI_FORMS:
+        raise ValueError("form must be one of %s, got %r" % (LRSI_FORMS, form))
+    if seed not in LRSI_SEEDS:
+        raise ValueError("seed must be one of %s, got %r" % (LRSI_SEEDS, seed))
+    return LrsiModel(g=float(g), g_l0=None if g_l0 is None else float(g_l0), form=form, seed=seed, hold0=float(hold0))
+
+
+def _lrsi_stages(c, g, gl, form, p):
+    """One bar of the four stages, book term order (p = previous [L0, L1, L2, L3]). Returns [L0, L1, L2, L3]."""
+    L0 = (1.0 - gl) * c + gl * p[0]
+    if form == "book":
+        L1 = -g * L0 + p[0] + g * p[1]
+        L2 = -g * L1 + p[1] + g * p[2]
+        L3 = -g * L2 + p[2] + g * p[3]
+    else:                                                     # tasc2025: the previous upstream value in the first term
+        L1 = -g * p[0] + p[0] + g * p[1]
+        L2 = -g * p[1] + p[1] + g * p[2]
+        L3 = -g * p[2] + p[2] + g * p[3]
+    return [L0, L1, L2, L3]
+
+
+def _lrsi_cucd(L):
+    """CU, CD of Fig. 14.8 (adjacent pairs, >= to CU, else CD; accumulated in the book's order)."""
+    cu = cd = 0.0
+    for a, b in ((L[0], L[1]), (L[1], L[2]), (L[2], L[3])):
+        if a >= b:
+            cu = cu + a - b
+        else:
+            cd = cd + b - a
+    return cu, cd
+
+
+def simulate_lrsi(m, x):
+    """Run an LrsiModel on x: LrsiOut(l0, l1, l2, l3, den = CU + CD, out) arrays (float64)."""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    o = {k: np.empty(n) for k in LrsiOut._fields}
+    gl = m.g if m.g_l0 is None else m.g_l0
+    L = [0.0] * 4
+    rsi = m.hold0
+    for t in range(n):
+        c = float(x[t])
+        if m.seed == "price" and t == 0:
+            L = [c] * 4
+            for k, v in zip(("l0", "l1", "l2", "l3", "den", "out"), (c, c, c, c, 0.0, 0.5)):
+                o[k][t] = v
+            continue
+        L = _lrsi_stages(c, m.g, gl, m.form, L)
+        cu, cd = _lrsi_cucd(L)
+        if cu + cd != 0:
+            rsi = cu / (cu + cd)
+        for k, v in zip(("l0", "l1", "l2", "l3", "den", "out"), (L[0], L[1], L[2], L[3], cu + cd, rsi)):
+            o[k][t] = v
+    return LrsiOut(**o)
+
+
+def lrsi_superseded(gs, index=0):
+    """Model handle for [imp]: the OLD LaguerreRSI.c (LaguerreRSI_Superseded) called once per bar for each gamma in gs (call order);
+    `index` = which instance."""
+    return LrsiShared(gs=tuple(float(g) for g in gs), index=index)
+
+
+def simulate_lrsi_shared(gs, xs):
+    """The OLD LaguerreRSI.c, superseded (read 2026-11-19; review L-1 / L-2 / L-3). One call slot per (gamma, input) in the
+    generator's ACTUAL call order; per slot its own four series(0, 2) stages; TWO file statics shared by every slot:
+        lr_init     the first call with Close[0] > 0 (of the whole run, any slot) sets its stages to Close, does not compute the bar
+                    and returns 0.5; every later call of every slot finds lr_init = 1 and computes from its zero history (= the source)
+        lr_prevRSI  starts at 0.5; on a CU + CD == 0 row ANY slot returns the last ratio written by ANY slot
+    The file's own `if(is(INITRUN))` resets never run in a generated script (it returns at INITRUN before any indicator call), so a
+    second [Test] press without a Zorro restart would seed nothing (c). Returns [LrsiOut] per slot (den = 0 on the seed row)."""
+    nb = len(xs[0])
+    xs = [np.asarray(x, dtype=float) for x in xs]
+    outs = [{k: np.empty(nb) for k in LrsiOut._fields} for _ in xs]
+    Ls = [[0.0] * 4 for _ in xs]
+    init, prev = 0, 0.5
+    for t in range(nb):
+        for k, (g, x) in enumerate(zip(gs, xs)):
+            c = float(x[t])
+            o = outs[k]
+            if not init and c > 0:
+                Ls[k] = [c] * 4
+                init = 1
+                for f, v in zip(LrsiOut._fields, (c, c, c, c, 0.0, 0.5)):
+                    o[f][t] = v
+                continue
+            L = Ls[k] = _lrsi_stages(c, g, g, "book", Ls[k])
+            cu, cd = _lrsi_cucd(L)
+            if cu + cd != 0:
+                prev = cu / (cu + cd)
+            for f, v in zip(LrsiOut._fields, (L[0], L[1], L[2], L[3], cu + cd, prev)):
+                o[f][t] = v
+    return [LrsiOut(**o) for o in outs]
+
+
+def lrsi_l0_filter(g):
+    """L0 as one linear filter: (1 - g)/(1 - g z^-1) (an EMA, DC gain 1, ramp lag g/(1 - g))."""
+    return Filter(b=(1.0 - g,), a=(g,))
+
+
+def lrsi_allpass(g):
+    """One Laguerre allpass stage A = (z^-1 - g)/(1 - g z^-1) (|A| = 1, DC gain 1, ramp lag (1 + g)/(1 - g))."""
+    return Filter(b=(-g, 1.0), a=(g,))
+
+
+def lrsi_l3_filter(g):
+    """L3 = L0 x A^3 as one linear filter (cascade)."""
+    f = lrsi_l0_filter(g)
+    for _ in range(3):
+        f = cascade(f, lrsi_allpass(g))
+    return f
+
+
+def lrsi_h(g, stage, w):
+    """H of Laguerre stage `stage` (0..3) at frequency w, PRODUCT form H_L0 x A^stage evaluated directly (no polynomial expansion:
+    the expanded L3 cascade loses ~2e-12 at g = 0.8, the product form is exact to rounding)."""
+    zi = np.exp(-1j * w)
+    return (1.0 - g) / (1.0 - g * zi) * ((zi - g) / (1.0 - g * zi)) ** stage
+
+
+def lrsi_gain(g, stage, t):
+    """|H| of stage `stage` for a sine of period t bars (t = 2: Nyquist)."""
+    return float(abs(lrsi_h(g, stage, 2.0 * math.pi / t)))
+
+
+def lrsi_phase(g, stage, t):
+    """arg H in (-pi, pi] of stage `stage` at period t (same convention as phase_at)."""
+    return float(np.angle(lrsi_h(g, stage, 2.0 * math.pi / t)))
+
+
+def lrsi_alt_phase(g, stage):
+    """Phase at Nyquist as the checker measures it: 0 if H(-1) >= 0, else pi. H(-1) = (1-g)/(1+g) x (-1)^stage exactly."""
+    return 0.0 if stage % 2 == 0 else math.pi
+
+
+def lrsi_lag(g, stage):
+    """Ramp lag (group delay at DC) of stage `stage`, closed form: g/(1 - g) + stage (1 + g)/(1 - g)."""
+    return g / (1.0 - g) + stage * (1.0 + g) / (1.0 - g)
+
+
+def alt_phase(f):
+    """Phase at Nyquist exactly as the checker measures it (m_phase_alt): 0 if Re H(-1) >= 0, else pi (H(-1) is real)."""
+    return 0.0 if float(np.real(_hz(f, math.pi))) >= 0 else math.pi
+
+
+_LRSI_ARTICLE_RE = re.compile(r"lrsi_article\((\d{1,4})/(\d{1,4})\)")
+
+
+def lrsi_article_model(name):
+    """Resolve 'lrsi_article(n/d)' (gamma = n/d, 0 < gamma < 1) to an LrsiModel. Restricted grammar, no eval."""
+    m = _LRSI_ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
+    if not m or int(m.group(2)) <= 0 or not 0 < int(m.group(1)) < int(m.group(2)):
+        return None
+    return lrsi_article(int(m.group(1)) / int(m.group(2)))
+
+
+# [imp] model registry for LRS (c: names chosen here). gamma built as n/d (the generator builds it at run time from the same integers).
+for _n, _d in ((1, 2), (7, 10), (4, 5)):
+    IMP_MODELS["lrsi_article(%d/%d)" % (_n, _d)] = (lambda n=_n, d=_d: lrsi_article(n / d))
+IMP_MODELS["lrsi_article(1/2,hold0=1/2)"] = lambda: lrsi_article(0.5, hold0=1.0 / 2)                    # NCH (INFO)
+IMP_MODELS["lrsi_article(1/2,g_l0=1/2+1/1000)"] = lambda: lrsi_article(0.5, g_l0=0.5 + 1.0 / 1000)        # NCG
+IMP_MODELS["lrsi_article(1/2,form=tasc2025)"] = lambda: lrsi_article(0.5, form="tasc2025")              # NC25
+IMP_MODELS["lrsi_article(1/2,seed=price)"] = lambda: lrsi_article(0.5, seed="price")                    # NCP
+IMP_MODELS["lrsi_superseded(1/2,1/2)[0]"] = lambda: lrsi_superseded((0.5, 0.5), 0)                    # NCS (instance 1)
+IMP_MODELS["lrsi_superseded(1/2,1/2)[1]"] = lambda: lrsi_superseded((0.5, 0.5), 1)                    # NCT (instance 2, INFO)
 
 
 def bump3(v, units=1):

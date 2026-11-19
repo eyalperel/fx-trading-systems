@@ -70,8 +70,10 @@ def h1_spec():
 
 
 def base_names(spec):
-    """flat, sines, [alt], ramp (alt = the alternating / Nyquist input, RFF stage 1, only when spec["alt"] is true)."""
-    return (["flat"] + ["s%d" % t for t in spec["ts"]] + (["alt"] if spec.get("alt") else []) + ["ramp"])
+    """flat, sines, [alt], ramp, [rampdn] (alt = the alternating / Nyquist input, RFF stage 1, only when spec["alt"] is true;
+    rampdn = the falling ramp, LRSI stage 1, only when spec["rampdn"] is true)."""
+    return (["flat"] + ["s%d" % t for t in spec["ts"]] + (["alt"] if spec.get("alt") else []) + ["ramp"]
+            + (["rampdn"] if spec.get("rampdn") else []))
 
 
 def copy_names(spec):
@@ -85,8 +87,23 @@ def input_names(spec):
 
 
 def variant_inputs(spec, v):
-    """Inputs a variant is called on: the base inputs, plus the invariance copies when the variant says so."""
-    return input_names(spec) if v.get("invariance") else base_names(spec)
+    """Inputs a variant is called on: the base inputs, plus the invariance copies when the variant says so, minus the variant's
+    skipped inputs (LRSI stage 1, `skip`). Order = the generator's call order."""
+    ins = input_names(spec) if v.get("invariance") else base_names(spec)
+    return [i for i in ins if i not in v.get("skip", ())]
+
+
+def linear_list(spec):
+    """The linear outputs of an oscillator spec as a list ([] without osc)."""
+    if not spec.get("osc"):
+        return []
+    lin = spec["osc"]["linear"]
+    return list(lin) if isinstance(lin, (list, tuple)) else [lin]
+
+
+def skipped_pairs(spec):
+    """[(variant id, input)] the spec skips (no call, no column, no check)."""
+    return [(v["id"], i) for v in spec["variants"] for i in v.get("skip", ())]
 
 
 def sine_inputs(spec):
@@ -111,7 +128,7 @@ def variant_columns(spec, v):
         return [(None, i, "y_%s_%s" % (v["id"], i)) for i in variant_inputs(spec, v)]
     cols = []
     for k, o in enumerate(outs):
-        ins = variant_inputs(spec, v) if k == len(outs) - 1 else base_names(spec)
+        ins = variant_inputs(spec, v) if k == len(outs) - 1 else [i for i in base_names(spec) if i not in v.get("skip", ())]
         cols += [(o, i, "%s_%s_%s" % (o, v["id"], i)) for i in ins]
     return cols
 
@@ -140,6 +157,8 @@ def make_inputs(spec):
     if spec.get("alt"):
         x["alt"] = spec["level"] + spec["amp"] * (1.0 - 2.0 * (n % 2))        # level + amp*(-1)^n, exact signs
     x["ramp"] = spec["level"] + spec["slope"] * n
+    if spec.get("rampdn"):
+        x["rampdn"] = spec["level"] - spec["slope"] * n
     for tr in spec.get("transforms", []):
         for t in spec["ts"]:
             x["%s%d" % (tr["id"], t)] = tr["level"] + tr["amp"] * np.sin(2 * math.pi * n / t)
@@ -244,7 +263,41 @@ def _has_linear(spec, variant):
     spec["osc"]["linear"] of an oscillator spec (a variant that does not export it gets no linear checks)."""
     if not (spec.get("osc") and variant.get("outputs")):
         return True
-    return spec["osc"]["linear"] in variant["outputs"]
+    return any(o in variant["outputs"] for o in linear_list(spec))
+
+
+def linear_views(spec, variant):
+    """[(output, variant view)] for the v1 checks of one variant. One-output specs (RFX / MST): [(linear, variant)] (unchanged
+    check ids). Multi-linear specs (LRSI): one view per exported linear output, carrying that output's table (expected, phases,
+    gain_alt, phase_alt) from variant["linear_tables"]; the checker suffixes its check ids with -<output>."""
+    if not isinstance(spec.get("osc", {}).get("linear"), (list, tuple)):
+        lin = spec["osc"]["linear"] if spec.get("osc") else None
+        return [(lin, variant)]
+    out = []
+    for o in linear_list(spec):
+        if o in variant.get("outputs", ()) and o in variant.get("linear_tables", {}):
+            t = variant["linear_tables"][o]
+            vv = {k: val for k, val in variant.items() if k not in ("phases", "gain_alt", "phase_alt")}
+            vv["expected"] = t["expected"]
+            for k in ("phases", "gain_alt", "phase_alt"):
+                if k in t:
+                    vv[k] = t[k]
+            out.append((o, vv))
+    return out
+
+
+def _n_linear_checks(spec, variant):
+    """flat + gains + [lag] + [resid] + phases + linear start-ups + alt gain/phase for one (view of a) variant."""
+    return (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
+            + len(variant.get("phases", {})) + len(spec.get("startup", []))
+            + ((1 + (1 if variant.get("phase_alt") is not None else 0)) if spec.get("alt") else 0))
+
+
+def ramp_exact_inputs(spec, variant):
+    """Inputs of the ramp_exact check that the variant is called on (a skipped ramp has no check), in spec order."""
+    rex = spec.get("osc", {}).get("ramp_exact") or {}
+    ins = variant_inputs(spec, variant)
+    return [i for i in rex if i in ins]
 
 
 def bound_output_of(spec, variant):
@@ -262,16 +315,20 @@ def n_osc_checks(spec, variant):
     if not (spec.get("osc") and variant.get("outputs")):
         return 0
     return (len(spec["ts"]) + (1 if has_bound(spec, variant) else 0)
-            + (len(spec.get("transforms", [])) if variant.get("invariance") else 0))
+            + (len(spec.get("transforms", [])) if variant.get("invariance") else 0)
+            + len(ramp_exact_inputs(spec, variant)) + (len(spec["ts"]) if spec["osc"].get("startup") else 0))
 
 
 def n_checks(spec, variant):
     """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups, and for an
-    oscillator spec trace / bound / invariance (n_osc_checks). For specs without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3)."""
-    lin = (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
-           + len(variant.get("phases", {})) + len(spec.get("startup", []))
-           + ((1 + (1 if variant.get("phase_alt") is not None else 0)) if spec.get("alt") else 0)) \
-        if _has_linear(spec, variant) else 0
+    oscillator spec trace / bound / invariance / ramp_exact / start-up of the normalised output (n_osc_checks). For specs
+    without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3). Multi-linear specs (LRSI): the linear count per exported linear output."""
+    if not _has_linear(spec, variant):
+        lin = 0
+    elif spec.get("osc") and variant.get("outputs"):
+        lin = sum(_n_linear_checks(spec, vv) for _, vv in linear_views(spec, variant))
+    else:
+        lin = _n_linear_checks(spec, variant)
     return lin + n_osc_checks(spec, variant)
 
 
@@ -374,12 +431,15 @@ def _kind(check_id):
         return "invariance"
     if tail.startswith("info"):
         return "info"
+    if tail.startswith("exact"):                     # LRSI: ramp known answers of the normalised output (exact-ramp / exact-rampdn)
+        return "ramp_exact"
     return "lag" if tail.startswith("ramp") else "flat"
 
 
 def _extra_kinds(spec):
     """D4 kinds enabled by the spec (tolerance present), in report order."""
-    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance") if spec.get("tol_" + k) is not None]
+    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact")
+            if spec.get("tol_" + k) is not None]
 
 
 def nc_report(spec, rows):
@@ -531,6 +591,8 @@ def imp_rows(spec, raw, x=None):
                     per = _imp_mesa(spec, raw, vmap[vid], model)
                 elif isinstance(model, (R.ReflexModel, R.SharedModel)):        # RFX: replay sum / ms / gated r
                     per = _imp_reflex(spec, raw, vmap[vid], model, shared_cache)
+                elif isinstance(model, (R.LrsiModel, R.LrsiShared)):           # LRS: replay l0 / l3 / den / gated out
+                    per = _imp_lrsi(spec, raw, vmap[vid], model, shared_cache)
                 else:
                     for i in variant_inputs(spec, vmap[vid]):
                         xi = raw.cols["x_" + i]
@@ -564,19 +626,28 @@ def model_out(model, x):
     x = np.ascontiguousarray(np.asarray(x, dtype=float))
     key = (model, hashlib.md5(x.tobytes()).hexdigest())
     if key not in _MODEL_CACHE:
-        _MODEL_CACHE[key] = R.simulate_mesa(model, x) if isinstance(model, R.MesaModel) else R.simulate_reflex(model, x)
+        if isinstance(model, R.MesaModel):
+            _MODEL_CACHE[key] = R.simulate_mesa(model, x)
+        elif isinstance(model, R.LrsiModel):
+            _MODEL_CACHE[key] = R.simulate_lrsi(model, x)
+        else:
+            _MODEL_CACHE[key] = R.simulate_reflex(model, x)
     return _MODEL_CACHE[key]
 
 
 def gate_q(mo):
     """The conditioning quantity of a model output (D6 rule 2): Reflex sqrt(MS); MESAStochastic HighestC - LowestC (the
-    model's own range; HARNESS_DESIGN D6 note: 'a gate on its min/max range')."""
-    return mo.rng if isinstance(mo, R.MesaOut) else np.sqrt(mo.ms)
+    model's own range; HARNESS_DESIGN D6 note: 'a gate on its min/max range'); Laguerre RSI CU + CD (the model's denominator)."""
+    if isinstance(mo, R.MesaOut):
+        return mo.rng
+    if isinstance(mo, R.LrsiOut):
+        return mo.den
+    return np.sqrt(mo.ms)
 
 
 def norm_out(mo):
-    """The normalised output of a model output: Reflex r, MESAStochastic out."""
-    return mo.out if isinstance(mo, R.MesaOut) else mo.r
+    """The normalised output of a model output: Reflex r, MESAStochastic out, Laguerre RSI out."""
+    return mo.out if isinstance(mo, (R.MesaOut, R.LrsiOut)) else mo.r
 
 
 def gate_mask_q(spec, q, amp):
@@ -686,6 +757,29 @@ def osc_rows(spec, variant, x, ov):
             rows.append(_orow(spec, variant, "invar-%s" % tr["id"],
                               "%s: every sine vs its copy (level %g, amp %g), %d gated rows used" % (tr["id"], tr["level"], tr["amp"], used_all),
                               0.0, worst, spec["tol_invariance"], worst))
+    rex = osc.get("ramp_exact") or {}
+    for iid in ramp_exact_inputs(spec, variant):                     # LRSI: known answers, rows >= W (absolute tol)
+        if iid not in rz:
+            rows.append(_orow(spec, variant, "exact-%s" % iid, "%s: no column" % iid, rex[iid], float("nan"),
+                              spec["tol_ramp_exact"], float("nan"), res="ERROR"))
+            continue
+        a_ = rz[iid][w:]
+        dev = np.abs(a_ - rex[iid])
+        k = int(np.argmax(dev)) if np.all(np.isfinite(dev)) else 0
+        d = float(dev[k]) if np.all(np.isfinite(dev)) else float("nan")
+        rows.append(_orow(spec, variant, "exact-%s" % iid,
+                          "%s, rows>=%d: out must equal %r (row furthest from it reported: n=%d)" % (iid, w, rex[iid], w + k),
+                          rex[iid], float(a_[k]), spec["tol_ramp_exact"], d))
+    if osc.get("startup"):                                           # LRSI: start-up of the normalised output vs the model (L-1)
+        for t in spec["ts"]:
+            iid = "s%d" % t
+            if model is None or iid not in rz:
+                rows.append(_orow(spec, variant, "startup-%s" % iid, "%s, rows<%d" % (iid, w), 0.0, float("nan"),
+                                  spec["tol_startup"], float("nan"), res="ERROR"))
+                continue
+            d = float(np.max(np.abs(rz[iid][:w] - norm_out(model_out(model, x[iid]))[:w])))
+            rows.append(_orow(spec, variant, "startup-%s" % iid, "%s, rows<%d: max |out - model| (source start-up, L-1)" % (iid, w),
+                              0.0, d, spec["tol_startup"], d))
     if variant["role"] == "real" and model is not None:
         nan = float("nan")
         for iid, label in (("flat", "flat"), ("ramp", "ramp")):
@@ -695,7 +789,7 @@ def osc_rows(spec, variant, x, ov):
                 e = float(np.max(np.abs(norm_out(mo)[w:])))
                 rows.append(_orow(spec, variant, "info-%s" % label, "%s, rows>=%d: max |r| (INFO, ill-conditioned)" % (label, w),
                                   e, a, nan, abs(a - e), res="INFO", role="info"))
-    if (variant["role"] == "real" or variant.get("startup_info")) and model is not None:
+    if (variant["role"] == "real" or variant.get("startup_info")) and model is not None and not osc.get("startup"):
         d = 0.0
         for t in spec["ts"]:
             iid = "s%d" % t
@@ -781,6 +875,56 @@ def _imp_mesa(spec, raw, v, model):
     return per
 
 
+def lrsi_shared_slots(spec, model):
+    """[(variant id, input, gamma)] of every call of the superseded LaguerreRSI file, in the generator's ACTUAL call order: the
+    variants whose [imp].must_pass model is an LrsiShared with the same gammas, in spec (= variant-major call) order, each on its
+    variant_inputs (skipped inputs have no call). Only these calls touch the file statics; other variants' calls in between do not."""
+    out = []
+    for v in spec["variants"]:
+        mk = R.IMP_MODELS.get(spec["imp"]["must_pass"].get(v["id"], ""))
+        m = mk() if mk else None
+        if isinstance(m, R.LrsiShared) and m.gs == model.gs:
+            out += [(v["id"], i, m.gs[m.index]) for i in variant_inputs(spec, v)]
+    return out
+
+
+def _imp_lrsi(spec, raw, v, model, cache):
+    """IMP replay of an LRS variant, residual per input, rows >= warmup: l0 / l3 / den (every exported base input, absolute) and the
+    return output `out` on the sines and their copies, only on rows the REPLAY's own CU + CD gates in (flat / alt / ramp out is INFO;
+    the ramps are checked by ramp_exact). An LrsiShared model replays the superseded file's shared statics over ALL its calls in the
+    generator's call order (lrsi_shared_slots). A non-finite value (everything gated out) is an ERROR upstream, never 0."""
+    w, vid = spec["w"], v["id"]
+    outs = v["outputs"]
+    ret = outs[-1]
+    if isinstance(model, R.LrsiShared):
+        key = ("lrsi", model.gs)
+        if key not in cache:
+            slots = lrsi_shared_slots(spec, model)
+            sims = R.simulate_lrsi_shared([s[2] for s in slots], [raw.cols["x_" + s[1]] for s in slots])
+            cache[key] = {(s[0], s[1]): o for s, o in zip(slots, sims)}
+        mo_of = lambda i: cache[key][(vid, i)]
+    else:
+        mo_of = lambda i: model_out(model, raw.cols["x_" + i])
+    sines = set(sine_inputs(spec))
+    per = {}
+    for i in variant_inputs(spec, v):
+        mo = mo_of(i)
+        d = 0.0
+        for o in outs:
+            col = "%s_%s_%s" % (o, vid, i)
+            if col not in raw.cols:
+                continue
+            arr = getattr(mo, o)
+            if o != ret:
+                d = max(d, float(np.max(np.abs(raw.cols[col][w:] - arr[w:]))))
+            elif i in sines:
+                mask = gate_mask_q(spec, mo.den, input_amp(spec, i))
+                dr = float(np.max(np.abs(raw.cols[col][w:][mask] - arr[w:][mask]))) if mask.any() else float("nan")
+                d = float("nan") if not math.isfinite(dr) else max(d, dr)
+        per[i] = d
+    return per
+
+
 def floor_quantities(spec):
     """(kind, tolerance/10) the floor guard checks per real variant: gain, lag (dc_gain 1 only), then the D4 kinds
     enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged."""
@@ -818,7 +962,15 @@ def evaluate(spec, raw):
     rows = []
     for v in spec["variants"]:
         ov = variant_arrays(spec, raw, v)
-        if v.get("outputs"):                                   # RFX: the linear stage is one named output
+        if v.get("outputs") and spec.get("osc") and isinstance(spec["osc"]["linear"], (list, tuple)):
+            vr = []                                            # LRSI: v1 checks per linear output, own table, ids suffixed -<output>
+            for o, vv in linear_views(spec, v):
+                for r in _linear_rows(spec, vv, x, ov[o], xe):
+                    r["check_id"] += "-" + o
+                    r["input"] = "%s: %s" % (o, r["input"])
+                    vr.append(r)
+            vr += osc_rows(spec, v, x, ov)
+        elif v.get("outputs"):                                 # RFX: the linear stage is one named output
             yv = ov.get(spec["osc"]["linear"]) if spec.get("osc") else None
             vr = check_rows(spec, v, x, yv, xe=xe, ov=ov)
         else:
@@ -967,6 +1119,10 @@ def write_results(path, spec, rows, nc, errs, raw_path, raw_sha, ox_lines=None):
                     "neg_control=%d%s\n" % (spec["batch"], ",".join(gids), len(spec["variants"]), nreal, nneg, xinfo))
         f.write("# real_checks=%d PASS=%d FAIL=%d ERROR=%d\n"
                 % (c["n_real"], c["n_pass"], c["n_fail"], c["n_err"]))
+        sk_pairs = skipped_pairs(spec)
+        if sk_pairs:
+            f.write("# SKIPPED_INPUTS=%d (variant:input; no call, no raw column, no check; spec skip_inputs): %s\n"
+                    % (len(sk_pairs), ",".join("%s:%s" % s for s in sk_pairs)))
         if spec.get("alt"):
             sk = [r["check_id"] for r in rows if r["result"] == "SKIP"]
             f.write("# SKIP=%d (alt phase where the expected gain < phase_gate %g; not a PASS, not counted in "
