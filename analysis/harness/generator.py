@@ -17,6 +17,8 @@ RFX stage 1 (HARNESS_DESIGN D6, oscillator family), all opt-in, older specs rege
   * [inputs.invariance] transforms: transformed copies of every sine (ids <tid><T>), called only by variants with
     `invariance = true`, written for the return output only;
   * [checks] trace_gate / bound / linear_output enable the trace, bound and invariance checks (checker.osc_rows).
+MST stage 1 (MESAStochastic): output names roof / stoc / out (the return value is `r` or `out`); [checks].bound may be a two-sided
+absolute pair [lo, hi] read from [checks].bound_output; variants may carry `startup_info = true` (INFO start-up row).
 
 Usage: python analysis/harness/generator.py SPEC.toml [--out-dir DIR] [--lint-only]
 Labels: (a) source states, (b) verified here, (c) inference.
@@ -39,7 +41,9 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
 DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance")   # checker._kind values (D4 adds three, D6 three)
-OUTPUT_NAMES = ("sum", "ms", "r")           # RFX variant outputs; the last one listed is the return value
+OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out")   # variant outputs (RFX: sum / ms / r, MST: roof / stoc / out)
+RETURN_NAMES = ("r", "out")                  # the last output listed is the function's return value, one of these
+LINEAR_NAMES = ("sum", "ms", "roof")         # outputs the v1 checks may read
 IMP_CORRECTION_FIELDS = ("list", "replaces", "model", "amendment", "source")   # [imp_corrections.<id>], all required
 SEEDS = ("zero", "price")                    # output-history seed of a variant (reference.simulate); also 'pass<n>' (USE)
 
@@ -230,12 +234,21 @@ def validate_spec(spec):
         tg, bd, lo = chk.get("trace_gate"), chk.get("bound"), chk.get("linear_output")
         if not _is_num(tg) or tg <= 0:
             err.append(("OSC_BAD", "[checks].trace_gate %r must be a positive number" % (tg,)))
-        if not _is_num(bd) or bd <= 0:
-            err.append(("OSC_BAD", "[checks].bound %r must be a positive number" % (bd,)))
-        if lo not in OUTPUT_NAMES or lo == "r":
-            err.append(("OSC_BAD", "[checks].linear_output %r must be one of sum / ms (the output the v1 checks read)" % (lo,)))
-    elif "bound" in chk or "linear_output" in chk:
-        err.append(("OSC_BAD", "[checks].bound / linear_output without [checks].trace_gate"))
+        if isinstance(bd, list):                         # MST: two-sided absolute bound [lo, hi]
+            if len(bd) != 2 or not all(_is_num(b_) for b_ in bd) or not bd[0] < bd[1]:
+                err.append(("OSC_BAD", "[checks].bound %r must be a positive number or a pair [lo, hi] with lo < hi" % (bd,)))
+            if chk.get("bound_output") not in OUTPUT_NAMES or chk.get("bound_output") in LINEAR_NAMES:
+                err.append(("OSC_BAD", "[checks].bound_output %r must name a non-linear output (a two-sided bound is read from it)"
+                            % (chk.get("bound_output"),)))
+        elif not _is_num(bd) or bd <= 0:
+            err.append(("OSC_BAD", "[checks].bound %r must be a positive number or a pair [lo, hi]" % (bd,)))
+        elif "bound_output" in chk:
+            err.append(("OSC_BAD", "[checks].bound_output is only valid with a two-sided bound [lo, hi]"))
+        if lo not in LINEAR_NAMES:
+            err.append(("OSC_BAD", "[checks].linear_output %r must be one of %s (the output the v1 checks read)"
+                        % (lo, "/".join(LINEAR_NAMES))))
+    elif "bound" in chk or "linear_output" in chk or "bound_output" in chk:
+        err.append(("OSC_BAD", "[checks].bound / linear_output / bound_output without [checks].trace_gate"))
     need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
         + (["phase"] if any_phases or alt else []) \
         + (["resid"] if not has_lag else []) + (["startup"] if sin else []) \
@@ -300,9 +313,10 @@ def validate_spec(spec):
             if not isinstance(t.get("article"), str) or R.article_model(t.get("article")) is None:
                 err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
                             "reference.article_model (needed by the start-up check)" % (name, t.get("article"))))
-        if osc and (not isinstance(t.get("article"), str) or R.reflex_article_model(t.get("article")) is None):
+        if osc and (not isinstance(t.get("article"), str) or R.osc_article_model(t.get("article")) is None):
             err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in "
-                        "reference.reflex_article_model (needed by the trace check)" % (name, t.get("article"))))
+                        "reference.osc_article_model (reflex_article / mesa_article; needed by the trace check)"
+                        % (name, t.get("article"))))
 
     # variants
     roles = [v.get("role") for v in spec["variants"]]
@@ -326,18 +340,21 @@ def validate_spec(spec):
         if osc:
             outs = v.get("outputs")
             if (not isinstance(outs, list) or not outs or any(o not in OUTPUT_NAMES for o in outs)
-                    or len(set(outs)) != len(outs) or outs[-1] != "r"):
-                err.append(("OUTPUTS_BAD", "variant %s: outputs %r must be a list of unique names from %s ending in 'r' "
-                            "(the return value)" % (vid, outs, "/".join(OUTPUT_NAMES))))
+                    or len(set(outs)) != len(outs) or outs[-1] not in RETURN_NAMES
+                    or any(o in RETURN_NAMES for o in outs[:-1])):
+                err.append(("OUTPUTS_BAD", "variant %s: outputs %r must be a list of unique names from %s ending in %s "
+                            "(the return value, once)" % (vid, outs, "/".join(OUTPUT_NAMES), " or ".join(RETURN_NAMES))))
             elif v.get("role") == "real" and spec["checks"].get("linear_output") not in outs:
                 err.append(("OUTPUTS_BAD", "variant %s: a real variant must export the linear output %r"
                             % (vid, spec["checks"].get("linear_output"))))
             if "invariance" in v and not isinstance(v["invariance"], bool):
                 err.append(("INVARIANCE_BAD", "variant %s: invariance %r must be true or false" % (vid, v["invariance"])))
+            if "startup_info" in v and not isinstance(v["startup_info"], bool):
+                err.append(("OSC_BAD", "variant %s: startup_info %r must be true or false" % (vid, v["startup_info"])))
             if v.get("invariance") is True and not transforms:
                 err.append(("INVARIANCE_BAD", "variant %s: invariance = true but [inputs.invariance] is missing" % vid))
-        elif "outputs" in v or "invariance" in v:
-            err.append(("OSC_BAD", "variant %s: outputs / invariance without [checks].trace_gate" % vid))
+        elif "outputs" in v or "invariance" in v or "startup_info" in v:
+            err.append(("OSC_BAD", "variant %s: outputs / invariance / startup_info without [checks].trace_gate" % vid))
         if v.get("kind") == "inline":
             fn, body = v.get("function"), v.get("body")
             if not fn or not isinstance(body, str) or not re.search(r"\b%s\s*\(" % re.escape(fn), body):
@@ -554,6 +571,8 @@ def to_checker_spec(spec):
             vd["outputs"] = list(v["outputs"])
             if v.get("invariance"):
                 vd["invariance"] = True
+            if v.get("startup_info"):
+                vd["startup_info"] = True
         if alternating_of(spec):                 # RFF stage 1 (2A): alt keys only when the flag is on
             vd["gain_alt"] = e["gain_alt"]
             if "phase_alt" in e:
@@ -583,6 +602,8 @@ def to_checker_spec(spec):
     if osc_of(spec):
         d["osc"] = dict(gate=spec["checks"]["trace_gate"], bound=spec["checks"]["bound"],
                         linear=spec["checks"]["linear_output"])
+        if "bound_output" in spec["checks"]:
+            d["osc"]["bound_output"] = spec["checks"]["bound_output"]
         for q in ("trace", "bound", "invariance"):
             if q in t:
                 d["tol_" + q] = t[q]["value"]

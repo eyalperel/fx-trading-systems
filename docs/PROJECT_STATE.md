@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-18 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE and Reflex verified; oscillator harness family (D6) built; next: MESAStochastic)
+**As of:** 2026-11-19 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex and MESAStochastic verified; oscillator harness family (D6) built; next: decision pending)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -29,7 +29,8 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 | High-pass family | Decycler | Not reviewed. (c) Probably not the same filter as UltimateSmootherE: same construction (price − HP) but the *Decyclers* article (V.33:09) uses HP-A, while UltimateSmootherE uses the V.42:04 HP; unchecked until Decycler.c is read |
 | Baselines | MAMA, FAMA, FRAMA, Laguerre Filter, DSMA | Not reviewed; Week 9 (FRAMA/Laguerre/DSMA) not reproducible from repo |
 | Oscillators | Reflex | **Corrected and verified 2026-11-18.** Source: Ehlers, "Reflex: A New Zero-Lag Indicator", TASC V.38:02 (2020). Review `docs/harness/REFLEX_SOURCE_REVIEW.md` (`05be788`): R-1 file-static MS shared by every call (silent wrong output with two instances or an asset loop) → per-instance series; R-2 int `Length/2` → real `.5*Length`, SuperSmoother computed in-file; R-3 float32 weights → built from integers; R-4 start-up undefined in the source (INFO); R-5 header. New `ReflexCore(Price, Length, &sum, &ms)` exports the linear stage; `Reflex()` wrapper unchanged for callers (`5840f20`). Old file kept as `Reflex_Superseded.c` (control NCS/NCT). Spec `RFX_ArticleFidelity.toml` (`960ae09` + Amendment 1). **Run 1 PASS** (`ad487b7`): 84/84 (Sum: flat, 5 gains, alt gain, 5 phases, ramp residual; Reflex: 5 trace, bound, 2 invariance) × L = 14/20/21/30; 8 controls (incl. the real superseded file, 76 FAIL rows); IMP ≤ 2.8e-12; Zorro vs article = `PI` gap (trace 1.57e-6). Read twice, agreed on every row. (b) **Not zero-lag at its own design period:** Sum has phase 0 at T = L but the SuperSmoother(L/2) adds −0.62 rad (≈ 2 bars at L = 20). (b) On flat/ramp input Reflex is rounding noise / rounding noise (|r| up to 2.86 in the article model): never read it there. \|Reflex\| ≤ 5 exactly |
-| Oscillators | CyberCycle, Elegant Oscillator, Fisher, Inverse Fisher, COG, MESA Stochastic, RSIH, Laguerre Osc, Laguerre RSI | Not reviewed. MESA Stochastic next (D6 family) |
+| Oscillators | MESA Stochastic | **Corrected and verified 2026-11-19.** Source: TASC V.32:1 (2014) sidebar. Review `docs/harness/MESASTOCHASTIC_SOURCE_REVIEW.md` (`3f0de96`): M-1 window `StochPeriod + 1` → `StochPeriod`; M-2 scale 0–100 → 0–1 (exports before `0332395` are ×100); M-6 fallback 50 → 0.5; M-9 `MESAStochasticCore` exports Roof and raw Stoc; M-8 header; M-4 HP seeding fixed upstream (GAP-1.26); M-5 final seed kept (start-up INFO). Old file kept as `MESAStochastic_Superseded.c` (control NCS). Spec `MESA_ArticleFidelity.toml` (`0fd34ee` + Amendment 1 `4843ee2` + Amendment 2). **Run 1 PASS** (`17a8604`): 84/84 real checks, 5/5 controls detected (29 FAIL rows), IMP ≤ 8.9e-16, floor 20/20; Zorro vs article = `PI` gap (trace 3.9e-6). Read twice, agreed with the pre-run prediction (`57b1abf`). (b) A window-length error (21 vs 20 bars) is invisible on sines with T ≤ L (≤ 7.6e-14) and shows only at T > L (6.2e-2 / 8.1e-2 at T = 40 / 100). (b) The final output is not bounded to [0, 1] (−0.0295 to 1.0295 at T = 100); only the raw Stoc is exactly bounded, so the source's .2 / .8 thresholds act on a signal that can exceed [0, 1] |
+| Oscillators | CyberCycle, Elegant Oscillator, Fisher, Inverse Fisher, COG, RSIH, Laguerre Osc, Laguerre RSI | Not reviewed |
 | Zero-lag / noise | InstantTrendline, DominantCycle, Recursive Median, RMO, Alpha-Beta, Correlation Cycle | Not reviewed |
 | Failed | ELI | Documented FAIL |
 | Volatility | NATR, Ultimate Channel/Bands, VolatilityRegime | Not reviewed |
@@ -45,7 +46,7 @@ indicators through the new test harness — not settled answers.
 | Slot | Strategy 1 | Strategy 2 | Basis |
 |---|---|---|---|
 | Baseline | FAMA | FRAMA | Crossover counts, 10y EUR/USD D1 |
-| C1 | Fisher (10) | MESA Stochastic (20,48,10) | Indicator metrics |
+| C1 | Fisher (10) | MESA Stochastic (20,48,10) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | Indicator metrics |
 | C2 | Reflex — flagged; verified 2026-11-18 (not zero-lag at T = L, §1.1) | Laguerre RSI — shortlisted | C-3b (backtest) never run |
 | Stops / vol | Ultimate Channel, NATR | same | Week 13 |
 | Exit | — | — | Never defined |
@@ -106,7 +107,8 @@ indicators through the new test harness — not settled answers.
 |---|---|---|
 | GAP-1.35 | `data/fx/` CSVs are pre-radians-fix output; one run diverges to NaN | Week 6 notebook figures describe a filter not in the library. Decycler and BTC files unchecked |
 | GAP-1.33/34 | `Test_RoofingFilter.c` has no pass criterion; returns before filters run | Test cannot fail; transient in export rows 1–72. Likely pattern across all test scripts *(unverified)* |
-| GAP-1.26 | HP seeding — first output starts far from steady state | **Fixed in HighPassFilter.c 2026-11-17** (`d22ef57`, zero seed as the source). RoofingFilter re-verified 2026-11-17 (RFF run 1 PASS). Not yet re-verified: MESAStochastic, Decycler, RMO |
+| GAP-1.26 | HP seeding — first output starts far from steady state | **Fixed in HighPassFilter.c 2026-11-17** (`d22ef57`, zero seed as the source). RoofingFilter re-verified 2026-11-17 (RFF run 1 PASS). MESAStochastic re-verified 2026-11-19 (MST run 1 PASS). Not yet re-verified: Decycler, RMO |
+| — | MESA Stochastic exports made before `0332395` (e.g. `Test_MESAStochastic.c`, `Test_C2_LaguerreRSI.c`, `Test_LagSine.c`, `Test_RecursiveMedian.c` outputs, any notebook reading them) are on 0–100 and used the 21-bar window | Not comparable with the verified indicator |
 | — | Week 9 validation not reproducible (no tracked file reads its CSVs) | FRAMA, Laguerre, DSMA status unsupported |
 | — | `CyberCycle.c` statics may lack `cc_` prefix | Unconfirmed after four sittings |
 | — | Decycler vs UltimateSmootherE — possibly the same filter | (c) 2026-11-18: probably different HPs (V.33:09 HP-A vs V.42:04 HP); USE run 1 control NCX (= x − HP-A(20)) differs from UltimateSmootherE(20) by gain 0.22. Confirm when Decycler is reviewed |
@@ -251,9 +253,14 @@ file's first rows exactly.
    `5087c39`); tooling `853dc20` (multi-output calls, trace/bound/invariance, shared-state replay) + `62b4e97` (out-parameters via
    local scalars, `&Y[k]` never compiled). Planning-chat prediction committed before the checker (`901b3a0`); the checker agreed on
    every verdict and all 76 control FAIL rows. Tooling 460/460. Raw sha256 `f1ab5494…1d75` (local copy).
-   Next: MESAStochastic (C1): source article to confirm (probably V.32:1, same issue as the Roofing sidebar), then the .c review
-   (suspected: min/max window `StochPeriod + 1` bars; 0–100 vs 0–1 scale; `100.0 *` literal first). D6 rules 2–4 apply, plus a gate
-   on the min/max range (HH − LL).
+   **MESAStochastic: run 1 PASS 2026-11-19** (branch `harness-mesa`; details §1.1). Review `3f0de96`, tooling `85b7431`, spec `0fd34ee`,
+   corrected .c + superseded control + test `0332395`, Amendment 1 + script `4843ee2`, prediction `57b1abf`, results `17a8604`. New in
+   this spec: three-output calls (out, Roof, raw Stoc), two-sided bound on the raw Stoc (the final output has no exact bound), gate
+   on the model's HH − LL range, trace tolerance 5e-5 chosen by D2 rule 3 (the 3e-5 default failed the window). Resumed after an
+   interrupted session (stash backup). Read twice: the checker agreed with the pre-run prediction on verdict, counts and compared
+   values. Tooling 555/555. Raw sha256 `0c53641a…efddefda` (local copy).
+   **Next: decision pending (planning chat).** Remaining oscillator-family slot candidates: Fisher Transform (C1, Strategy 1) and
+   Laguerre RSI (C2, Strategy 2); baselines (FAMA / FRAMA) and stops (UltimateChannelBands, NATR) after.
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.

@@ -1,0 +1,788 @@
+# MESA_ArticleFidelity.toml -- MESAStochastic (Ehlers V.32:1 sidebar), SOURCE FIDELITY + IMPLEMENTATION (HARNESS_DESIGN §1, both questions), the
+# SECOND spec of the OSCILLATOR family (HARNESS_DESIGN D6; first: RFX_ArticleFidelity.toml).
+# Pre-registration: this file, committed BEFORE the corrected MESAStochastic.c / MESAStochastic_Superseded.c are written and BEFORE the generated
+# script is run (CLAUDE.md §4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of MST stage 1 (planning chat 2026-11-18; decisions M-1..M-9 of docs/harness/MESASTOCHASTIC_SOURCE_REVIEW.md and D6 accepted by the user;
+# brief docs/harness/MESA_STAGE1_PROMPT.md), built on the RFX oscillator tooling plus: models by type (reference.MesaModel / simulate_mesa), a gate on the
+# MODEL's range HighestC - LowestC, a two-sided ABSOLUTE bound read from a named output (stoc), `startup_info` variants (generator / checker / reference, this branch).
+# Format: as specs/RFX_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from RFX:
+#   * Three integer parameters per call (StochPeriod, HPPeriod, SSPeriod). Real variants L14 / L20 (source default) / L30 / S20 (SSPeriod 20).
+#   * Every real variant is called through MESAStochasticCore(Price, L, HP, SS, &roof, &stoc) and exports three outputs: roof (the Roofing Filter, the linear stage),
+#     stoc (the raw 0-1 stochastic) and out (the final smoothed output). The v1 checks (flat, gains, phases, alt gain, ramp residual; D4) read `roof`; trace and
+#     invariance read `out`; the bound reads `stoc` (the final output overshoots 0-1 by design: review §4).
+#   * DC gain 0 (Roof has a double zero at DC): D4 rules 2 / 4, no ramp-lag check. The alt phase row is SKIP in every variant exporting roof (Roof gain at Nyquist ~ 1e-18).
+#   * Start-up: no rule in the source (M-5). Rows < W of `out` are INFO only; IMP and trace replay rows >= W = 700.
+#   * Flat / alt / ramp rows of the normalised output are INFO only (ill-conditioned: the stochastic normalises Roof rounding noise).
+#   * No statics in MESAStochastic.c, RoofingFilter.c, HighPassFilter.c, SuperSmoother2Pole.c (all state is per-call series()): D6 rule 5 is NOT APPLICABLE and there is
+#     no shared-state control (review §4). The layout still runs every variant as its own instance every bar and IMP replays each against its own model.
+#   * NCS is the REAL superseded file (MESAStochastic_Superseded.c, written in stage 2): it returns only `out`, so it has no stoc column and no bound row (deviation from
+#     the brief's remark that the bound fires on NCS: the model's Stoc max 100.00000000000001 is reported in [findings], not observable in the run).
+#     Decided 2026-11-19 (user): NCS is detected by trace only (2.04e6x, D2 per-control detection); the brief's remark was a planning-chat error
+#     (it used the model's Stoc). Recorded in docs/harness/MESA_STAGE1_REPORT.md.
+
+[batch]
+name = "MST_ArticleFidelity"
+id_prefix = "MST"
+indicator = "MESAStochasticCore"       # Light-C function called by the `param` variants (corrected MESAStochastic.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/MESA_ArticleFidelity.toml (this file)"
+script_name = "GEN_MST_MESAStochastic"   # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'Predictive And Successful Indicators', Technical Analysis of Stocks & Commodities V.32:1 (2014), pp. 16-25, sidebar 'EasyLanguage Code To Compute The MESA Stochastic Indicator' (PDF p. 8)"
+formula = """
+(a) alpha1 = (Cosine(.707*360 / 48) + Sine(.707*360 / 48) - 1) / Cosine(.707*360 / 48);
+    HP = (1 - alpha1 / 2)*(1 - alpha1 / 2)*(Close - 2*Close[1] + Close[2]) + 2*(1 - alpha1)*HP[1] - (1 - alpha1)*(1 - alpha1)*HP[2];
+    a1 = expvalue(-1.414*3.14159 / 10);  b1 = 2*a1*Cosine(1.414*180 / 10);  c2 = b1;  c3 = -a1*a1;  c1 = 1 - c2 - c3;
+    Filt = c1*(HP + HP[1]) / 2 + c2*Filt[1] + c3*Filt[2];
+    HighestC = Filt;  LowestC = Filt;
+    For count = 0 to Length - 1 Begin  If Filt[count] > HighestC then HighestC = Filt[count];  If Filt[count] < LowestC then LowestC = Filt[count];  End;
+    Stoc = (Filt - LowestC) / (HighestC - LowestC);
+    MESAStochastic = c1*(Stoc + Stoc[1]) / 2 + c2*MESAStochastic[1] + c3*MESAStochastic[2];
+    Plot1(MESAStochastic); Plot2(.8); Plot6(.2);
+(a) Default Length 20. HP + Filt are the Roofing Filter (48, 10) (verified, RFF run 1 d1395d3); the final smoothing reuses the SuperSmoother(10) coefficients.
+    The window is Length bars (count 0 .. Length - 1) (M-1). Scale 0-1 (M-2). No zero-range guard (M-6), no start-up rule (M-4 / M-5): all variables start at 0 (Vars: ...(0)).
+    Cosine takes degrees: .707*360/48 deg = (sqrt(2)/2)*2*pi/48 rad; 1.414*180/10 deg = sqrt(2)*pi/10 rad. D1 rule 1: .707 -> sqrt(2)/2, 1.414 -> sqrt(2), 3.14159 -> pi.
+(c) Library generalisation (M-7): MESAStochastic(Price, StochPeriod, HPPeriod, SSPeriod); SSPeriod is used for BOTH SuperSmoother passes (the source shares the coefficients).
+Library conventions the model implements for the real variants (decided M-4 / M-5 / M-6): HP history 0 and input history = Price[0] (series seeding) -> first Roof = 0 (RFF O_SEED);
+the window history is seeded with the first Roof value (series() seeding); zero range (HH == LL) -> Stoc = 0.5 (the source divides 0/0); the final SuperSmoother2Pole(series(Stoc, 3), SSPeriod)
+starts with its Stoc and output histories at the first Stoc.
+"""
+reference = "analysis/harness/reference.py mesa_article(L, hp, ss) (exact constants, library conventions; simulate_mesa), mesa_code (Zorro PI), mesa_superseded; roof_article(hp, ss) for the analytic Roof tables"
+other_forms = "(a) Not tested here: other uses of the Stoc (the article's Figure 5 crossing rules at 0.2 / 0.8 are a strategy matter, not an indicator check)."
+
+[[literal_replacements]]
+literal = "1.414"
+exact = 1.4142135623730951
+name = "sqrt(2)"
+rule = "D1 rule 1"
+source = "(a) a1 and b1 lines (roofing SuperSmoother and final smoothing). 1.414 = sqrt(2) to its printed digits (D1 rule 1, decided: replace). 180 in the degrees form is exact pi rad."
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+rule = "D1 rule 1"
+source = "(a) a1 line. 3.14159 = pi to its printed digits (D1 rule 1, decided: replace). 180 / 360 in the degrees forms are exact pi / 2 pi rad."
+
+[[literal_replacements]]
+literal = ".707"
+exact = 0.7071067811865476
+name = "sqrt(2)/2"
+rule = "D1 rule 1"
+source = "(a) alpha1 lines of the high-pass. .707 = 1/sqrt(2) to its printed digits (D1 rule 1, decided: replace; as HP_ArticleFidelity D-1). 360 in the degrees form is exact 2 pi rad."
+
+
+# Pre-registered lines of the corrected indicators/ehlers/MESAStochastic.c (M-1, M-2, M-6, M-7, M-8, M-9). The .c is written to these lines AFTER this file is
+# committed (stage 2); a test then asserts it contains them verbatim (whitespace-normalised, comments stripped).
+# reference.mesa_code(L, hp, ss) with simulate_mesa implements exactly these lines.
+[corrected_code]
+file = "indicators/ehlers/MESAStochastic.c"
+function = "var MESAStochasticCore(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)"
+lines = """
+vars mstc_Roof = series(RoofingFilter(Price, HPPeriod, SSPeriod), StochPeriod);
+var mstc_HH = mstc_Roof[0];
+var mstc_LL = mstc_Roof[0];
+int mstc_i;
+for(mstc_i = 1; mstc_i < StochPeriod; mstc_i++) {
+    if(mstc_Roof[mstc_i] > mstc_HH) mstc_HH = mstc_Roof[mstc_i];
+    if(mstc_Roof[mstc_i] < mstc_LL) mstc_LL = mstc_Roof[mstc_i];
+}
+var mstc_Stoc = 1;
+mstc_Stoc = mstc_Stoc/2;
+if(mstc_HH != mstc_LL)
+    mstc_Stoc = (mstc_Roof[0] - mstc_LL)/(mstc_HH - mstc_LL);
+vars mstc_S = series(mstc_Stoc, 3);
+var mstc_Out = SuperSmoother2Pole(mstc_S, SSPeriod);
+*pRoof = mstc_Roof[0];
+*pStoc = mstc_Stoc;
+return mstc_Out;"""
+wrapper_function = "var MESAStochastic(vars Price, int StochPeriod, int HPPeriod, int SSPeriod)"
+wrapper_lines = """
+var mstc_r;
+var mstc_s;
+return MESAStochasticCore(Price, StochPeriod, HPPeriod, SSPeriod, &mstc_r, &mstc_s);"""
+notes = """(b) Changed vs the current .c (git blob a8c51bacf951cd1aa7a0d1c2f39347824ca1d6bf at c760160): M-1 the window is StochPeriod bars (series(..., StochPeriod), [0 .. StochPeriod-1]; was StochPeriod + 1); M-2 the scale is 0-1 (was 100.0 * ...; the 100.0 literal-first expression is gone); M-6 the zero-range fallback is 0.5 built from a variable (was 50); M-9 the linear stage and the raw Stoc are exported through MESAStochasticCore(Price, StochPeriod, HPPeriod, SSPeriod, &roof, &stoc); `MESAStochastic(Price, StochPeriod, HPPeriod, SSPeriod)` is a thin wrapper, so callers do not change; M-8 header with source, formula, deviations and the review path (written with the .c). M-4 / M-5 / M-7: no change.
+(c) Both series() calls are unconditional and precede any use (gotchas 3.1); no expression starts with two literals (gotchas 9d.8). (c) `*pRoof = ...` out-parameters compile in Light-C: the same pattern is in Reflex.c (RFX run 1 PASS, ReflexCore with `var* pSum`, `var* pMS`). If any line cannot compile, stage 2 stops and reports.
+Superseded file (stage 2): the CURRENT MESAStochastic.c body verbatim as indicators/ehlers/MESAStochastic_Superseded.c, function `MESAStochastic_Superseded`, locals `mstc_` -> `mstco_` (flat namespace, gotchas 1.3). It is the negative control NCS (M-1 and M-2 together).
+Pre-run (ii): the blob hash of the current MESAStochastic.c is recorded above (a8c51bacf951cd1aa7a0d1c2f39347824ca1d6bf)."""
+
+
+[zorro]
+include = ["../../indicators/ehlers/HighPassFilter.c", "../../indicators/ehlers/SuperSmoother2Pole.c", "../../indicators/ehlers/RoofingFilter.c", "../../indicators/ehlers/MESAStochastic_Superseded.c", "../../indicators/ehlers/MESAStochastic.c"]   # dependency order (gotchas 5.3), resolved from strategies/tests/; MESAStochastic_Superseded.c and the corrected MESAStochastic.c are written in stage 2 (lint reports the Superseded include missing until then; the current MESAStochastic.c exists but has no MESAStochasticCore)
+raw_file = "Data/GEN_MST_raw.csv"
+marker_file = "Data/GEN_MST_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # as RFX / RFF / USE, incl. the alternating input; warmup 700 (D6 rule 2)
+n_bars = 3000
+warmup = 700              # (b) start-up memory: the final-seed effect is gone after row 59 (finding 7); W = 700 is the family default (>= 10x the measured memory)
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+alternating = true          # extra input id `alt`: level + amp*(-1)^n, after the sines and before ramp
+
+[inputs.invariance]         # D6 rule 4: transformed copies of every sine, fed to every variant with invariance = true
+transforms = [{ id = "sc", level = [11, 10], amp = [1, 10] }, { id = "of", level = [22, 10], amp = [1, 100] }]   # scale x10 (amp 0.1, level 1.1) and offset (level 2.2, amp 0.01); ids sc<T> / of<T>
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D4 + D6
+dc_gain = 0.0
+phase_gate = 0.05
+linear_output = "roof"       # the v1 checks (flat, gains, phases, alt, ramp residual) read this output (D6 rule 1)
+trace_gate = 0.01            # g: rows with (HighestC - LowestC of the MODEL)/amplitude < g are excluded from trace / invariance (D6 rule 2 + note)
+bound = [0.0, 1.0]           # raw Stoc lies in [0, 1] (two-sided, ABSOLUTE allowance [tolerances.bound])
+bound_output = "stoc"        # the bound reads the raw Stoc, not the final output (which overshoots: finding 5)
+source = """(b) Roof has DC gain 0 and a double zero at DC (HP second difference): D4 rules 2 and 4 (flat expected 0, ramp residual expected 0), no ramp-lag check. phase_gate (c): judgement, as HPF / RFF / USE / RFX; (b) the smallest expected Roof gain in the four tables is 0.05743161850487488 (S20, T = 5) >= 0.05, so all 20 sine phases are checked; the expected alt gain is <= 6.1e-18 (the HP has a zero at Nyquist): the alt phase is SKIP for every variant exporting roof. trace_gate g = 0.01 (c): judgement (D6 default); (b) the smallest (HighestC - LowestC)/amplitude over the sine rows >= W in the four real models is 0.028396521846796308 (L14, T = 100), 2.84x the gate (finding 4): no gated row on a correct variant; a gated row is counted and reported. bound [0, 1] (b): Stoc = (r - LL)/(HH - LL) with LL <= r <= HH lies in [0, 1] exactly in IEEE arithmetic, the fallback 0.5 is inside; 0.0 and 1.0 are attained (finding 5)."""
+
+
+[tolerances.flat]
+value = 1e-09
+source = "(a) H1 criteria section 5 (unchanged). Applies to Roof: expected |Roof| = 0 on flat (DC gain 0, D4 rule 2). (b) floor 0."
+[tolerances.gain]
+value = 3e-05
+source = "(c) HPF / SS2F / RFF / USE / RFX default (D4 rule 5). (b) window: floor x10 <= 3e-5, see [floor].gain. Applies to the five Roof sine gains and the alt gain."
+[tolerances.phase]
+value = 3e-05
+source = "(c) HPF / RFF / USE / RFX default (D4 rule 5), radians. (b) window: floor x10 <= 3e-5, see [floor].phase. Applies to the five Roof sine phases; the alt phase is gated out."
+[tolerances.resid]
+value = 1e-09
+source = "(c) HPF / RFF / RFX default (D4 rule 5). Applies to Roof on the ramp: expected 0 (double zero at DC). (b) floor ~1e-17."
+[tolerances.trace]
+value = 5e-05
+source = "(c) THIS spec's value under D2 rule 1 (the D6 default 3e-5 stays the family default): max |Zorro out - model out| over the gated rows >= W, per sine. (b) the D6 default fails the D2 window: the largest floor is 3.875e-06 (L14, T = 100: HighestC - LowestC is smallest there, so the normalisation amplifies the PI gap), floor x10 = 3.88e-05 > 3e-5 (D2 rule 3). 5e-5: floor margin 12.9x, smallest control (NCA 7.94e-04) 15.9x, floor guard tol/10 = 5e-6 (b: 3.875e-06 <= 5e-6). See [floor].trace and [detect]."
+[tolerances.bound]
+value = 1e-12
+source = "(c) NEW form (D6 rule 3, two-sided): ABSOLUTE allowance tol_abs on both ends: PASS if every raw Stoc row lies in [0 - tol_abs, 1 + tol_abs]; the Reflex one-sided relative form is unchanged. (b) the bound holds exactly (finding 5); 1e-12 is a few-ulp allowance, the check needs no model."
+[tolerances.invariance]
+value = 1e-09
+source = "(c) D6 rule 4 default: max |out(input) - out(transformed input)| over the gated rows >= W, five sines, transforms sc (amp x10) and of (level 2.2). (b) floor ~1e-12 (finding 6, float64): window ok. Zorro-internal comparison, no model."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers the alt input and the invariance copies."
+[tolerances.imp]
+value = 1e-09
+source = "(c) As HPF / SS3F / RFF / USE / RFX. Applies to roof (all base inputs, absolute) and to stoc / out on the gated sine rows. (b) Fire tests: see [imp.fire_test]."
+
+
+# D2 floor per quantity: largest known accepted difference, corrected code (Zorro PI) vs THIS spec's (article) tables.
+[floor]
+gain = 5.277790241509095e-07
+phase = 1.567166116878127e-06
+resid = 9.491639793472638e-17
+flat = 0.0
+trace = 3.875319340873595e-06
+invariance = 4.43312053732825e-13
+source = """(b) 2026-11-18: reference.mesa_code(L, hp, ss) (Zorro PI, k = sqrt(2)/2, library seeds), simulated 3000 bars and measured with the checker's own functions (check_rows: m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace / m_invariance) vs the mesa_article tables below, max over the four real variants; per variant in [floor.per_variant.*]. = the Zorro PI gap only (D3) plus floating-point order of operations. The Zorro-side implementation residual is measured by IMP in the run; pass item 7 guards it."""
+
+[floor.per_variant.L14]
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+flat = 0.0
+trace = 3.875319340873595e-06
+invariance = 4.0123460109953157e-13
+
+[floor.per_variant.L20]
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+flat = 0.0
+trace = 3.2572071571035366e-06
+invariance = 2.94320123828129e-13
+
+[floor.per_variant.L30]
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+flat = 0.0
+trace = 2.4668028190677482e-06
+invariance = 1.545430450278218e-13
+
+[floor.per_variant.S20]
+gain = 4.40902846121638e-07
+phase = 1.567166116878127e-06
+resid = 9.491639793472638e-17
+flat = 0.0
+trace = 2.300819044287472e-06
+invariance = 4.43312053732825e-13
+
+# Expected tables: from reference.roof_article (analytic H_Roof = H_HP x H_SS, exact constants, D1) for the Roof gains / phases; the trace model is mesa_article(L, hp, ss).
+# Never from the .c file. Stored at full precision.
+
+[expected.L14]
+flat = 0.0
+gains = [0.22329246373117576, 0.6812189601598664, 0.8900165495219391, 0.7405714692715243, 0.3152095678349821]
+gain_alt = 6.034247078565135e-18
+phases = { 5 = -1.7262724708581951, 10 = -1.0206179300609162, 20 = -0.05338683922280379, 40 = 0.769984001215179, 100 = 1.8340513846255355 }
+resid = 0.0
+article = "mesa_article(14,48,10)"
+source = "(b) reference.roof_article(48, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Roof = H_HP(48) x H_SS(10); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives 1.398785354715624e-18, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.L20]
+flat = 0.0
+gains = [0.22329246373117576, 0.6812189601598664, 0.8900165495219391, 0.7405714692715243, 0.3152095678349821]
+gain_alt = 6.034247078565135e-18
+phases = { 5 = -1.7262724708581951, 10 = -1.0206179300609162, 20 = -0.05338683922280379, 40 = 0.769984001215179, 100 = 1.8340513846255355 }
+resid = 0.0
+article = "mesa_article(20,48,10)"
+source = "(b) reference.roof_article(48, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Roof = H_HP(48) x H_SS(10); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives 1.398785354715624e-18, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.L30]
+flat = 0.0
+gains = [0.22329246373117576, 0.6812189601598664, 0.8900165495219391, 0.7405714692715243, 0.3152095678349821]
+gain_alt = 6.034247078565135e-18
+phases = { 5 = -1.7262724708581951, 10 = -1.0206179300609162, 20 = -0.05338683922280379, 40 = 0.769984001215179, 100 = 1.8340513846255355 }
+resid = 0.0
+article = "mesa_article(30,48,10)"
+source = "(b) reference.roof_article(48, 10) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Roof = H_HP(48) x H_SS(10); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives 1.398785354715624e-18, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.S20]
+flat = 0.0
+gains = [0.057431618504874854, 0.23365848260774072, 0.6487070206488631, 0.719862160915718, 0.31497347991604596]
+gain_alt = 1.5107043619184775e-18
+phases = { 5 = -2.0732111242169586, 10 = -1.8117540367506426, 20 = -0.8564295844658709, 40 = 0.3805302637415229, 100 = 1.6917733148669594 }
+resid = 0.0
+article = "mesa_article(20,48,20)"
+source = "(b) reference.roof_article(48, 20) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Roof = H_HP(48) x H_SS(20); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives -1.1202608636441558e-18, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "L14"
+role = "real"
+label = "L=14, HP=48, SS=10"
+kind = "param"
+params = [14, 48, 10]
+expected = "L14"
+outputs = ["roof", "stoc", "out"]
+invariance = true
+
+[[variants]]
+id = "L20"
+role = "real"
+label = "L=20 (source default), HP=48, SS=10"
+kind = "param"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+invariance = true
+
+[[variants]]
+id = "L30"
+role = "real"
+label = "L=30, HP=48, SS=10"
+kind = "param"
+params = [30, 48, 10]
+expected = "L30"
+outputs = ["roof", "stoc", "out"]
+invariance = true
+
+[[variants]]
+id = "S20"
+role = "real"
+label = "L=20, HP=48, SS=20"
+kind = "param"
+params = [20, 48, 20]
+expected = "S20"
+outputs = ["roof", "stoc", "out"]
+invariance = true
+
+[[variants]]
+id = "NCL"
+role = "info"
+label = "NCL: article as printed (.707, 1.414, 3.14159) vs L20 article"
+kind = "inline"
+function = "mst_ncl"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+comment = "INFO variant (not a control, not in [detect]; D1 rule 3): the article as PRINTED, .707, 1.414 and 3.14159 built from integers at run time (707/1000, 1414/1000, 314159/100000, gotchas 9d.1 / 9d.8) in the HP, the roofing SuperSmoother and the final SuperSmoother; the cosines' 360 / 180 degrees are the PI macro (Zorro float32 PI, as the other variants). Everything else as [corrected_code]. (20, 48, 10). Reported, never PASS/FAIL."
+body = '''
+var mst_ncl(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)
+{
+	var ncl_k = 707;
+	ncl_k = ncl_k / 1000;
+	var ncl_f = 1414;
+	ncl_f = ncl_f / 1000;
+	var ncl_g = 314159;
+	ncl_g = ncl_g / 100000;
+	var ncl_arg = ncl_k * 2.0 * PI / HPPeriod;
+	var ncl_alpha = (cos(ncl_arg) + sin(ncl_arg) - 1.0) / cos(ncl_arg);
+	vars ncl_HP = series(0, 3);
+	ncl_HP[0] = (1.0 - ncl_alpha / 2.0) * (1.0 - ncl_alpha / 2.0) * (Price[0] - 2.0 * Price[1] + Price[2]) + 2.0 * (1.0 - ncl_alpha) * ncl_HP[1] - (1.0 - ncl_alpha) * (1.0 - ncl_alpha) * ncl_HP[2];
+	var ncl_a1 = exp(-ncl_f * ncl_g / SSPeriod);
+	var ncl_b1 = 2.0 * ncl_a1 * cos(ncl_f * PI / SSPeriod);
+	var ncl_c2 = ncl_b1;
+	var ncl_c3 = -ncl_a1 * ncl_a1;
+	var ncl_c1 = 1.0 - ncl_c2 - ncl_c3;
+	vars ncl_R = series(ncl_HP[0], 3);
+	vars ncl_F = series(ncl_R[0], 3);
+	ncl_F[0] = ncl_c1 * (ncl_R[0] + ncl_R[1]) / 2.0 + ncl_c2 * ncl_F[1] + ncl_c3 * ncl_F[2];
+	vars ncl_Roof = series(ncl_F[0], StochPeriod);
+	var ncl_HH = ncl_Roof[0];
+	var ncl_LL = ncl_Roof[0];
+	int ncl_i;
+	for(ncl_i = 1; ncl_i < StochPeriod; ncl_i++) {
+		if(ncl_Roof[ncl_i] > ncl_HH) ncl_HH = ncl_Roof[ncl_i];
+		if(ncl_Roof[ncl_i] < ncl_LL) ncl_LL = ncl_Roof[ncl_i];
+	}
+	var ncl_Stoc = 1;
+	ncl_Stoc = ncl_Stoc / 2;
+	if(ncl_HH != ncl_LL)
+		ncl_Stoc = (ncl_Roof[0] - ncl_LL) / (ncl_HH - ncl_LL);
+	vars ncl_S = series(ncl_Stoc, 3);
+	vars ncl_Y = series(ncl_Stoc, 3);
+	ncl_Y[0] = ncl_c1 * (ncl_S[0] + ncl_S[1]) / 2.0 + ncl_c2 * ncl_Y[1] + ncl_c3 * ncl_Y[2];
+	*pRoof = ncl_Roof[0];
+	*pStoc = ncl_Stoc;
+	return ncl_Y[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 9.930912469835462e-05
+phase = 0.00024997116087721594
+resid = 7.924110586372492e-17
+trace = 0.0006125625890712749
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCZ"
+role = "info"
+label = "NCZ: source zero final seed (start-up only) vs L20 article"
+kind = "inline"
+function = "mst_ncz"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+startup_info = true
+comment = "INFO variant (finding 7, M-5): the final SuperSmoother is computed in the body with the SOURCE start (Stoc[1], out[1], out[2] = 0: series(0, n) histories), everything else as [corrected_code]. It differs from the library only in the first 60 rows (< W), so IMP and trace (rows >= W) cannot see it; its start-up row (info-startup, rows < W) is the measurement. Reported, never PASS/FAIL."
+body = '''
+var mst_ncz(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)
+{
+	vars ncz_Roof = series(RoofingFilter(Price, HPPeriod, SSPeriod), StochPeriod);
+	var ncz_HH = ncz_Roof[0];
+	var ncz_LL = ncz_Roof[0];
+	int ncz_i;
+	for(ncz_i = 1; ncz_i < StochPeriod; ncz_i++) {
+		if(ncz_Roof[ncz_i] > ncz_HH) ncz_HH = ncz_Roof[ncz_i];
+		if(ncz_Roof[ncz_i] < ncz_LL) ncz_LL = ncz_Roof[ncz_i];
+	}
+	var ncz_Stoc = 1;
+	ncz_Stoc = ncz_Stoc / 2;
+	if(ncz_HH != ncz_LL)
+		ncz_Stoc = (ncz_Roof[0] - ncz_LL) / (ncz_HH - ncz_LL);
+	var ncz_k = sqrt(2.0);
+	var ncz_a1 = exp(-ncz_k * PI / SSPeriod);
+	var ncz_b1 = 2.0 * ncz_a1 * cos(ncz_k * PI / SSPeriod);
+	var ncz_c2 = ncz_b1;
+	var ncz_c3 = -ncz_a1 * ncz_a1;
+	var ncz_c1 = 1.0 - ncz_c2 - ncz_c3;
+	vars ncz_S = series(0, 2);
+	vars ncz_Y = series(0, 3);
+	ncz_S[0] = ncz_Stoc;
+	ncz_Y[0] = ncz_c1 * (ncz_S[0] + ncz_S[1]) / 2.0 + ncz_c2 * ncz_Y[1] + ncz_c3 * ncz_Y[2];
+	*pRoof = ncz_Roof[0];
+	*pStoc = ncz_Stoc;
+	return ncz_Y[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+trace = 3.2572071571035366e-06
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCW"
+role = "neg_control"
+label = "NCW: window L+1 (M-1), 0-1 scale vs L20 article"
+kind = "inline"
+function = "mst_ncw"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+comment = "NCW: the old window, StochPeriod + 1 bars (series(..., StochPeriod + 1), loop 1 .. StochPeriod), everything else as [corrected_code] (0-1 scale, fallback 0.5). Roof unchanged; (b) visible only for sine periods T > L (a 20-bar window spans whole cycles at T = 5 / 10 / 20). (20, 48, 10)."
+body = '''
+var mst_ncw(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)
+{
+	vars ncw_Roof = series(RoofingFilter(Price, HPPeriod, SSPeriod), StochPeriod + 1);
+	var ncw_HH = ncw_Roof[0];
+	var ncw_LL = ncw_Roof[0];
+	int ncw_i;
+	for(ncw_i = 1; ncw_i <= StochPeriod; ncw_i++) {
+		if(ncw_Roof[ncw_i] > ncw_HH) ncw_HH = ncw_Roof[ncw_i];
+		if(ncw_Roof[ncw_i] < ncw_LL) ncw_LL = ncw_Roof[ncw_i];
+	}
+	var ncw_Stoc = 1;
+	ncw_Stoc = ncw_Stoc / 2;
+	if(ncw_HH != ncw_LL)
+		ncw_Stoc = (ncw_Roof[0] - ncw_LL) / (ncw_HH - ncw_LL);
+	vars ncw_S = series(ncw_Stoc, 3);
+	var ncw_Out = SuperSmoother2Pole(ncw_S, SSPeriod);
+	*pRoof = ncw_Roof[0];
+	*pStoc = ncw_Stoc;
+	return ncw_Out;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+trace = 0.08053609924665306
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NCA: final-SS a1 + 1/1000 vs L20 article"
+kind = "inline"
+function = "mst_nca"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+comment = "NCA: realistic copying error in the final smoothing's pole factor (D2 rule 4; third-digit copy error). [corrected_code] except the final SuperSmoother is computed in the body with a1 + 1/1000 (1/1000 built from a variable, 9d.8) BEFORE b1, c3 and c1 are derived (article form c1*(S0 + S1)/2 + c2*Y1 + c3*Y2, histories at the first Stoc). Roof untouched. (20, 48, 10)."
+body = '''
+var mst_nca(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)
+{
+	vars nca_Roof = series(RoofingFilter(Price, HPPeriod, SSPeriod), StochPeriod);
+	var nca_HH = nca_Roof[0];
+	var nca_LL = nca_Roof[0];
+	int nca_i;
+	for(nca_i = 1; nca_i < StochPeriod; nca_i++) {
+		if(nca_Roof[nca_i] > nca_HH) nca_HH = nca_Roof[nca_i];
+		if(nca_Roof[nca_i] < nca_LL) nca_LL = nca_Roof[nca_i];
+	}
+	var nca_Stoc = 1;
+	nca_Stoc = nca_Stoc / 2;
+	if(nca_HH != nca_LL)
+		nca_Stoc = (nca_Roof[0] - nca_LL) / (nca_HH - nca_LL);
+	var nca_k = sqrt(2.0);
+	var nca_a1 = exp(-nca_k * PI / SSPeriod);
+	var nca_e = 1;
+	nca_e = nca_e / 1000;
+	nca_a1 = nca_a1 + nca_e;
+	var nca_b1 = 2.0 * nca_a1 * cos(nca_k * PI / SSPeriod);
+	var nca_c2 = nca_b1;
+	var nca_c3 = -nca_a1 * nca_a1;
+	var nca_c1 = 1.0 - nca_c2 - nca_c3;
+	vars nca_S = series(nca_Stoc, 3);
+	vars nca_Y = series(nca_Stoc, 3);
+	nca_Y[0] = nca_c1 * (nca_S[0] + nca_S[1]) / 2.0 + nca_c2 * nca_Y[1] + nca_c3 * nca_Y[2];
+	*pRoof = nca_Roof[0];
+	*pStoc = nca_Stoc;
+	return nca_Y[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+trace = 0.0007950728414501951
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCP"
+role = "neg_control"
+label = "NCP: HPPeriod 40 vs the (20,48,10) article"
+kind = "param"
+params = [20, 40, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+comment = "NCP: the real core called with a wrong high-pass period (HPPeriod = 40 instead of 48). Compared with the (20, 48, 10) model and Roof tables."
+[variants.effect]
+flat = 0.0
+gain = 0.07543229129532691
+phase = 0.1661996125421643
+resid = 1.0750817072122748e-16
+trace = 0.4581775531393987
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: L=22 vs L20 article"
+kind = "param"
+params = [22, 48, 10]
+expected = "L20"
+outputs = ["roof", "stoc", "out"]
+comment = "NC1: the real core called with StochPeriod = 22 instead of 20. Compared with the L20 model; Roof unchanged."
+[variants.effect]
+flat = 0.0
+gain = 5.277790241509095e-07
+phase = 1.3284752453657234e-06
+resid = 6.775143577467453e-17
+trace = 0.1561252709006048
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded MESAStochastic.c vs L20 article"
+kind = "param"
+function = "MESAStochastic_Superseded"
+params = [20, 48, 10]
+expected = "L20"
+outputs = ["out"]
+comment = "NCS: the REAL superseded MESAStochastic.c (stage 2: MESAStochastic_Superseded.c, the current body verbatim, mstc_ -> mstco_), (20, 48, 10): window L + 1 (M-1) and scale 0-100 with fallback 50 (M-2 / M-6) together. It returns only the final output (no stoc column, so no bound row). Compared with the L20 model."
+[variants.effect]
+trace = 101.85048536084172
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (ratios: NCW trace 1.61e+03x; NCA trace 15.9x; NCP gain 2.51e+03x, phase 5.54e+03x, trace 9.16e+03x; NC1 trace 3.12e+03x; NCS trace 2.04e+06x). Kinds below 10x are not required (Roof is untouched by NCW, NCA, NC1 and the superseded file's Roof is not exported: those controls are seen by trace only)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* / gain-alt | phase-T* | ramp-res | trace-T* | bound | invar-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL. NCL and NCZ (role info) are not controls and are not listed. bound and invariance are never required (no control moves them: bound holds by construction for the corrected structure, invariance is held by any normalised output; NCS exports no stoc)."
+[detect.required]
+NCW = ["trace"]
+NCA = ["trace"]
+NCP = ["gain", "phase", "trace"]
+NC1 = ["trace"]
+NCS = ["trace"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x columns EXPORTED by Zorro (reference.IMP_MODELS); residual = max |Zorro - replay| over n >= W = 700 per input: roof on every base input (absolute); stoc on the base sines and out on the sines and their copies only, on rows where (HighestC - LowestC)/amplitude >= g under the replay's own model (flat, alt and ramp are ill-conditioned: the stochastic normalises Roof rounding noise, finding 5 / O_RAMP_ILLCONDITIONED, and are INFO); overall = the max."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { L14 = "mesa_code(14,48,10)", L20 = "mesa_code(20,48,10)", L30 = "mesa_code(30,48,10)", S20 = "mesa_code(20,48,20)", NCL = "mesa_printed(20,48,10)", NCZ = "mesa_code(20,48,10,final_seed=zero)", NCW = "mesa_code(20,48,10,win=21)", NCA = "mesa_code(20,48,10,da_final=1/1000)", NCP = "mesa_code(20,40,10)", NC1 = "mesa_code(22,48,10)", NCS = "mesa_superseded(20,48,10)" }
+must_fail = { L20 = "mesa_code(20,48,10,da_final=1/1000)", NCS = "mesa_article(20,48,10)" }
+fire_test_effect = "(b) standalone model, 2026-11-18, numbers at full precision in [imp.fire_test]: L20 output vs the NCA-model replay and NCS output vs the L20 mesa_article replay, both > 1e-9; own-model replays are exact up to rounding. NCZ cannot be discriminated on rows >= W (the zero final seed differs only in rows < 60): its discrimination value is at the rounding level and is listed, not required (O_NCZ_IMP)."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs article). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. L20 must_fail = the wrong-pole-factor model (NCA) is absent from the run output; NCS must_fail = the superseded file is not the article model (the control is seen to differ)."""
+
+[imp.fire_test]
+l20_vs_nca_model = 0.0007941944211215524
+ncs_vs_l20_article_model = 101.85048536084172
+source = "(b) 2026-11-18: checker.imp_rows on the synthetic own-model raw file of this spec (rfx_support.synth_raw), max over n >= W and the inputs of the variant"
+[imp.fire_test.discrimination]
+L14 = 0.6186225701532286
+L20 = 0.0
+L30 = 0.6810594509228197
+S20 = 0.6363837299515696
+NCL = 0.0009239790461956776
+NCZ = 0.0
+NCW = 0.15051468862821074
+NCA = 0.0007941944211215524
+NCP = 0.6186225701532286
+NC1 = 0.26438798675700037
+NCS = 101.8504853471644
+# source: (b) variant own-model output vs the L20 mesa_code model, via the same residual function; each > [tolerances.imp] except L20 itself and NCZ (see O_NCZ_IMP)
+
+# ----------------------------------------------------------------------------- findings (planning chat 2026-11-18, reproduced here with reference.py)
+[findings]
+roof_pi_floor_gain_48_10 = 5.277790209312627e-07
+roof_pi_floor_phase_48_10 = 1.328475247808214e-06
+roof_pi_floor_gain_48_20 = 4.409028506735524e-07
+roof_pi_floor_phase_48_20 = 1.5671661010019378e-06
+roof_T20_gain_minus_project_state = 0.0
+roof_dc_gain_max = 0.0
+roof_ramp_residual_abs_max = 1.398785354715624e-18
+roof_nyquist_gain_max = 6.034247078565135e-18
+trace_floor_L14_T5 = 3.279350737628306e-07
+gate_margin_L14_T5 = 0.41939132667745527
+trace_floor_L14_T10 = 8.784203200384866e-07
+gate_margin_L14_T10 = 1.3582805947183783
+trace_floor_L14_T20 = 1.0646457734297954e-06
+gate_margin_L14_T20 = 1.3727194518603432
+trace_floor_L14_T40 = 1.7297547019179405e-06
+gate_margin_L14_T40 = 0.39414032769404805
+trace_floor_L14_T100 = 3.875319340873595e-06
+gate_margin_L14_T100 = 0.02839652184680958
+gate_margin_L14_min = 0.02839652184680958
+trace_floor_L14_max = 3.875319340873595e-06
+invariance_scale10_L14 = 4.4353409833775004e-13
+invariance_offset_L14 = 6.568079413682426e-13
+trace_floor_L20_T5 = 3.2793509019413136e-07
+gate_margin_L20_T5 = 0.41939132667751144
+trace_floor_L20_T10 = 8.784203290868042e-07
+gate_margin_L20_T10 = 1.3582805947184067
+trace_floor_L20_T20 = 8.39769244920241e-07
+gate_margin_L20_T20 = 1.777497016717247
+trace_floor_L20_T40 = 1.451303181188024e-06
+gate_margin_L20_T40 = 0.7290686557557705
+trace_floor_L20_T100 = 3.2572071571035366e-06
+gate_margin_L20_T100 = 0.057985539938356465
+gate_margin_L20_min = 0.057985539938356465
+trace_floor_L20_max = 3.2572071571035366e-06
+invariance_scale10_L20 = 1.9351187319216478e-13
+invariance_offset_L20 = 3.425038030968608e-13
+trace_floor_L30_T5 = 3.2793509330275583e-07
+gate_margin_L30_T5 = 0.41939132667751694
+trace_floor_L30_T10 = 8.784203295308934e-07
+gate_margin_L30_T10 = 1.3582805947184637
+trace_floor_L30_T20 = 8.397692491945996e-07
+gate_margin_L30_T20 = 1.7774970167172506
+trace_floor_L30_T40 = 8.660522869963216e-07
+gate_margin_L30_T40 = 1.2560128828929589
+trace_floor_L30_T100 = 2.4668028190677482e-06
+gate_margin_L30_T100 = 0.12688319427322428
+gate_margin_L30_min = 0.12688319427322428
+trace_floor_L30_max = 2.4668028190677482e-06
+invariance_scale10_L30 = 9.836575998178887e-14
+invariance_offset_L30 = 1.9345636204093353e-13
+trace_floor_S20_T5 = 1.0819930990058069e-07
+gate_margin_S20_T5 = 0.10731137419782424
+trace_floor_S20_T10 = 2.4112168933720923e-07
+gate_margin_S20_T10 = 0.4538161216643505
+trace_floor_S20_T20 = 1.0047369764509817e-06
+gate_margin_S20_T20 = 1.2926137863010219
+trace_floor_S20_T40 = 1.6674524467852336e-06
+gate_margin_S20_T40 = 0.6705343068945209
+trace_floor_S20_T100 = 2.300819044287472e-06
+gate_margin_S20_T100 = 0.059286240578154466
+gate_margin_S20_min = 0.059286240578154466
+trace_floor_S20_max = 2.300819044287472e-06
+invariance_scale10_S20 = 4.14890344302421e-13
+invariance_offset_S20 = 3.5937919307116317e-13
+gate_margin_min_all = 0.02839652184680958
+trace_floor_max_all = 3.875319340873595e-06
+stoc_min_all_real_all_rows = 0.0
+stoc_max_all_real_all_rows = 1.0
+out_min_L20_T40 = -0.027531499995811497
+out_max_L20_T40 = 1.0275314999958118
+out_min_L20_T100 = -0.029452071305996183
+out_max_L20_T100 = 1.02945207130599
+startup_out_row0_L20_T20 = 0.5
+startup_stoc_row0_L20_T20 = 0.5
+startup_out_row1_L20_T20 = 0.5632987004029524
+startup_stoc_row1_L20_T20 = 1.0
+startup_out_row2_L20_T20 = 0.6999002012721725
+startup_stoc_row2_L20_T20 = 1.0
+startup_out_row3_L20_T20 = 0.8320600073104027
+startup_stoc_row3_L20_T20 = 1.0
+final_seed_max_diff_L20 = 0.4367012995970475
+final_seed_last_row_gt_1e12 = 59
+window_ncw_article_T5 = 7.593925488436071e-14
+window_ncw_article_T10 = 1.1546319456101628e-14
+window_ncw_article_T20 = 6.494804694057166e-15
+window_ncw_article_T40 = 0.06206839941904896
+window_ncw_article_T100 = 0.08053344297750009
+effect_article_NCL_T5 = 6.170130371996319e-05
+effect_article_NCL_T10 = 0.00016527359999052305
+effect_article_NCL_T20 = 0.0001580120786146555
+effect_article_NCL_T40 = 0.00027302012118501917
+effect_article_NCL_T100 = 0.0006125625890712749
+effect_article_NCA_T5 = 0.0003776379364223148
+effect_article_NCA_T10 = 0.0007941933349501218
+effect_article_NCA_T20 = 0.00038501894107600965
+effect_article_NCA_T40 = 0.00032719020964688816
+effect_article_NCA_T100 = 0.0003437934243363562
+effect_article_NCP_T5 = 0.007338528604125094
+effect_article_NCP_T10 = 0.0187397430543349
+effect_article_NCP_T20 = 0.05133688574156603
+effect_article_NCP_T40 = 0.18557033447411214
+effect_article_NCP_T100 = 0.4581797762979681
+effect_article_NC1_T5 = 1.2778667013435552e-13
+effect_article_NC1_T10 = 2.223221606811876e-14
+effect_article_NC1_T20 = 1.2621848011207248e-14
+effect_article_NC1_T40 = 0.12681299399496604
+effect_article_NC1_T100 = 0.15612250375673592
+effect_article_NCS_T5 = 63.800409954127204
+effect_article_NCS_T10 = 83.74023037230523
+effect_article_NCS_T20 = 97.3371503963349
+effect_article_NCS_T40 = 101.5662737895163
+effect_article_NCS_T100 = 101.85048633300103
+stoc_max_ncs_model_all_inputs = 100.00000000000001
+source = """(b) 2026-11-18, reference.py (planning-chat numbers of docs/harness/MESA_STAGE1_PROMPT.md reproduced; differences listed in docs/harness/MESA_STAGE1_REPORT.md). roof_pi_floor_*: max |gain / phase difference| of the Roof, mesa_code's Zorro-PI cascade vs the article, T = 5..100 (finding 2). roof_T20_gain_minus_project_state: the analytic Roof(48,10) T = 20 gain minus PROJECT_STATE section 5 (0.8900165495219391). trace_floor_<variant>_T<T>: max |out_code - out_article| over rows >= W (finding 3). gate_margin_<variant>_T<T>: min (HighestC - LowestC)/amplitude of the article model, rows >= W (finding 4). stoc_*_all_rows: raw Stoc extrema, four real variants, all eight base inputs, every row (finding 5). out_min / out_max: article model final output, rows >= W (finding 5). invariance_*: float64 model, five sines, rows >= W, scale x10 (amp 0.1) and offset (level 2.2) (finding 6). startup_*: L20, T = 20, library seed (finding 7); final_seed_*: library seed vs the source zero seed (NCZ), all five sines. window_ncw_article_T<T>: the 21-bar window (article constants) vs the L20 article (finding 8). effect_article_<control>_T<T>: the control's ARTICLE-form model (exact pi, as the planning chat computed the effects) vs the L20 article, max |diff| rows >= W; the [variants.effect] values are the own-model (Zorro PI) values measured with the checker. stoc_max_ncs_model_all_inputs: the superseded file's model, raw Stoc maximum (scale 100)."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """MESAStochastic source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept (CLAUDE.md
+section 4.8), and its cause found before anything is changed:
+1. All 84 real checks PASS: 4 variants (L14, L20, L30, S20) x 21 checks = Roof: flat, 5 sine gains, alt gain, 5 sine phases, ramp residual (13) +
+   out: 5 trace (one per sine), 2 invariance (sc, of) (7) + stoc: 1 bound (1), against the tables / model above at the tolerances above. The alt phase row of
+   every variant that exports roof (10 rows: 4 real, 2 info, 4 controls) is SKIP (expected gain < phase_gate), not PASS, and is not one of the 84.
+   INFO rows (flat / ramp of out, start-up rows < W) are written with result INFO and are not counted. A SKIP row where the checker should have checked
+   (or the reverse) is a failed run.
+2. Each of the 5 negative controls (NCW, NCA, NCP, NC1, NCS) FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] and the copies vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant (a gate that removes every row of a sine is an ERROR),
+   no NaN / infinite value. The NCL and NCZ rows (role info) are written as INFO, never PASS / FAIL, and are not counted in item 1.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 4 real + 5 negative controls + 2 info (NCL, NCZ) = 11 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 (11 variants), and every [imp].must_fail replay > 1e-9 (2 rows; guards seen to fire).
+7. Floor guard: for every real variant, max |Zorro - book| <= tolerance / 10 for gain (3e-6), phase (3e-6 rad), resid (1e-10), trace (5e-6) and invariance (1e-10)
+   (D2 rule 3 floor side; flat: tolerance / 10 = 1e-10). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected MESAStochastic.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current MESAStochastic.c blob (a8c51bacf951cd1aa7a0d1c2f39347824ca1d6bf at c760160) is recorded and the corrected file differs from it only by M-1, M-2, M-6, M-8, M-9; MESAStochastic_Superseded.c is the current body verbatim, renamed mstc_ -> mstco_;
+   (iii) reference.py reproduces this file's expected tables, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 (relative 1e-9 for values > 1). Every number is stored at full
+        precision (HPF Amendment 1, A1.2). Each inline control body is checked at run time, not by reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every margin >= 10x; after stage 2 also the two includes resolve)."""
+
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_WINDOW = "(b) M-1 shows only at T > L: the 21-bar window (NCW, article model) vs the L20 article differs by 7.593925488436071e-14 / 1.1546319456101628e-14 / 6.494804694057166e-15 at T = 5 / 10 / 20 (a 20-bar window spans whole cycles) and by 0.06206839941904896 / 0.08053344297750009 at T = 40 / 100 ([findings] window_ncw_article_T*). Recorded as an observation; the control's effect (and its detection) is the T = 100 value, 1611x the trace tolerance. The sine set includes T = 40 and 100 for this reason."
+O_STARTUP = "(a)/(b) No start-up rule is printed (M-4 / M-5): rows < W of out are INFO rows (info-startup) for the real variants and NCZ; the replay and the trace start at W = 700. Finding 7: L20, T = 20, rows 0-3: out 0.5, 0.5632987004029524, 0.6999002012721725, 0.8320600073104027; Stoc 0.5, 1.0, 1.0, 1.0 (row 0 is the zero-range fallback); source zero final seed vs library seed: max |diff| 0.4367012995970475, last row with |diff| > 1e-12 = 59 (same for all five sines)."
+O_NCZ_IMP = "(b) NCZ (source zero final seed) differs from the library in rows 0-59 only; IMP and trace read rows >= W = 700, so NCZ's replay residual is at the rounding level (listed in [imp.fire_test.discrimination], not required to exceed the tolerance). The seed is measured by the info-startup row (rows < W) of NCZ, INFO only."
+O_NO_STATICS = "(b) D6 rule 5 is NOT APPLICABLE: no statics in MESAStochastic.c, RoofingFilter.c, HighPassFilter.c, SuperSmoother2Pole.c (all state per-call series(); review §4). No shared-state control is invented. The layout runs every variant as its own instance every bar; IMP replays each against its own model."
+O_RAMP_ILLCONDITIONED = "(b) Flat / alt / ramp rows of the normalised output are INFO only (D6 rule 2): the stochastic divides by HighestC - LowestC, which on these inputs is Roof rounding noise (the ramp Roof is the HP second difference of a ramp ~ 1e-18). On flat the model range is exactly 0 and Stoc = 0.5 (M-6); in Zorro this is to be observed, not relied on."
+O_OUTPUT_UNBOUNDED = "(b) The final output is NOT bounded to [0, 1]: the second SuperSmoother overshoots. Article model out range, rows >= 700, L20: [-0.027531499995811497, 1.0275314999958118] at T = 40 and [-0.029452071305996183, 1.02945207130599] at T = 100 ([findings] out_min / out_max_L20_T*; review §4 has the same to ~2e-15). The bound check therefore reads the raw Stoc."
+O_NCS_BOUND = "(b) The model of the superseded file has Stoc up to 100.00000000000001 (scale 100, fallback 50: M-2 / M-6): the raw bound [0, 1] would fire on it. The superseded function returns only the final output, so the run has no stoc column for NCS and no bound row; NCS is detected by trace (the 0-100 scale, ~100x)."
+O_GATE = "(b) Gate margin (HighestC - LowestC)/amplitude, rows >= W, model: min over the sine set L14 0.0284 (T = 100), L20 0.058, L30 0.127, S20 0.059 (finding 4). The gate g = 0.01 excludes no row of a correct variant; the margin is 2.8x at the tightest point, the thinnest of the oscillator specs so far."
+O_NCL = "(b) NCL = the article as printed (.707, 1.414, 3.14159), INFO, never PASS/FAIL (D1 rule 3): Roof gain effect 9.930912469835462e-05 (3.3x tol), phase 0.00024997116087721594 (8.3x tol), trace up to 0.0006125625890712749 (12x tol). CONSTRUCTION (accepted 2026-11-19, user): the printed literals are built from integers at run time, k = 707/1000, f = 1414/1000, g = 314159/100000; the article's degree arguments are converted with the Zorro PI macro (float32 3.14159): HP alpha argument .707*360/HPPeriod deg -> k * 2.0 * PI / HPPeriod rad; SS a1 = exp(-f * g / SSPeriod) (the printed 3.14159, no conversion); SS b1 cosine 1.414*180/SSPeriod deg -> f * PI / SSPeriod rad; the same SS coefficients in the roofing and the final SuperSmoother. The NCL body above (pre-registered here, compiled as is in the run) and reference IMP model mesa_printed(20,48,10) (_mesa_filters, literals = printed) use exactly this construction, so IMP must_pass replays it (test_reference_mst: NCL construction). (b) The planning chat's printed-literal numbers (Roof 9.933e-05 / 2.500e-04; trace 6.170885774015034e-05 ... 0.0006127120163363919) differ from this model by up to 2.4e-4 relative (4th digit): the brief did not fix the degree conversion (stage-1 report)."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-article residual per kind per real variant; the latter is the measured floor (expected ~ the PI gap)."
+O_STATICS_RESET = "(b) No static is shared, but the generated script's own statics (mst_n, mst_done, mst_hdr, mst_rows, mst_sgn) are reset at INITRUN (gotchas, statics persist across [Test] presses)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+
+# ============================================================================ Amendment 1
+# 2026-11-19, BEFORE any run. Base: 0fd34ee (spec pre-registered; tooling 85b7431). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [findings], [observations]. No generator change was needed (no A1.2).
+[amendment_1]
+date = "2026-11-19"
+base_commit = "0fd34ee"
+before_run = true
+criterion_changed = false
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed. The generator was not changed: the three-output call path with local-scalar out-parameters (62b4e97, stage 1) generates the MST layout as is, so there is no A1.2.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_mst_corrected_code.py (15 tests): indicators/ehlers/MESAStochastic.c contains [corrected_code].lines inside `var MESAStochasticCore(vars Price, int StochPeriod, int HPPeriod, int SSPeriod, var* pRoof, var* pStoc)` and .wrapper_lines inside `var MESAStochastic(vars Price, int StochPeriod, int HPPeriod, int SSPeriod)`, verbatim (whitespace-normalised, comments stripped). Guards seen to fire on temp copies, each reported not-ok: window `StochPeriod)` -> `StochPeriod + 1)` (core), loop `mstc_i < StochPeriod` -> `<=` (core), `mstc_Stoc = mstc_Stoc/2;` removed (core), `(mstc_Roof[0] - mstc_LL)` -> `100.0*(mstc_Roof[0] - mstc_LL)` (core), `*pStoc = mstc_Stoc;` -> `*pStoc = mstc_Out;` (core), `return MESAStochasticCore(...)` -> `return mstc_r;` (wrapper), `var mstc_HH` -> `static var mstc_HH` (core), and `vars mstc_S = series(mstc_Stoc, 3);` moved inside the if (core). Wrong function name and lines-only-in-comments also not-ok. Both series() calls are unconditional and precede any use (asserted, and no series() inside an if / for by regex); no `static`, no `INITRUN`, no `Period` identifier, and no decimal literal at all in the corrected file (so no literal product, gotchas 9d.8); the static and decimal-literal scans are seen to fire on a copy with `static` and with `100.0*` added."
+cond_ii = "PASS. Old blob a8c51bacf951cd1aa7a0d1c2f39347824ca1d6bf (MESAStochastic.c at c760160, confirmed by git rev-parse) recorded. Token multiset difference old -> new function, REMOVED (exactly asserted): `+` x1 (M-1: `StochPeriod + 1`), `<=` x1 (M-1: loop bound, now `<`), `50` x1 (M-6: the fallback, now built from a variable as 1, then /2), `100.0` x1 (M-2: the 0-100 scale), mstc_RawStoch x3 / mstc_RS x2 / mstc_Final x2 (the old local names, now mstc_Stoc / mstc_S / mstc_Out). ADDED: the MESAStochasticCore signature with `pRoof` / `pStoc` and their two assignments (M-9), `vars` for the window series, `mstc_Stoc = mstc_Stoc/2` and the `2` (M-6), `/` and `<` tokens of those lines, `mstc_Out`, and the wrapper `MESAStochastic` (mstc_r, mstc_s, `&`, `return MESAStochasticCore(...)`). No other token differs: the HH / LL seeds, `int mstc_i`, the two window-loop `if` statements and the `(Roof[0] - LL)/(HH - LL)` expression are carried over token-identical (asserted); the SuperSmoother2Pole(series(Stoc, 3), SSPeriod) call is the old one. Guards seen to fire: three single-statement changes of the carried-over lines make the carried-over match fail. MESAStochastic_Superseded.c is token-identical to the old blob after MESAStochastic -> MESAStochastic_Superseded and mstc_ -> mstco_ (header comment only added); guards seen to fire: one `mstco_` left as `mstc_`, `100.0 *` -> `10.0 *`, `), StochPeriod + 1);` -> `), StochPeriod);`, loop `<=` -> `<` (all not-ok)."
+cond_iii = "PASS. analysis/harness/tests/test_reference_mst_spec.py, 11 tests OK. Largest deviation per section: expected 0.000e+00, floor 0.000e+00, effects 0.000e+00, findings 0.000e+00, imp_fire_test 0.000e+00 (the spec was generated from this reference, so 0 is self-consistency; the independent comparisons are the planning chat's (b) values at the tolerances of the stage 1 report and the independent EasyLanguage translation in test_reference_mst.py, 2.4e-12)."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/MESA_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; the five includes (HighPassFilter.c, SuperSmoother2Pole.c, RoofingFilter.c, MESAStochastic_Superseded.c, MESAStochastic.c) resolve. INFO: D2 floors gain 5.278e-07, flat 0, phase 1.567e-06, resid 9.492e-17, trace 3.875e-06, invariance 4.433e-13 (x10 each within tolerance: window ok). Control margins (all >= 10x): NCW trace 1.61e+03x, NCA trace 15.9x, NCP gain 2.51e+03x / phase 5.54e+03x / trace 9.16e+03x, NC1 trace 3.12e+03x, NCS trace 2.04e+06x. NCL (role info): gain 3.31x, phase 8.33x, trace 12.3x; NCZ (role info): gain 0.0176x, phase 0.0443x, trace 0.0651x (rows >= W only; its start-up row is the measurement); reported, never PASS/FAIL."
+tests_before = 540
+tests_after = 555
+tests_added = 15
+suite = "bash analysis/harness/run_tests.sh: TOTAL 555  PASS 555  FAIL 0  ERROR 0  SKIP 0 (Claude Code shell, 2026-11-19; the commit-message count comes from the user's Git Bash run)"
+blob_MESAStochastic_c_old = "a8c51bacf951cd1aa7a0d1c2f39347824ca1d6bf"
+blob_MESAStochastic_c_new = "ecf0bed4481bbe06db89685e8675da52b55dfbfa"
+blob_MESAStochastic_Superseded_c_new = "4b677db1da6b60974b957c9706690c6041136d59"
+blob_source = "(b) git rev-parse c760160:indicators/ehlers/MESAStochastic.c (old); git hash-object indicators/ehlers/MESAStochastic.c and MESAStochastic_Superseded.c (new), 2026-11-19, Claude Code shell"
+script = "strategies/tests/GEN_MST_MESAStochastic.c"
+script_sha256 = "623754b7a5ebdd14c08e01b4a3f73c8c217c3048cdf63530e8368a2c9dbd2d7d"
+script_check = "(b) read-through 2026-11-19: includes HighPassFilter.c, SuperSmoother2Pole.c, RoofingFilter.c, MESAStochastic_Superseded.c, MESAStochastic.c in that order with the relative paths of [zorro].include; alt input X[6] = lvl + amp*mst_sgn, static mst_sgn reset to 1 at INITRUN (with mst_n, mst_done, mst_hdr, mst_rows), flipped once per fed bar after the row is written; the copies sc* (X[8]-X[12]) and of* (X[13]-X[17]) are built from integers (lvl_sc = 11/10, amp_sc = 1/10, lvl_of = 22/10, amp_of = 1/100) before the 18 unconditional series() calls and before any indicator call; 128 unconditional calls per bar in fixed variant-major order: MESAStochasticCore for L14, L20, L30, S20 on the 8 base inputs and the 10 copies (72) and for NCP (20, 40, 10) and NC1 (22, 48, 10) on the 8 base inputs (16) = 88, four inline bodies (mst_ncl, mst_ncz, mst_ncw, mst_nca) defined once each with unique local prefixes (ncl_, ncz_, ncw_, nca_) on the 8 base inputs (32), MESAStochastic_Superseded(S, 20, 48, 10) on the 8 base inputs (8) (counted by regex: 88 + 8 + 8 + 8 + 8 + 8 = 128); no bare `Period` identifier; no expression starting with a product or quotient of decimal literals (regex scan: none); NCL body = the spec's pre-registered body (k = 707/1000, f = 1414/1000, g = 314159/100000 from integers, degrees converted with the PI macro; the same construction as IMP model mesa_printed(20,48,10)); the two out-parameter scalars mst_o_roof / mst_o_stoc are declared once before the first call and every Core / inline call is directly followed by its two copies (asserted for all 120 such calls); the 8 superseded calls return a single value into Y[360]..Y[367]; raw file Data/GEN_MST_raw.csv, 308 columns, deleted at INITRUN (no-overwrite guard), header written once in appends of at most 9 names, rows in appends of at most 9 values, the last row latched (mst_done = 1) before quit() and nothing is written after it. C:/Zorro/Data/GEN_MST_raw.csv does not exist yet. (c) NOT compiled: no Zorro here; the first [Test] shows any Error line."
+
+# ============================================================================ Amendment 2
+# 2026-11-19, AFTER run 1. Post-run record only. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings], [prerun], the generated script.
+[amendment_2]
+date = "2026-11-19"
+base_commit = "17a8604"
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Run date 2026-11-19, after a Zorro restart; script strategies/tests/GEN_MST_MESAStochastic.c sha256 623754b7a5ebdd14c08e01b4a3f73c8c217c3048cdf63530e8368a2c9dbd2d7d; Zorro window: Warning 047 only, no line starting with Error, 3000 rows written (user report, 2026-11-19). Results file analysis/harness/results/MST_ArticleFidelity_20261119.csv (commit 17a8604); raw analysis/harness/results/MST_ArticleFidelity_20261119_raw_run1.csv (local copy, gitignored) sha256 0c53641af0416324de3629e2744358f3d31e084ef224800ab12241b16fddefda. Pre-registration chain: spec 0fd34ee, Amendment 1 (pre-run items i-iv) 4843ee2; corrected .c + MESAStochastic_Superseded.c + test 0332395; tooling 85b7431; suite 555/555 (user's Git Bash). Counts: variants_run=11 (4 real + 5 controls + 2 info). (1) 84 of 84 real checks PASS, 0 FAIL, 0 ERROR; 10 alt-phase rows SKIP, not counted in the 84. (2) 5 of 5 controls detected on every required kind; FAIL rows NCW 2, NCA 5, NCP 15, NC1 2, NCS 5 = 29. (3) 0 gated-out trace rows. (4) IMP must_pass 11 of 11 and must_fail 2 of 2; own-model replay residual at most 8.9e-16. (5) Floor guard 20 of 20 PASS. (6) Zorro vs article = the PI-macro gap: Roof gain 5.278e-07 (48,10: L14/L20/L30) / 4.409e-07 (48,20: S20), Roof phase 1.328e-06 rad (48,10) / 1.567e-06 rad (48,20), trace maximum 3.875e-06 (L14, T = 100).",
+  "A2.2 Read twice (HARNESS_DESIGN section 4): the planning chat's back-check and prediction (docs/harness/MST_RUN1_PREDICTION.md, code docs/harness/MST_RUN1_BACKCHECK.py, 57b1abf, VERDICT PASS predicted) were committed before the checker ran. The checker agreed on the verdict, every count and every compared value. Scope of the second read (Claude Code): verdict, counts, traces, control values, NCL and IMP fire values. It did not diff the bound, flat, ramp, alt or invariance values or the start-up rows. Those are in the planning-chat back-check (Stoc 0.0 / 1.0 on every real variant; flat, ramp residual and alt gain 0; invariance at most 3.810e-13; start-up L20 s20 rows 0-3 out 0.5, 0.56329862, 0.69989999, 0.83205974; flat Stoc = 0.5 on every row) and all PASS in the checker. Recorded only; no action.",
+  "A2.3 Findings (b), with their (c) consequence. (1) A window-length error is invisible on sines whose period divides into the window (M-1): 21 vs 20 bars differed by at most 7.6e-14 at T = 5 / 10 / 20 and by 6.2e-2 / 8.1e-2 at T = 40 / 100; NC1 (L = 22) shows the same pattern. (c) Every windowed indicator spec (stochastic, min/max, rolling rank) must test sines with T > L, not only T <= L. (2) Normalisation amplifies the PI gap where the range is small: the trace floor peaks at T = 100 (HH - LL smallest, gate margin 0.028 at L14). The D6 default trace tolerance 3e-5 failed the D2 window here; this spec used 5e-5, stated before the run. (c) The D6 default is a starting point; each oscillator spec measures its own window (D2 rule 3). (3) The final output is not bounded (overshoot -0.0295 to 1.0295 at T = 100); the exact bound applies to the raw Stoc. (c) Thresholds such as the source's .2 / .8 act on the smoothed output, which can exceed [0, 1]. (4) Start-up: the final-seed choice (M-5) affects rows < 60 only; the zero-range fallback fires on bar 0 and on flat input. (5) NCS bound: the superseded file exports only out, so the bound could not be checked on it; trace caught it at 2.04e6 x the tolerance. The stage-1 brief's statement that the bound fires on NCS was a planning-chat error, corrected before pre-registration.",
+  "A2.4 Variants tested: 11 (4 real + 5 controls + 2 info), as counted in the results file.",
+]

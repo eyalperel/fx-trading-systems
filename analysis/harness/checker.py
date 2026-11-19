@@ -20,6 +20,9 @@ Differences from H1, all by the stage 2 criteria:
 H1's observations O1-O3 are not reproduced (reported-only in H1, not in its verdict).
 RFX stage 1 (HARNESS_DESIGN D6, oscillator family): multi-output variants (`outputs`), invariance copies of the sines, and the
 checks `trace` / `bound` / `invariance` (osc_rows), all opt-in through spec["osc"]; a spec without it behaves exactly as before.
+MST stage 1 (MESAStochastic, D6 + its notes): the models are Reflex (ReflexOut: gate quantity sqrt(MS)) or MESAStochastic
+(MesaOut: gate quantity HighestC - LowestC, the model's range); a two-sided ABSOLUTE bound `bound = [lo, hi]` read from a named
+output (`bound_output`, e.g. the raw Stoc) next to the old one-sided relative scalar; `startup_info` variants get the INFO start-up row.
 
 Labels: (a) source states, (b) verified here, (c) inference.
 """
@@ -244,11 +247,22 @@ def _has_linear(spec, variant):
     return spec["osc"]["linear"] in variant["outputs"]
 
 
+def bound_output_of(spec, variant):
+    """Name of the output the bound check reads: spec["osc"]["bound_output"], default the variant's return output (Reflex)."""
+    return spec["osc"].get("bound_output") or variant["outputs"][-1]
+
+
+def has_bound(spec, variant):
+    """The bound row exists only for a variant that exports its bound output (the superseded MESAStochastic returns only `out`)."""
+    return bound_output_of(spec, variant) in variant["outputs"]
+
+
 def n_osc_checks(spec, variant):
-    """trace per sine + bound + invariance per transform (only variants with `outputs` in an oscillator spec)."""
+    """trace per sine + bound (if exported) + invariance per transform (only variants with `outputs` in an oscillator spec)."""
     if not (spec.get("osc") and variant.get("outputs")):
         return 0
-    return len(spec["ts"]) + 1 + (len(spec.get("transforms", [])) if variant.get("invariance") else 0)
+    return (len(spec["ts"]) + (1 if has_bound(spec, variant) else 0)
+            + (len(spec.get("transforms", [])) if variant.get("invariance") else 0))
 
 
 def n_checks(spec, variant):
@@ -513,7 +527,9 @@ def imp_rows(spec, raw, x=None):
                 res = "ERROR"
             else:
                 model = maker()
-                if isinstance(model, (R.ReflexModel, R.SharedModel)):          # RFX: replay sum / ms / gated r
+                if isinstance(model, R.MesaModel):                             # MST: replay roof / gated stoc / gated out
+                    per = _imp_mesa(spec, raw, vmap[vid], model)
+                elif isinstance(model, (R.ReflexModel, R.SharedModel)):        # RFX: replay sum / ms / gated r
                     per = _imp_reflex(spec, raw, vmap[vid], model, shared_cache)
                 else:
                     for i in variant_inputs(spec, vmap[vid]):
@@ -544,25 +560,42 @@ _MODEL_CACHE = {}
 
 
 def model_out(model, x):
-    """R.simulate_reflex(model, x), cached per (model, input content)."""
+    """R.simulate_reflex / R.simulate_mesa (by the model's type), cached per (model, input content)."""
     x = np.ascontiguousarray(np.asarray(x, dtype=float))
     key = (model, hashlib.md5(x.tobytes()).hexdigest())
     if key not in _MODEL_CACHE:
-        _MODEL_CACHE[key] = R.simulate_reflex(model, x)
+        _MODEL_CACHE[key] = R.simulate_mesa(model, x) if isinstance(model, R.MesaModel) else R.simulate_reflex(model, x)
     return _MODEL_CACHE[key]
 
 
+def gate_q(mo):
+    """The conditioning quantity of a model output (D6 rule 2): Reflex sqrt(MS); MESAStochastic HighestC - LowestC (the
+    model's own range; HARNESS_DESIGN D6 note: 'a gate on its min/max range')."""
+    return mo.rng if isinstance(mo, R.MesaOut) else np.sqrt(mo.ms)
+
+
+def norm_out(mo):
+    """The normalised output of a model output: Reflex r, MESAStochastic out."""
+    return mo.out if isinstance(mo, R.MesaOut) else mo.r
+
+
+def gate_mask_q(spec, q, amp):
+    """Conditioning gate (D6 rule 2): rows n >= warmup where q/amplitude >= spec["osc"]["gate"] (q = gate_q of the MODEL)."""
+    return q[spec["w"]:] / amp >= spec["osc"]["gate"]
+
+
 def gate_mask(spec, ms, amp):
-    """Conditioning gate (D6 rule 2): rows n >= warmup where sqrt(MS)/amplitude >= spec["osc"]["gate"]."""
-    return np.sqrt(ms[spec["w"]:]) / amp >= spec["osc"]["gate"]
+    """Reflex form of the gate: rows n >= warmup where sqrt(MS)/amplitude >= spec["osc"]["gate"]."""
+    return gate_mask_q(spec, np.sqrt(ms), amp)
 
 
 def m_trace(spec, r_zorro, mo, amp):
-    """Trace quantity: max |r_Zorro - r_model| over the gated rows >= warmup. Returns (d, rows used, rows gated out)."""
+    """Trace quantity: max |r_Zorro - r_model| over the gated rows >= warmup (the model's gate quantity, the model's normalised
+    output). Returns (d, rows used, rows gated out)."""
     w = spec["w"]
-    mask = gate_mask(spec, mo.ms, amp)
+    mask = gate_mask_q(spec, gate_q(mo), amp)
     used = int(mask.sum())
-    d = float(np.max(np.abs(r_zorro[w:][mask] - mo.r[w:][mask]))) if used else float("nan")
+    d = float(np.max(np.abs(r_zorro[w:][mask] - norm_out(mo)[w:][mask]))) if used else float("nan")
     return d, used, int(mask.size - used)
 
 
@@ -571,11 +604,23 @@ def m_bound(arrays):
     return float(max(np.max(np.abs(a)) for a in arrays))
 
 
-def m_invariance(spec, base, copy, ms, amp):
-    """Zorro-internal: max |r(base) - r(copy)| over the gated rows >= warmup (gate from the model's MS of the base sine)."""
+def m_invariance_q(spec, base, copy, q, amp):
+    """Zorro-internal: max |r(base) - r(copy)| over the gated rows >= warmup (gate from the model's gate quantity q of the base sine)."""
     w = spec["w"]
-    mask = gate_mask(spec, ms, amp)
+    mask = gate_mask_q(spec, q, amp)
     return (float(np.max(np.abs(base[w:][mask] - copy[w:][mask]))) if mask.any() else float("nan")), int(mask.sum())
+
+
+def m_invariance(spec, base, copy, ms, amp):
+    """Reflex form of m_invariance_q (gate from the model's MS of the base sine)."""
+    return m_invariance_q(spec, base, copy, np.sqrt(ms), amp)
+
+
+def m_bound_two_sided(arrays, lo, hi):
+    """(max value, min value, excess) over every row of every given array; excess = max(0, max - hi, lo - min)."""
+    top = float(max(np.max(a) for a in arrays))
+    bot = float(min(np.min(a) for a in arrays))
+    return top, bot, max(0.0, top - hi, lo - bot)
 
 
 def _orow(spec, variant, cid, inp, e, a, tol, d, res=None, role=None):
@@ -594,7 +639,7 @@ def osc_rows(spec, variant, x, ov):
     normalised output, R-4 and finding 5: never PASS/FAIL). The normalised output is the LAST output."""
     osc, w = spec["osc"], spec["w"]
     rz = ov[variant["outputs"][-1]]
-    model = R.reflex_article_model(variant.get("article"))
+    model = R.osc_article_model(variant.get("article"))
     rows = []
     for t in spec["ts"]:
         iid = "s%d" % t
@@ -606,11 +651,26 @@ def osc_rows(spec, variant, x, ov):
         rows.append(_orow(spec, variant, "trace-T%d" % t,
                           "sine T=%d, rows>=%d, gated out %d of %d" % (t, w, gated, gated + used), 0.0, d,
                           spec["tol_trace"], d))
-    allr = [rz[i] for i in variant_inputs(spec, variant) if i in rz]
-    a = m_bound(allr) if allr else float("nan")
-    b = osc["bound"]
-    rows.append(_orow(spec, variant, "bound", "max |r| over every row of %d inputs" % len(allr), b, a,
-                      b * spec["tol_bound"], max(0.0, a - b) if math.isfinite(a) else float("nan")))
+    bo = bound_output_of(spec, variant)
+    if isinstance(osc["bound"], (list, tuple)):                      # MST: two-sided ABSOLUTE bound [lo, hi] on the named output
+        if has_bound(spec, variant):
+            lo_b, hi_b = osc["bound"]
+            allr = list(ov.get(bo, {}).values())
+            if allr and all(np.all(np.isfinite(a_)) for a_ in allr):
+                top, bot, exc = m_bound_two_sided(allr, lo_b, hi_b)
+                low = (lo_b - bot) > max(0.0, top - hi_b)              # expected / actual report the breached side (min if low)
+                rows.append(_orow(spec, variant, "bound", "%s over every row of %d inputs: min %r, max %r vs [%r, %r]; %s side reported"
+                                  % (bo, len(allr), bot, top, lo_b, hi_b, "low" if low else "high"),
+                                  lo_b if low else hi_b, bot if low else top, spec["tol_bound"], exc))
+            else:
+                rows.append(_orow(spec, variant, "bound", "%s: no rows or non-finite" % bo, hi_b, float("nan"),
+                                  spec["tol_bound"], float("nan"), res="ERROR"))
+    else:                                                            # Reflex: one-sided, RELATIVE allowance on the return output
+        allr = [rz[i] for i in variant_inputs(spec, variant) if i in rz]
+        a = m_bound(allr) if allr else float("nan")
+        b = osc["bound"]
+        rows.append(_orow(spec, variant, "bound", "max |r| over every row of %d inputs" % len(allr), b, a,
+                          b * spec["tol_bound"], max(0.0, a - b) if math.isfinite(a) else float("nan")))
     if variant.get("invariance"):
         for tr in spec.get("transforms", []):
             worst, used_all = 0.0, 0
@@ -619,7 +679,7 @@ def osc_rows(spec, variant, x, ov):
                 if model is None or base not in rz or cp not in rz:
                     worst = float("nan")
                     break
-                d, used = m_invariance(spec, rz[base], rz[cp], model_out(model, x[base]).ms, spec["amp"])
+                d, used = m_invariance_q(spec, rz[base], rz[cp], gate_q(model_out(model, x[base])), spec["amp"])
                 worst, used_all = max(worst, d) if math.isfinite(d) else float("nan"), used_all + used
                 if not math.isfinite(worst):
                     break
@@ -632,14 +692,15 @@ def osc_rows(spec, variant, x, ov):
             if iid in rz:
                 mo = model_out(model, x[iid])
                 a = float(np.max(np.abs(rz[iid][w:])))
-                e = float(np.max(np.abs(mo.r[w:])))
+                e = float(np.max(np.abs(norm_out(mo)[w:])))
                 rows.append(_orow(spec, variant, "info-%s" % label, "%s, rows>=%d: max |r| (INFO, ill-conditioned)" % (label, w),
                                   e, a, nan, abs(a - e), res="INFO", role="info"))
+    if (variant["role"] == "real" or variant.get("startup_info")) and model is not None:
         d = 0.0
         for t in spec["ts"]:
             iid = "s%d" % t
             if iid in rz:
-                d = max(d, float(np.max(np.abs(rz[iid][:w] - model_out(model, x[iid]).r[:w]))))
+                d = max(d, float(np.max(np.abs(rz[iid][:w] - norm_out(model_out(model, x[iid]))[:w]))))
         rows.append(_orow(spec, variant, "info-startup", "sines, rows<%d: max |r - model| (INFO, R-4)" % w, 0.0, d,
                           float("nan"), d, res="INFO", role="info"))
     return rows
@@ -688,6 +749,34 @@ def _imp_reflex(spec, raw, v, model, cache):
             zr = raw.cols["%s_%s_%s" % (ret, vid, i)][w:]
             dr = float(np.max(np.abs(zr[mask] - mo.r[w:][mask]))) if mask.any() else float("nan")
             d = float("nan") if not math.isfinite(dr) else max(d, dr)           # nothing left after the gate: ERROR upstream, never 0
+        per[i] = d
+    return per
+
+
+def _imp_mesa(spec, raw, v, model):
+    """IMP replay of an MST variant (HARNESS_DESIGN section 1, first question), residual per input, rows >= warmup:
+    the linear output (roof) on every base input (absolute); the raw stoc on the base SINES and the return output on the sines and
+    their copies, only on rows the REPLAY's own range gates in (flat / alt / ramp roof are rounding noise, the normalisation
+    amplifies it: those rows are INFO, as in Reflex). A non-finite value (everything gated out) is an ERROR upstream, never 0."""
+    w = spec["w"]
+    vid, outs = v["id"], v["outputs"]
+    lin = spec["osc"]["linear"]
+    sines = set(sine_inputs(spec))
+    per = {}
+    for i in variant_inputs(spec, v):
+        mo = model_out(model, raw.cols["x_" + i])
+        d = 0.0
+        for o in outs:
+            col = "%s_%s_%s" % (o, vid, i)
+            if col not in raw.cols:
+                continue
+            arr = getattr(mo, o)
+            if o == lin:
+                d = max(d, float(np.max(np.abs(raw.cols[col][w:] - arr[w:]))))
+            elif i in sines:
+                mask = gate_mask_q(spec, gate_q(mo), input_amp(spec, i))
+                dr = float(np.max(np.abs(raw.cols[col][w:][mask] - arr[w:][mask]))) if mask.any() else float("nan")
+                d = float("nan") if not math.isfinite(dr) else max(d, dr)
         per[i] = d
     return per
 
