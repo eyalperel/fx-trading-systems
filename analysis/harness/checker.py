@@ -18,6 +18,8 @@ Differences from H1, all by the stage 2 criteria:
   * the NC report has two separate fields: fails_as_required (any check FAILs) and
     margin10_met (any error/tolerance ratio >= 10), D2 Amendment 1.
 H1's observations O1-O3 are not reproduced (reported-only in H1, not in its verdict).
+RFX stage 1 (HARNESS_DESIGN D6, oscillator family): multi-output variants (`outputs`), invariance copies of the sines, and the
+checks `trace` / `bound` / `invariance` (osc_rows), all opt-in through spec["osc"]; a spec without it behaves exactly as before.
 
 Labels: (a) source states, (b) verified here, (c) inference.
 """
@@ -64,15 +66,65 @@ def h1_spec():
                 variants=variants)
 
 
-def input_names(spec):
+def base_names(spec):
     """flat, sines, [alt], ramp (alt = the alternating / Nyquist input, RFF stage 1, only when spec["alt"] is true)."""
     return (["flat"] + ["s%d" % t for t in spec["ts"]] + (["alt"] if spec.get("alt") else []) + ["ramp"])
+
+
+def copy_names(spec):
+    """RFX stage 1 (D6 rule 4): one transformed copy of every sine per transform in spec["transforms"], ids <tid><T>."""
+    return ["%s%d" % (tr["id"], t) for tr in spec.get("transforms", []) for t in spec["ts"]]
+
+
+def input_names(spec):
+    """Every exported input (x_ columns): base inputs, then the invariance copies (none for the older specs)."""
+    return base_names(spec) + copy_names(spec)
+
+
+def variant_inputs(spec, v):
+    """Inputs a variant is called on: the base inputs, plus the invariance copies when the variant says so."""
+    return input_names(spec) if v.get("invariance") else base_names(spec)
+
+
+def sine_inputs(spec):
+    """Inputs on which the normalised output is well conditioned (sines and their copies)."""
+    return ["s%d" % t for t in spec["ts"]] + copy_names(spec)
+
+
+def input_amp(spec, iid):
+    """Sine amplitude of an input (copies carry their transform's amplitude)."""
+    for tr in spec.get("transforms", []):
+        if iid.startswith(tr["id"]) and iid[len(tr["id"]):].isdigit():
+            return tr["amp"]
+    return spec["amp"]
+
+
+def variant_columns(spec, v):
+    """[(output or None, input, raw column name)] of one variant, in raw-file order. A variant without `outputs` has the one
+    column family y_<id>_<input> (all older specs). With `outputs` the columns are <output>_<id>_<input>; the LAST output is
+    the function's return value and is written for every input of the variant, the others for the base inputs only."""
+    outs = v.get("outputs")
+    if not outs:
+        return [(None, i, "y_%s_%s" % (v["id"], i)) for i in variant_inputs(spec, v)]
+    cols = []
+    for k, o in enumerate(outs):
+        ins = variant_inputs(spec, v) if k == len(outs) - 1 else base_names(spec)
+        cols += [(o, i, "%s_%s_%s" % (o, v["id"], i)) for i in ins]
+    return cols
+
+
+def variant_arrays(spec, raw, v):
+    """{output (None for a plain variant): {input: array}} from the raw columns."""
+    ov = {}
+    for o, i, c in variant_columns(spec, v):
+        ov.setdefault(o, {})[i] = raw.cols[c]
+    return ov
 
 
 def header_of(spec):
     ins = input_names(spec)
     return (["n", "clock_close"] + ["x_" + i for i in ins]
-            + ["y_%s_%s" % (v["id"], i) for v in spec["variants"] for i in ins])
+            + [c for v in spec["variants"] for _, _, c in variant_columns(spec, v)])
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -85,6 +137,9 @@ def make_inputs(spec):
     if spec.get("alt"):
         x["alt"] = spec["level"] + spec["amp"] * (1.0 - 2.0 * (n % 2))        # level + amp*(-1)^n, exact signs
     x["ramp"] = spec["level"] + spec["slope"] * n
+    for tr in spec.get("transforms", []):
+        for t in spec["ts"]:
+            x["%s%d" % (tr["id"], t)] = tr["level"] + tr["amp"] * np.sin(2 * math.pi * n / t)
     return x
 
 
@@ -181,15 +236,41 @@ def _has_resid(spec, variant):
     return dc_gain_of(spec) != 1 and variant.get("resid") is not None
 
 
+def _has_linear(spec, variant):
+    """The v1 checks (flat, gains, phases, ramp ...) need the variant's linear output: the only output of a plain variant,
+    spec["osc"]["linear"] of an oscillator spec (a variant that does not export it gets no linear checks)."""
+    if not (spec.get("osc") and variant.get("outputs")):
+        return True
+    return spec["osc"]["linear"] in variant["outputs"]
+
+
+def n_osc_checks(spec, variant):
+    """trace per sine + bound + invariance per transform (only variants with `outputs` in an oscillator spec)."""
+    if not (spec.get("osc") and variant.get("outputs")):
+        return 0
+    return len(spec["ts"]) + 1 + (len(spec.get("transforms", [])) if variant.get("invariance") else 0)
+
+
 def n_checks(spec, variant):
-    """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups.
-    For specs without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3)."""
-    return (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
-            + len(variant.get("phases", {})) + len(spec.get("startup", []))
-            + ((1 + (1 if variant.get("phase_alt") is not None else 0)) if spec.get("alt") else 0))
+    """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups, and for an
+    oscillator spec trace / bound / invariance (n_osc_checks). For specs without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3)."""
+    lin = (1 + len(spec["ts"]) + (1 if _has_lag(spec) else 0) + (1 if _has_resid(spec, variant) else 0)
+           + len(variant.get("phases", {})) + len(spec.get("startup", []))
+           + ((1 + (1 if variant.get("phase_alt") is not None else 0)) if spec.get("alt") else 0)) \
+        if _has_linear(spec, variant) else 0
+    return lin + n_osc_checks(spec, variant)
 
 
-def check_rows(spec, variant, x, yv, xe=None):
+def check_rows(spec, variant, x, yv, xe=None, ov=None):
+    """Linear rows (yv: input -> the linear output, None = the variant has none) plus, in an oscillator spec, the
+    trace / bound / invariance / INFO rows of osc_rows (ov: {output: {input: array}})."""
+    rows = _linear_rows(spec, variant, x, yv, xe) if yv is not None else []
+    if spec.get("osc") and ov is not None:
+        rows += osc_rows(spec, variant, x, ov)
+    return rows
+
+
+def _linear_rows(spec, variant, x, yv, xe=None):
     """One row per check for one variant (h1_check.check_rows, floats kept unformatted).
     D4 additions, all opt-in from spec / variant keys: ramp-lag only at dc_gain 1, else ramp-res; phase-T<t> at the
     periods in variant["phases"]; startup-<input> for spec["startup"]. xe = the EXPORTED x columns (default: x)."""
@@ -271,12 +352,20 @@ def _kind(check_id):
         return "resid"
     if tail.startswith("startup"):
         return "startup"
+    if tail.startswith("trace"):
+        return "trace"
+    if tail.startswith("bound"):
+        return "bound"
+    if tail.startswith("invar"):
+        return "invariance"
+    if tail.startswith("info"):
+        return "info"
     return "lag" if tail.startswith("ramp") else "flat"
 
 
 def _extra_kinds(spec):
     """D4 kinds enabled by the spec (tolerance present), in report order."""
-    return [k for k in ("phase", "resid", "startup") if spec.get("tol_" + k) is not None]
+    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance") if spec.get("tol_" + k) is not None]
 
 
 def nc_report(spec, rows):
@@ -410,6 +499,8 @@ def imp_rows(spec, raw, x=None):
     imp, w, p = spec["imp"], spec["w"], spec["id_prefix"]
     tol = imp["tol"]
     seeds = {v["id"]: v.get("seed") for v in spec["variants"]}        # None = price (old behaviour); D4
+    vmap = {v["id"]: v for v in spec["variants"]}
+    shared_cache = {}
     rows = []
     for kind, table in (("pass", imp["must_pass"]), ("fail", imp["must_fail"])):
         for vid, mstr in table.items():
@@ -422,11 +513,14 @@ def imp_rows(spec, raw, x=None):
                 res = "ERROR"
             else:
                 model = maker()
-                for i in input_names(spec):
-                    xi = raw.cols["x_" + i]
-                    yi = raw.cols["y_%s_%s" % (vid, i)]
-                    per[i] = float(np.max(np.abs(yi[lo:] - R.simulate_any(model, xi, seed=seeds.get(vid))[lo:])))
-                overall = max(per.values())
+                if isinstance(model, (R.ReflexModel, R.SharedModel)):          # RFX: replay sum / ms / gated r
+                    per = _imp_reflex(spec, raw, vmap[vid], model, shared_cache)
+                else:
+                    for i in variant_inputs(spec, vmap[vid]):
+                        xi = raw.cols["x_" + i]
+                        yi = raw.cols["y_%s_%s" % (vid, i)]
+                        per[i] = float(np.max(np.abs(yi[lo:] - R.simulate_any(model, xi, seed=seeds.get(vid))[lo:])))
+                overall = float("nan") if (not per or not all(math.isfinite(v) for v in per.values())) else max(per.values())
                 if not math.isfinite(overall):
                     res = "ERROR"
             if res == "ERROR":
@@ -445,13 +539,166 @@ def imp_rows(spec, raw, x=None):
     return rows
 
 
+# ----------------------------------------------------------------------------- oscillator family (RFX stage 1, D6)
+_MODEL_CACHE = {}
+
+
+def model_out(model, x):
+    """R.simulate_reflex(model, x), cached per (model, input content)."""
+    x = np.ascontiguousarray(np.asarray(x, dtype=float))
+    key = (model, hashlib.md5(x.tobytes()).hexdigest())
+    if key not in _MODEL_CACHE:
+        _MODEL_CACHE[key] = R.simulate_reflex(model, x)
+    return _MODEL_CACHE[key]
+
+
+def gate_mask(spec, ms, amp):
+    """Conditioning gate (D6 rule 2): rows n >= warmup where sqrt(MS)/amplitude >= spec["osc"]["gate"]."""
+    return np.sqrt(ms[spec["w"]:]) / amp >= spec["osc"]["gate"]
+
+
+def m_trace(spec, r_zorro, mo, amp):
+    """Trace quantity: max |r_Zorro - r_model| over the gated rows >= warmup. Returns (d, rows used, rows gated out)."""
+    w = spec["w"]
+    mask = gate_mask(spec, mo.ms, amp)
+    used = int(mask.sum())
+    d = float(np.max(np.abs(r_zorro[w:][mask] - mo.r[w:][mask]))) if used else float("nan")
+    return d, used, int(mask.size - used)
+
+
+def m_bound(arrays):
+    """max |r| over every row of every given array."""
+    return float(max(np.max(np.abs(a)) for a in arrays))
+
+
+def m_invariance(spec, base, copy, ms, amp):
+    """Zorro-internal: max |r(base) - r(copy)| over the gated rows >= warmup (gate from the model's MS of the base sine)."""
+    w = spec["w"]
+    mask = gate_mask(spec, ms, amp)
+    return (float(np.max(np.abs(base[w:][mask] - copy[w:][mask]))) if mask.any() else float("nan")), int(mask.sum())
+
+
+def _orow(spec, variant, cid, inp, e, a, tol, d, res=None, role=None):
+    fin = math.isfinite(a) and math.isfinite(d)
+    if res is None:
+        res = "ERROR" if not fin else ("PASS" if d <= tol else "FAIL")
+    return dict(check_id="%s-%s-%s" % (spec["id_prefix"], variant["id"], cid), indicator=spec["indicator"],
+                params=variant["params"], asset=spec["asset"], input=inp, expected=e, actual=a, abs_diff=d,
+                tolerance=tol, ratio=(d / tol) if (math.isfinite(d) and tol) else float("nan"), result=res,
+                role=role or variant["role"])
+
+
+def osc_rows(spec, variant, x, ov):
+    """The D6 checks of one variant with `outputs`: trace per sine (rule 2), bound (rule 3), invariance per transform
+    (rule 4, only variants with invariance = true) and, for real variants, INFO rows (flat / ramp / start-up of the
+    normalised output, R-4 and finding 5: never PASS/FAIL). The normalised output is the LAST output."""
+    osc, w = spec["osc"], spec["w"]
+    rz = ov[variant["outputs"][-1]]
+    model = R.reflex_article_model(variant.get("article"))
+    rows = []
+    for t in spec["ts"]:
+        iid = "s%d" % t
+        if model is None or iid not in rz:
+            rows.append(_orow(spec, variant, "trace-T%d" % t, "sine T=%d" % t, 0.0, float("nan"), spec["tol_trace"],
+                              float("nan"), res="ERROR"))
+            continue
+        d, used, gated = m_trace(spec, rz[iid], model_out(model, x[iid]), spec["amp"])
+        rows.append(_orow(spec, variant, "trace-T%d" % t,
+                          "sine T=%d, rows>=%d, gated out %d of %d" % (t, w, gated, gated + used), 0.0, d,
+                          spec["tol_trace"], d))
+    allr = [rz[i] for i in variant_inputs(spec, variant) if i in rz]
+    a = m_bound(allr) if allr else float("nan")
+    b = osc["bound"]
+    rows.append(_orow(spec, variant, "bound", "max |r| over every row of %d inputs" % len(allr), b, a,
+                      b * spec["tol_bound"], max(0.0, a - b) if math.isfinite(a) else float("nan")))
+    if variant.get("invariance"):
+        for tr in spec.get("transforms", []):
+            worst, used_all = 0.0, 0
+            for t in spec["ts"]:
+                base, cp = "s%d" % t, "%s%d" % (tr["id"], t)
+                if model is None or base not in rz or cp not in rz:
+                    worst = float("nan")
+                    break
+                d, used = m_invariance(spec, rz[base], rz[cp], model_out(model, x[base]).ms, spec["amp"])
+                worst, used_all = max(worst, d) if math.isfinite(d) else float("nan"), used_all + used
+                if not math.isfinite(worst):
+                    break
+            rows.append(_orow(spec, variant, "invar-%s" % tr["id"],
+                              "%s: every sine vs its copy (level %g, amp %g), %d gated rows used" % (tr["id"], tr["level"], tr["amp"], used_all),
+                              0.0, worst, spec["tol_invariance"], worst))
+    if variant["role"] == "real" and model is not None:
+        nan = float("nan")
+        for iid, label in (("flat", "flat"), ("ramp", "ramp")):
+            if iid in rz:
+                mo = model_out(model, x[iid])
+                a = float(np.max(np.abs(rz[iid][w:])))
+                e = float(np.max(np.abs(mo.r[w:])))
+                rows.append(_orow(spec, variant, "info-%s" % label, "%s, rows>=%d: max |r| (INFO, ill-conditioned)" % (label, w),
+                                  e, a, nan, abs(a - e), res="INFO", role="info"))
+        d = 0.0
+        for t in spec["ts"]:
+            iid = "s%d" % t
+            if iid in rz:
+                d = max(d, float(np.max(np.abs(rz[iid][:w] - model_out(model, x[iid]).r[:w]))))
+        rows.append(_orow(spec, variant, "info-startup", "sines, rows<%d: max |r - model| (INFO, R-4)" % w, 0.0, d,
+                          float("nan"), d, res="INFO", role="info"))
+    return rows
+
+
+def _shared_group(spec, model):
+    """[(index, variant id)] of the variants whose must_pass model is a SharedModel of the same Ls, in call order."""
+    out = []
+    for vid, mstr in spec["imp"]["must_pass"].items():
+        mk = R.IMP_MODELS.get(mstr)
+        m = mk() if mk else None
+        if isinstance(m, R.SharedModel) and m.Ls == model.Ls:
+            out.append((m.index, vid))
+    return sorted(out)
+
+
+def _imp_reflex(spec, raw, v, model, cache):
+    """IMP replay of an RFX variant: the exported sum / ms columns (base inputs, absolute) and the return output r on the
+    well-conditioned inputs only (sines and copies, rows >= warmup, gate from the replay's own MS). A SharedModel replays
+    the old Reflex.c's shared MS over ALL call slots of its group in the generator's call order (variant-major, each
+    variant's inputs in order). Returns {input: residual}; a non-finite value (everything gated out) is an ERROR upstream."""
+    w, vid = spec["w"], v["id"]
+    outs = v["outputs"]
+    ret = outs[-1]
+    vmap = {u["id"]: u for u in spec["variants"]}
+    if isinstance(model, R.SharedModel):
+        if model.Ls not in cache:
+            group = _shared_group(spec, model)
+            slots = [(gvid, i) for _, gvid in group for i in variant_inputs(spec, vmap[gvid])]
+            Ls = [model.Ls[idx] for idx, gvid in group for _ in variant_inputs(spec, vmap[gvid])]
+            sims = R.simulate_shared(Ls, [raw.cols["x_" + i] for _, i in slots])
+            cache[model.Ls] = dict(zip(slots, sims))
+        mo_of = lambda i: cache[model.Ls][(vid, i)]
+    else:
+        mo_of = lambda i: model_out(model, raw.cols["x_" + i])
+    sines = set(sine_inputs(spec))
+    per = {}
+    for i in variant_inputs(spec, v):
+        mo = mo_of(i)
+        d = 0.0
+        for o, arr in (("sum", mo.sum), ("ms", mo.ms)):
+            if o in outs and o != ret and i in base_names(spec):
+                d = max(d, float(np.max(np.abs(raw.cols["%s_%s_%s" % (o, vid, i)][w:] - arr[w:]))))
+        if i in sines:
+            mask = gate_mask(spec, mo.ms, input_amp(spec, i))
+            zr = raw.cols["%s_%s_%s" % (ret, vid, i)][w:]
+            dr = float(np.max(np.abs(zr[mask] - mo.r[w:][mask]))) if mask.any() else float("nan")
+            d = float("nan") if not math.isfinite(dr) else max(d, dr)           # nothing left after the gate: ERROR upstream, never 0
+        per[i] = d
+    return per
+
+
 def floor_quantities(spec):
     """(kind, tolerance/10) the floor guard checks per real variant: gain, lag (dc_gain 1 only), then the D4 kinds
     enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged."""
     q = [("gain", spec["tol_gain"] / 10)]
     if _has_lag(spec):
         q.append(("lag", spec["tol_lag"] / 10))
-    return q + [(k, spec["tol_" + k] / 10) for k in _extra_kinds(spec)]
+    return q + [(k, spec["tol_" + k] / 10) for k in _extra_kinds(spec) if k != "bound"]     # bound: no Zorro-vs-book difference
 
 
 def floor_rows(spec, rows):
@@ -481,8 +728,12 @@ def evaluate(spec, raw):
     xe = {i: raw.cols["x_" + i] for i in input_names(spec)}          # EXPORTED inputs (start-up reference)
     rows = []
     for v in spec["variants"]:
-        yv = {i: raw.cols["y_%s_%s" % (v["id"], i)] for i in input_names(spec)}
-        vr = check_rows(spec, v, x, yv, xe=xe)
+        ov = variant_arrays(spec, raw, v)
+        if v.get("outputs"):                                   # RFX: the linear stage is one named output
+            yv = ov.get(spec["osc"]["linear"]) if spec.get("osc") else None
+            vr = check_rows(spec, v, x, yv, xe=xe, ov=ov)
+        else:
+            vr = check_rows(spec, v, x, ov[None], xe=xe)
         if v["role"] == "info":              # USE stage 1: an INFO variant is measured and reported, never PASS/FAIL
             for r in vr:
                 if r["result"] in ("PASS", "FAIL"):
@@ -564,7 +815,8 @@ def imp_trailer(spec, rows):
         if "lag" in fl:
             txt += " zorro_vs_book_lag=%.3e" % fl["lag"]
         for k in _extra_kinds(spec):
-            txt += " zorro_vs_book_%s=%.3e" % (k, fl[k])
+            if k in fl:
+                txt += " zorro_vs_book_%s=%.3e" % (k, fl[k])
         out.append(txt + " (INFO)")
     bad = sorted(r["check_id"] for r in rows if r["role"] == "floor" and r["result"] != "PASS")
     if bad:
@@ -667,7 +919,7 @@ def ox_columns(spec):
     each role == 'real' variant."""
     ins = input_names(spec)
     return (["n", "clock_close"] + ["x_" + i for i in ins]
-            + ["y_%s_%s" % (v["id"], i) for v in spec["variants"] if v["role"] == "real" for i in ins])
+            + [c for v in spec["variants"] if v["role"] == "real" for _, _, c in variant_columns(spec, v)])
 
 
 def _read_tokens(blob):

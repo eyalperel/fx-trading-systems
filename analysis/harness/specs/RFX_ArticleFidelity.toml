@@ -1,0 +1,815 @@
+# RFX_ArticleFidelity.toml -- Reflex (Ehlers V.38:02), SOURCE FIDELITY + IMPLEMENTATION (HARNESS_DESIGN §1, both questions), first spec of
+# the OSCILLATOR family (HARNESS_DESIGN D6).
+# Pre-registration: this file, committed BEFORE the corrected Reflex.c / Reflex_Superseded.c are written and BEFORE the generated script is
+# run (CLAUDE.md §4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of RFX stage 1 (planning chat 2026-11-18; decisions R-1..R-5 of docs/harness/REFLEX_SOURCE_REVIEW.md and D6 accepted by the user;
+# brief docs/harness/RFX_STAGE1_PROMPT.md), built on tooling that adds multi-output calls (`outputs`), invariance copies of the sines,
+# the checks trace / bound / invariance and the shared-state replay (generator / checker / reference, this branch).
+# Format: as specs/USE_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from USE:
+#   * One integer parameter per call (Length). Real variants L14 / L20 (source default) / L21 (odd Length, R-2) / L30.
+#   * Every variant is called through ReflexCore(Price, Length, &sum, &ms) and exports three outputs: sum (linear stage), ms and r (the
+#     normalised Reflex). The v1 checks (flat, gains, phases, alternating input, ramp residual; D4) read `sum`; trace / bound /
+#     invariance read `r` (D6 rules 1-4).
+#   * DC gain 0 (Sum has a double zero at DC): D4 rule 2 / 4, no ramp-lag check. The alt phase row is SKIP in every variant (H_Sum has a zero at Nyquist).
+#   * Start-up: no rule in the source (R-4). Start-up rows of r are INFO only (rows < W = 700); IMP and trace replay rows >= W.
+#   * Flat / ramp rows of the normalised output are INFO only (finding 5: ill-conditioned).
+#   * NCS / NCT are the REAL superseded file (Reflex_Superseded.c, written in stage 2) called as TWO instances (L20, L14) in call order: one static MS is shared by ALL
+#     16 calls of every bar (R-1). Two spec variants because the grammar has one call-site group per variant (deviation from the brief, flagged in the stage-1 report).
+
+[batch]
+name = "RFX_ArticleFidelity"
+id_prefix = "RFX"
+indicator = "ReflexCore"            # Light-C function called by the `param` variants (corrected Reflex.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/RFX_ArticleFidelity.toml (this file)"
+script_name = "GEN_RFX_Reflex"       # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'Reflex: A New Zero-Lag Indicator', Technical Analysis of Stocks & Commodities V.38:02 (2020), pp. 6-8, 21, sidebar 'EasyLanguage Code For Reflex Indicator'"
+formula = """
+(a) a1 = expvalue(-1.414*3.14159 / (.5*Length));
+    b1 = 2*a1*Cosine(1.414*180 / (.5*Length));
+    c2 = b1;  c3 = -a1*a1;  c1 = 1 - c2 - c3;
+    Filt = c1*(Close + Close[1]) / 2 + c2*Filt[1] + c3*Filt[2];
+    Slope = (Filt[Length] - Filt) / Length;
+    Sum = 0;  For count = 1 to Length Begin Sum = Sum + (Filt + count*Slope) - Filt[count]; End;
+    Sum = Sum / Length;
+    MS = .04*Sum*Sum + .96*MS[1];
+    If MS <> 0 Then Reflex = Sum / SquareRoot(MS);
+(a) Default Length 20 ("assumed cycle period"). The smoothing length is "half the period of the assumed cycle period": `.5*Length` is REAL (R-2).
+    Cosine takes degrees: 1.414*180/(.5*Length) deg = sqrt(2)*pi/(.5*Length) rad. D1 rule 1: 1.414 -> sqrt(2), 3.14159 -> pi. D1 rule 2: .5, .04, .96 literal.
+(a) No start-up rule is printed (R-4). Article claim: "exactly in phase with the data and has zero lag" (cycle-plus-trend model). MS is an EMA of Sum^2, so
+    Reflex "is scaled in terms of standard deviations".
+"""
+reference = "analysis/harness/reference.py reflex_article(L) (exact constants, price seed for Filt history, MS starts 0); reflex_sum_filter(L) for the analytic Sum tables"
+other_forms = "(a) Not tested here: Trendflex (same article, horizontal line instead of the slope line; not in the library)."
+
+[[literal_replacements]]
+literal = "1.414"
+exact = 1.4142135623730951
+name = "sqrt(2)"
+rule = "D1 rule 1"
+source = "(a) a1 and b1 lines. 1.414 = sqrt(2) to its printed digits (D1 rule 1, decided: replace). 180 in the degrees form is exact pi rad."
+
+[[literal_replacements]]
+literal = "3.14159"
+exact = 3.141592653589793
+name = "pi"
+rule = "D1 rule 1"
+source = "(a) a1 and b1 lines. 3.14159 = pi to its printed digits (D1 rule 1, decided: replace). 180 in the degrees form is exact pi rad."
+
+# Pre-registered lines of the corrected indicators/ehlers/Reflex.c (R-1, R-2, R-3, R-5). The .c is written to these lines AFTER this file is
+# committed (stage 2); a test then asserts it contains them verbatim (whitespace-normalised, comments stripped).
+# reference.reflex_code(L) with simulate_reflex implements exactly these lines.
+[corrected_code]
+file = "indicators/ehlers/Reflex.c"
+function = "var ReflexCore(vars Price, int Length, var* pSum, var* pMS)"
+lines = """
+var rx_half = Length;
+rx_half = rx_half/2;
+var rx_k = sqrt(2.0);
+var rx_a1 = exp(-rx_k*PI/rx_half);
+var rx_b1 = 2.0*rx_a1*cos(rx_k*PI/rx_half);
+var rx_c2 = rx_b1;
+var rx_c3 = -rx_a1*rx_a1;
+var rx_c1 = 1.0 - rx_c2 - rx_c3;
+var rx_w1 = 4;
+rx_w1 = rx_w1/100;
+var rx_w2 = 96;
+rx_w2 = rx_w2/100;
+vars rx_Filt = series(Price[0], Length + 2);
+vars rx_MS = series(0, 2);
+rx_Filt[0] = rx_c1*(Price[0] + Price[1])/2.0 + rx_c2*rx_Filt[1] + rx_c3*rx_Filt[2];
+var rx_Slope = (rx_Filt[Length] - rx_Filt[0])/Length;
+var rx_Sum = 0;
+int rx_i;
+for(rx_i = 1; rx_i <= Length; rx_i++)
+    rx_Sum += (rx_Filt[0] + rx_i*rx_Slope) - rx_Filt[rx_i];
+rx_Sum = rx_Sum/Length;
+rx_MS[0] = rx_w1*rx_Sum*rx_Sum + rx_w2*rx_MS[1];
+var rx_R = 0;
+if(rx_MS[0] > 0)
+    rx_R = rx_Sum/sqrt(rx_MS[0]);
+*pSum = rx_Sum;
+*pMS = rx_MS[0];
+return rx_R;"""
+wrapper_function = "var Reflex(vars Price, int Length)"
+wrapper_lines = """
+var rx_s;
+var rx_m;
+return ReflexCore(Price, Length, &rx_s, &rx_m);"""
+notes = """(b) Changed vs the current .c (git blob 7c6b235c00f053faef6f70dff71d9e09b99c440d at fd3d8eb): R-1 the file-static `rx_MS` shared by every call -> a per-instance series `rx_MS = series(0, 2)`; R-2 the SuperSmoother is computed inside the file with a REAL half length (the int `Length / 2` and the call of SuperSmoother2Pole(int) are gone); R-3 the MS weights are built from integers (4/100, 96/100, no float32 literals, gotchas 9d.1); R-5 header with source, formula, deviations and the review path (written with the .c). `Reflex(Price, Length)` is a thin wrapper, so callers do not change.
+(c) Both series() calls are unconditional and precede any use (gotchas 3.1); no expression starts with two literals (gotchas 9d.8). (c) `&Y[k]` as an out-parameter and `*pSum = ...` are expected to compile in Light-C but have NOT been compiled in this stage (no Zorro here): if any line cannot compile, stage 2 stops and reports.
+Superseded file (stage 2): the CURRENT Reflex.c body verbatim as indicators/ehlers/Reflex_Superseded.c, function `Reflex_Superseded`, locals / static renamed `rx_` -> `rxo_` (flat namespace, gotchas 1.3). It is the shared-state control NCS / NCT.
+Pre-run (ii): the blob hash of the current Reflex.c is recorded above (7c6b235c00f053faef6f70dff71d9e09b99c440d)."""
+
+[zorro]
+include = ["../../indicators/ehlers/SuperSmoother2Pole.c", "../../indicators/ehlers/Reflex_Superseded.c", "../../indicators/ehlers/Reflex.c"]   # dependency order (gotchas 5.3), resolved from strategies/tests/; Reflex_Superseded.c and the corrected Reflex.c are written in stage 2 (lint reports them missing until then)
+raw_file = "Data/GEN_RFX_raw.csv"
+marker_file = "Data/GEN_RFX_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # as SS2F / RFF / USE, incl. the alternating input; warmup 700 (D6 rule 2, finding 8)
+n_bars = 3000
+warmup = 700              # (b) MS memory 0.96^n < 1e-12 after 676.87 bars (finding 8): W = 700
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+alternating = true          # extra input id `alt`: level + amp*(-1)^n, after the sines and before ramp
+
+[inputs.invariance]         # D6 rule 4: transformed copies of every sine, fed to every variant with invariance = true
+transforms = [{ id = "sc", level = [11, 10], amp = [1, 10] }, { id = "of", level = [22, 10], amp = [1, 100] }]   # scale x10 (amp 0.1, level 1.1) and offset (level 2.2, amp 0.01); ids sc<T> / of<T>
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D4 + D6
+dc_gain = 0.0
+phase_gate = 0.05
+linear_output = "sum"        # the v1 checks (flat, gains, phases, alt, ramp residual) read this output (D6 rule 1)
+trace_gate = 0.01            # g: rows with sqrt(MS)/amplitude < g are excluded from trace / invariance (D6 rule 2)
+bound = 5.0                  # |Reflex| <= 5 exactly: MS >= 0.04 Sum^2 (D6 rule 3)
+source = """(b) Sum has DC gain 0 and a double zero at DC (finding 1): D4 rules 2 and 4 (flat expected 0, ramp residual expected 0), no ramp-lag check. phase_gate (c): judgement, as HPF / RFF / USE; (b) the smallest expected Sum gain in the four tables is 0.06291300715458449 (L14, T = 100) >= 0.05, so all 20 sine phases are checked; the expected alt gain is <= 1.3e-17 (H_SS has a zero at Nyquist): the alt phase is SKIP for every variant. trace_gate g = 0.01 (c): judgement; (b) the smallest sqrt(MS)/amplitude over the sine rows >= W is 0.036981783618884045 (L14), 3.7x the gate (finding 7): no gated row on a correct variant, a gated row is counted and reported. bound 5 (b): MS >= 0.04 Sum^2 gives |Reflex| <= 5 exactly; attained (finding 6)."""
+
+[tolerances.flat]
+value = 1e-09
+source = "(a) H1 criteria section 5 (unchanged). Applies to Sum: expected |Sum| = 0 on flat (DC gain 0, D4 rule 2). (b) floor 0."
+[tolerances.gain]
+value = 3e-05
+source = "(c) HPF / SS2F / RFF / USE default (D4 rule 5). (b) window: floor x10 <= 3e-5, see [floor].gain. Applies to the five Sum sine gains and the alt gain."
+[tolerances.phase]
+value = 3e-05
+source = "(c) HPF / RFF / USE default (D4 rule 5), radians. (b) window: floor x10 <= 3e-5, see [floor].phase. Applies to the five Sum sine phases; the alt phase is gated out."
+[tolerances.resid]
+value = 1e-09
+source = "(c) HPF / RFF default (D4 rule 5). Applies to Sum on the ramp: expected 0 (double zero at DC, finding 1). (b) floor ~1e-16."
+[tolerances.trace]
+value = 3e-05
+source = "(c) NEW quantity (D6 rule 2), default proposed in this spec and recorded in HARNESS_DESIGN under D2 rule 1 when the spec is committed: max |Zorro r - model r| over the gated rows >= W, per sine. (b) window: floor x10 = 1.57e-5 <= 3e-5, see [floor].trace; ceiling: every control has a kind >= 10x (see [detect])."
+[tolerances.bound]
+value = 1e-12
+source = "(c) NEW quantity (D6 rule 3), RELATIVE allowance: PASS if max |r| <= bound*(1 + 1e-12). (b) a few-ulp allowance: |Reflex| = 5.000000 is attained on the first non-zero Sum row (finding 6), where MS = 0.04 Sum^2 and sqrt rounds. The check needs no model."
+[tolerances.invariance]
+value = 1e-09
+source = "(c) NEW quantity (D6 rule 4): max |r(input) - r(transformed input)| over the gated rows >= W, five sines, transforms sc (amp x10) and of (level 2.2). (b) floor ~1.2e-12 (finding 11): window ok. Zorro-internal comparison, no model."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers the alt input and the invariance copies."
+[tolerances.imp]
+value = 1e-09
+source = "(c) As HPF / SS3F / RFF / USE. Applies to sum and ms (all base inputs, absolute) and to r on the gated sine rows. (b) Fire tests: see [imp.fire_test]."
+
+# D2 floor per quantity: largest known accepted difference, corrected code (Zorro PI) vs THIS spec's (article) tables.
+[floor]
+gain = 5.608710609283918e-07
+phase = 1.1026864998875396e-06
+resid = 8.659739592076221e-16
+flat = 1.0573552615477681e-16
+trace = 1.570091601399426e-06
+invariance = 2.196354209615947e-12
+source = """(b) 2026-11-18: reference.reflex_code(L) (Zorro PI, price seed), simulated 3000 bars and measured with the checker's own functions (check_rows: m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace / m_invariance) vs the reflex_article tables below, max over the four real variants; per variant in [floor.per_variant.*]. = the Zorro PI gap only (D3) plus floating-point order of operations. The Zorro-side implementation residual is measured by IMP in the run; pass item 7 guards it."""
+
+[floor.per_variant.L14]
+gain = 4.6603728154348545e-07
+phase = 9.037015722412889e-07
+resid = 2.379049338482478e-16
+flat = 0.0
+trace = 1.2421845445031998e-06
+invariance = 2.0661250488274163e-12
+
+[floor.per_variant.L20]
+gain = 5.608710609283918e-07
+phase = 1.1026864998875396e-06
+resid = 5.662137425588298e-16
+flat = 0.0
+trace = 1.570091601399426e-06
+invariance = 1.2105733082634629e-12
+
+[floor.per_variant.L21]
+gain = 5.296367502349852e-07
+phase = 1.1005278470754831e-06
+resid = 4.123685520036296e-16
+flat = 1.0573552615477681e-16
+trace = 1.5543644998339268e-06
+invariance = 1.5982770662503754e-12
+
+[floor.per_variant.L30]
+gain = 5.38040389463923e-07
+phase = 1.0032893271727517e-06
+resid = 8.659739592076221e-16
+flat = 0.0
+trace = 1.4345300367590852e-06
+invariance = 2.196354209615947e-12
+
+# Expected tables: from reference.reflex_sum_filter (analytic H_Sum = G(z) H_SS(L/2), exact constants, D1; finding 1) for the Sum gains / phases; the trace model
+# is reflex_article(L). Never from the .c file. Stored at full precision.
+
+[expected.L14]
+flat = 0.0
+gains = [0.3641008319826905, 0.08821484136366421, 0.9416369733402, 0.3541421970554638, 0.06291300715458449]
+gain_alt = 1.2256127959612667e-17
+phases = { 5 = -0.9041809919287164, 10 = -2.1053673091157274, 20 = 0.5522448949496478, 40 = 1.8537662889961284, 100 = 2.62729493901023 }
+resid = 0.0
+article = "reflex_article(14)"
+source = "(b) reference.reflex_sum_filter(14) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Sum = G(z)*H_SS(L/2); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives 3.574935893276165e-17, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.L20]
+flat = 0.0
+gains = [0.22419978208425972, 0.6950591600191401, 0.9661158676365325, 0.6334193273159907, 0.12613742557494156]
+gain_alt = 6.034247078565139e-18
+phases = { 5 = -1.8535892407901857, 10 = -1.3037846620096232, 20 = -0.6223438049722934, 40 = 1.2769927943924038, 100 = 2.3981169232764317 }
+resid = 0.0
+article = "reflex_article(20)"
+source = "(b) reference.reflex_sum_filter(20) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Sum = G(z)*H_SS(L/2); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives -6.024341296771745e-17, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.L21]
+flat = 0.0
+gains = [0.15750890850205188, 0.5981610314314811, 0.9030766266744575, 0.6793377458187361, 0.13852893222352428]
+gain_alt = 9.396682279734042e-33
+phases = { 5 = -2.516715492980711, 10 = -1.684589130000405, 20 = -0.8200519928703122, 40 = 1.1802596614456384, 100 = 2.359782085656641 }
+resid = 0.0
+article = "reflex_article(21)"
+source = "(b) reference.reflex_sum_filter(21) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Sum = G(z)*H_SS(L/2 = 10.5, real); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives 1.3007778847892697e-16, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+[expected.L30]
+flat = 0.0
+gains = [0.10208667556067667, 0.39922208948085225, 0.18266941651459037, 0.9957600998886518, 0.27021314356174947]
+gain_alt = 2.685147310554785e-18
+phases = { 5 = -2.089593977937582, 10 = -1.8204352398114352, 20 = 0.5327175540190702, 40 = 0.30325139832962084, 100 = 2.0137186201210997 }
+resid = 0.0
+article = "reflex_article(30)"
+source = "(b) reference.reflex_sum_filter(30) at this commit: analytic gain_at (T = 5,10,20,40,100 and T = 2) / phase_at of H_Sum = G(z)*H_SS(L/2); resid = 0 exactly (structural: double zero at DC; reference.ramp_residual gives -2.926979877482285e-17, round-off); flat = 0; no phase_alt (gain_alt < phase_gate)"
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "L14"
+role = "real"
+label = "L=14"
+kind = "param"
+params = [14]
+expected = "L14"
+outputs = ["sum", "ms", "r"]
+invariance = true
+
+[[variants]]
+id = "L20"
+role = "real"
+label = "L=20 (source default)"
+kind = "param"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+invariance = true
+
+[[variants]]
+id = "L21"
+role = "real"
+label = "L=21 (odd Length, R-2)"
+kind = "param"
+params = [21]
+expected = "L21"
+outputs = ["sum", "ms", "r"]
+invariance = true
+
+[[variants]]
+id = "L30"
+role = "real"
+label = "L=30"
+kind = "param"
+params = [30]
+expected = "L30"
+outputs = ["sum", "ms", "r"]
+invariance = true
+
+[[variants]]
+id = "NCL"
+role = "info"
+label = "NCL: article as printed (1.414, 3.14159) vs L20 article"
+kind = "inline"
+function = "rfx_ncl"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+comment = "INFO variant (not a control, not in [detect]; D1 rule 3): the article as PRINTED, 1.414 and 3.14159 built from integers at run time (1414/1000, 314159/100000, gotchas 9d.1 / 9d.8) in the exponent; the cosine's 180 degrees is the PI macro (Zorro float32 PI, as the other variants). Everything else as [corrected_code]. L = 20. Reported, never PASS/FAIL."
+body = '''
+var rfx_ncl(vars Price, int Length, var* pSum, var* pMS)
+{
+	var ncl_f = 1414;
+	ncl_f = ncl_f / 1000;
+	var ncl_g = 314159;
+	ncl_g = ncl_g / 100000;
+	var ncl_half = Length;
+	ncl_half = ncl_half / 2;
+	var ncl_a1 = exp(-ncl_f * ncl_g / ncl_half);
+	var ncl_b1 = 2.0 * ncl_a1 * cos(ncl_f * PI / ncl_half);
+	var ncl_c2 = ncl_b1;
+	var ncl_c3 = -ncl_a1 * ncl_a1;
+	var ncl_c1 = 1.0 - ncl_c2 - ncl_c3;
+	var ncl_w1 = 4;
+	ncl_w1 = ncl_w1 / 100;
+	var ncl_w2 = 96;
+	ncl_w2 = ncl_w2 / 100;
+	vars ncl_Filt = series(Price[0], Length + 2);
+	vars ncl_MS = series(0, 2);
+	ncl_Filt[0] = ncl_c1 * (Price[0] + Price[1]) / 2.0 + ncl_c2 * ncl_Filt[1] + ncl_c3 * ncl_Filt[2];
+	var ncl_Slope = (ncl_Filt[Length] - ncl_Filt[0]) / Length;
+	var ncl_Sum = 0;
+	int ncl_i;
+	for(ncl_i = 1; ncl_i <= Length; ncl_i++)
+		ncl_Sum += (ncl_Filt[0] + ncl_i * ncl_Slope) - ncl_Filt[ncl_i];
+	ncl_Sum = ncl_Sum / Length;
+	ncl_MS[0] = ncl_w1 * ncl_Sum * ncl_Sum + ncl_w2 * ncl_MS[1];
+	var ncl_R = 0;
+	if(ncl_MS[0] > 0)
+		ncl_R = ncl_Sum / sqrt(ncl_MS[0]);
+	*pSum = ncl_Sum;
+	*pMS = ncl_MS[0];
+	return ncl_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.00010553423162484865
+phase = 0.00020749275232923026
+resid = 4.440892098500626e-16
+trace = 0.00029544111929294403
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCA"
+role = "neg_control"
+label = "NCA: pole factor a1 + 1/1000 vs L20 article"
+kind = "inline"
+function = "rfx_nca"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+comment = "NCA: realistic copying error in the pole factor (D2 rule 4). [corrected_code] except a1 + 1/1000 (1/1000 built from a variable, 9d.8) BEFORE b1, c3 and c1 are derived. L = 20."
+body = '''
+var rfx_nca(vars Price, int Length, var* pSum, var* pMS)
+{
+	var nca_k = sqrt(2.0);
+	var nca_half = Length;
+	nca_half = nca_half / 2;
+	var nca_a1 = exp(-nca_k * PI / nca_half);
+	var nca_e = 1;
+	nca_e = nca_e / 1000;
+	nca_a1 = nca_a1 + nca_e;
+	var nca_b1 = 2.0 * nca_a1 * cos(nca_k * PI / nca_half);
+	var nca_c2 = nca_b1;
+	var nca_c3 = -nca_a1 * nca_a1;
+	var nca_c1 = 1.0 - nca_c2 - nca_c3;
+	var nca_w1 = 4;
+	nca_w1 = nca_w1 / 100;
+	var nca_w2 = 96;
+	nca_w2 = nca_w2 / 100;
+	vars nca_Filt = series(Price[0], Length + 2);
+	vars nca_MS = series(0, 2);
+	nca_Filt[0] = nca_c1 * (Price[0] + Price[1]) / 2.0 + nca_c2 * nca_Filt[1] + nca_c3 * nca_Filt[2];
+	var nca_Slope = (nca_Filt[Length] - nca_Filt[0]) / Length;
+	var nca_Sum = 0;
+	int nca_i;
+	for(nca_i = 1; nca_i <= Length; nca_i++)
+		nca_Sum += (nca_Filt[0] + nca_i * nca_Slope) - nca_Filt[nca_i];
+	nca_Sum = nca_Sum / Length;
+	nca_MS[0] = nca_w1 * nca_Sum * nca_Sum + nca_w2 * nca_MS[1];
+	var nca_R = 0;
+	if(nca_MS[0] > 0)
+		nca_R = nca_Sum / sqrt(nca_MS[0]);
+	*pSum = nca_Sum;
+	*pMS = nca_MS[0];
+	return nca_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.0006024733171304808
+phase = 0.0023211555035711484
+resid = 5.440092820663267e-16
+trace = 0.003304622595141915
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NC2"
+role = "neg_control"
+label = "NC2: cos arg in degrees vs L20 article"
+kind = "inline"
+function = "rfx_nc2"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+comment = "NC2: gross units bug (gotchas section 2): cosine argument in degrees (sqrt(2)*180/half), exponent unchanged. L = 20."
+body = '''
+var rfx_nc2(vars Price, int Length, var* pSum, var* pMS)
+{
+	var nc2_k = sqrt(2.0);
+	var nc2_half = Length;
+	nc2_half = nc2_half / 2;
+	var nc2_a1 = exp(-nc2_k * PI / nc2_half);
+	var nc2_b1 = 2.0 * nc2_a1 * cos(nc2_k * 180.0 / nc2_half);
+	var nc2_c2 = nc2_b1;
+	var nc2_c3 = -nc2_a1 * nc2_a1;
+	var nc2_c1 = 1.0 - nc2_c2 - nc2_c3;
+	var nc2_w1 = 4;
+	nc2_w1 = nc2_w1 / 100;
+	var nc2_w2 = 96;
+	nc2_w2 = nc2_w2 / 100;
+	vars nc2_Filt = series(Price[0], Length + 2);
+	vars nc2_MS = series(0, 2);
+	nc2_Filt[0] = nc2_c1 * (Price[0] + Price[1]) / 2.0 + nc2_c2 * nc2_Filt[1] + nc2_c3 * nc2_Filt[2];
+	var nc2_Slope = (nc2_Filt[Length] - nc2_Filt[0]) / Length;
+	var nc2_Sum = 0;
+	int nc2_i;
+	for(nc2_i = 1; nc2_i <= Length; nc2_i++)
+		nc2_Sum += (nc2_Filt[0] + nc2_i * nc2_Slope) - nc2_Filt[nc2_i];
+	nc2_Sum = nc2_Sum / Length;
+	nc2_MS[0] = nc2_w1 * nc2_Sum * nc2_Sum + nc2_w2 * nc2_MS[1];
+	var nc2_R = 0;
+	if(nc2_MS[0] > 0)
+		nc2_R = nc2_Sum / sqrt(nc2_MS[0]);
+	*pSum = nc2_Sum;
+	*pMS = nc2_MS[0];
+	return nc2_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.17102997281415633
+phase = 0.18575834027465143
+resid = 4.551914400963141e-16
+trace = 0.2647333434828629
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NC1"
+role = "neg_control"
+label = "NC1: L=22 vs L20 article"
+kind = "param"
+params = [22]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+[variants.effect]
+flat = 0.0
+gain = 0.23994855765005024
+phase = 1.3228007118252112
+resid = 6.055761952500853e-16
+trace = 1.7416677683302648
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCH"
+role = "neg_control"
+label = "NCH: integer half length at L=21 vs L21 article"
+kind = "inline"
+function = "rfx_nch"
+params = [21]
+expected = "L21"
+outputs = ["sum", "ms", "r"]
+comment = "NCH: the old R-2 behaviour: INTEGER half length (Length / 2 as an int) at the odd Length 21, i.e. a SuperSmoother period of 10 instead of 10.5. Compared with the L21 table and model."
+body = '''
+var rfx_nch(vars Price, int Length, var* pSum, var* pMS)
+{
+	var nch_k = sqrt(2.0);
+	int nch_hi = Length / 2;
+	var nch_half = nch_hi;
+	var nch_a1 = exp(-nch_k * PI / nch_half);
+	var nch_b1 = 2.0 * nch_a1 * cos(nch_k * PI / nch_half);
+	var nch_c2 = nch_b1;
+	var nch_c3 = -nch_a1 * nch_a1;
+	var nch_c1 = 1.0 - nch_c2 - nch_c3;
+	var nch_w1 = 4;
+	nch_w1 = nch_w1 / 100;
+	var nch_w2 = 96;
+	nch_w2 = nch_w2 / 100;
+	vars nch_Filt = series(Price[0], Length + 2);
+	vars nch_MS = series(0, 2);
+	nch_Filt[0] = nch_c1 * (Price[0] + Price[1]) / 2.0 + nch_c2 * nch_Filt[1] + nch_c3 * nch_Filt[2];
+	var nch_Slope = (nch_Filt[Length] - nch_Filt[0]) / Length;
+	var nch_Sum = 0;
+	int nch_i;
+	for(nch_i = 1; nch_i <= Length; nch_i++)
+		nch_Sum += (nch_Filt[0] + nch_i * nch_Slope) - nch_Filt[nch_i];
+	nch_Sum = nch_Sum / Length;
+	nch_MS[0] = nch_w1 * nch_Sum * nch_Sum + nch_w2 * nch_MS[1];
+	var nch_R = 0;
+	if(nch_MS[0] > 0)
+		nch_R = nch_Sum / sqrt(nch_MS[0]);
+	*pSum = nch_Sum;
+	*pMS = nch_MS[0];
+	return nch_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.03140088278448261
+phase = 0.06664409994530285
+resid = 5.392511833893617e-16
+trace = 0.09347893223484349
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCK"
+role = "neg_control"
+label = "NCK: Sum divisor L-1 vs L20 article"
+kind = "inline"
+function = "rfx_nck"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+comment = "NCK: Sum divided by (Length - 1) = 19 instead of Length. A pure scale error on Sum: the MS normalisation cancels it, so the normalised output is unchanged (trace 0): only the linear checks on Sum can see it (D6 rule 1 evidence). L = 20."
+body = '''
+var rfx_nck(vars Price, int Length, var* pSum, var* pMS)
+{
+	var nck_k = sqrt(2.0);
+	var nck_half = Length;
+	nck_half = nck_half / 2;
+	var nck_a1 = exp(-nck_k * PI / nck_half);
+	var nck_b1 = 2.0 * nck_a1 * cos(nck_k * PI / nck_half);
+	var nck_c2 = nck_b1;
+	var nck_c3 = -nck_a1 * nck_a1;
+	var nck_c1 = 1.0 - nck_c2 - nck_c3;
+	var nck_w1 = 4;
+	nck_w1 = nck_w1 / 100;
+	var nck_w2 = 96;
+	nck_w2 = nck_w2 / 100;
+	vars nck_Filt = series(Price[0], Length + 2);
+	vars nck_MS = series(0, 2);
+	nck_Filt[0] = nck_c1 * (Price[0] + Price[1]) / 2.0 + nck_c2 * nck_Filt[1] + nck_c3 * nck_Filt[2];
+	var nck_Slope = (nck_Filt[Length] - nck_Filt[0]) / Length;
+	var nck_Sum = 0;
+	int nck_i;
+	for(nck_i = 1; nck_i <= Length; nck_i++)
+		nck_Sum += (nck_Filt[0] + nck_i * nck_Slope) - nck_Filt[nck_i];
+	nck_Sum = nck_Sum / (Length - 1);
+	nck_MS[0] = nck_w1 * nck_Sum * nck_Sum + nck_w2 * nck_MS[1];
+	var nck_R = 0;
+	if(nck_MS[0] > 0)
+		nck_R = nck_Sum / sqrt(nck_MS[0]);
+	*pSum = nck_Sum;
+	*pMS = nck_MS[0];
+	return nck_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.0508481070194815
+phase = 1.1026864994434504e-06
+resid = 5.960144658513998e-16
+trace = 1.570091601399426e-06
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCW"
+role = "neg_control"
+label = "NCW: MS weights 0.041/0.959 vs L20 article"
+kind = "inline"
+function = "rfx_ncw"
+params = [20]
+expected = "L20"
+outputs = ["sum", "ms", "r"]
+comment = "NCW: MS weights 0.041 / 0.959 (built from integers) instead of 0.04 / 0.96. Sum is unchanged; only the normalised output sees it. L = 20."
+body = '''
+var rfx_ncw(vars Price, int Length, var* pSum, var* pMS)
+{
+	var ncw_k = sqrt(2.0);
+	var ncw_half = Length;
+	ncw_half = ncw_half / 2;
+	var ncw_a1 = exp(-ncw_k * PI / ncw_half);
+	var ncw_b1 = 2.0 * ncw_a1 * cos(ncw_k * PI / ncw_half);
+	var ncw_c2 = ncw_b1;
+	var ncw_c3 = -ncw_a1 * ncw_a1;
+	var ncw_c1 = 1.0 - ncw_c2 - ncw_c3;
+	var ncw_w1 = 41;
+	ncw_w1 = ncw_w1 / 1000;
+	var ncw_w2 = 959;
+	ncw_w2 = ncw_w2 / 1000;
+	vars ncw_Filt = series(Price[0], Length + 2);
+	vars ncw_MS = series(0, 2);
+	ncw_Filt[0] = ncw_c1 * (Price[0] + Price[1]) / 2.0 + ncw_c2 * ncw_Filt[1] + ncw_c3 * ncw_Filt[2];
+	var ncw_Slope = (ncw_Filt[Length] - ncw_Filt[0]) / Length;
+	var ncw_Sum = 0;
+	int ncw_i;
+	for(ncw_i = 1; ncw_i <= Length; ncw_i++)
+		ncw_Sum += (ncw_Filt[0] + ncw_i * ncw_Slope) - ncw_Filt[ncw_i];
+	ncw_Sum = ncw_Sum / Length;
+	ncw_MS[0] = ncw_w1 * ncw_Sum * ncw_Sum + ncw_w2 * ncw_MS[1];
+	var ncw_R = 0;
+	if(ncw_MS[0] > 0)
+		ncw_R = ncw_Sum / sqrt(ncw_MS[0]);
+	*pSum = ncw_Sum;
+	*pMS = ncw_MS[0];
+	return ncw_R;
+}'''
+[variants.effect]
+flat = 0.0
+gain = 5.608710609283918e-07
+phase = 1.1026864998875396e-06
+resid = 5.662137425588298e-16
+trace = 0.005095790129040045
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded Reflex.c, instance 1 (L=20, shared static MS) vs L20 article"
+kind = "param"
+function = "Reflex_Superseded"   # the real superseded file (include), not a ReflexCore call
+params = [20]
+expected = "L20"
+outputs = ["r"]                # Reflex_Superseded returns only the normalised value
+comment = "NCS: the REAL superseded Reflex.c (stage 2: Reflex_Superseded.c, the current body verbatim, rx_ -> rxo_) called as two instances per bar, L20 (NCS) then L14 (NCT), each on all 8 base inputs in the generator's variant-major order. ONE file-static MS is shared by all 16 calls of every bar (R-1). Each instance is compared with its own reflex_article model; the shared-state replay (reference.simulate_shared) follows the call order."
+[variants.effect]
+trace = 1.347900877044965
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[[variants]]
+id = "NCT"
+role = "neg_control"
+label = "NCT: superseded Reflex.c, instance 2 (L=14, shared static MS) vs L14 article"
+kind = "param"
+function = "Reflex_Superseded"   # the real superseded file (include), not a ReflexCore call
+params = [14]
+expected = "L14"
+outputs = ["r"]                # Reflex_Superseded returns only the normalised value
+comment = "NCT: the REAL superseded Reflex.c (stage 2: Reflex_Superseded.c, the current body verbatim, rx_ -> rxo_) called as two instances per bar, L20 (NCS) then L14 (NCT), each on all 8 base inputs in the generator's variant-major order. ONE file-static MS is shared by all 16 calls of every bar (R-1). Each instance is compared with its own reflex_article model; the shared-state replay (reference.simulate_shared) follows the call order."
+[variants.effect]
+trace = 1.8780248671740398
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_shared in the generator's call order), measured with checker.check_rows (m_gain / m_gain_alt / m_phase / m_ramp_res / m_trace) vs the expected table named above, max over that kind's checks; computed 2026-11-18"
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (ratios: NCA gain 20.1x, phase 77.4x, trace 110x; NC2 gain 5.7e+03x, phase 6.19e+03x, trace 8.82e+03x; NC1 gain 8e+03x, phase 4.41e+04x, trace 5.81e+04x; NCH gain 1.05e+03x, phase 2.22e+03x, trace 3.12e+03x; NCK gain 1.69e+03x, phase 0.0368x, trace 0.0523x; NCW gain 0.0187x, phase 0.0368x, trace 170x; NCS trace 4.49e+04x; NCT trace 6.26e+04x). Kinds below 10x are not required (NCK trace and phase sit at the PI floor: the MS normalisation cancels a Sum scale error; NCW leaves Sum unchanged)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat | gain-T* / gain-alt | phase-T* | ramp-res | trace-T* | bound | invar-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL. NCL (role info) is not a control and is not listed. bound and invariance are never required (no control moves them: bound holds by construction, invariance is held by any normalised output)."
+[detect.required]
+NCA = ["gain", "phase", "trace"]
+NC2 = ["gain", "phase", "trace"]
+NC1 = ["gain", "phase", "trace"]
+NCH = ["gain", "phase", "trace"]
+NCK = ["gain"]
+NCW = ["trace"]
+NCS = ["trace"]
+NCT = ["trace"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x columns EXPORTED by Zorro (reference.IMP_MODELS; the shared-state models replay the old Reflex.c over all call slots of their group in the generator's call order); residual = max |Zorro - replay| over n >= W = 700 per input: sum and ms on every base input (absolute), r on the sines and their copies only, rows with sqrt(MS)/amplitude >= g under the replay's own MS (flat, alt and ramp r are ill-conditioned, finding 5, and are INFO), overall = the max."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { L14 = "reflex_code(14)", L20 = "reflex_code(20)", L21 = "reflex_code(21)", L30 = "reflex_code(30)", NCL = "reflex_printed(20)", NCA = "reflex_nca(20)", NC2 = "reflex_nc2(20)", NC1 = "reflex_code(22)", NCH = "reflex_nch(21)", NCK = "reflex_nck(20)", NCW = "reflex_ncw(20)", NCS = "reflex_superseded(20,14)[0]", NCT = "reflex_superseded(20,14)[1]" }
+must_fail = { L20 = "reflex_ncw(20)", NCS = "reflex_article(20)" }
+fire_test_effect = "(b) standalone model, 2026-11-18, numbers at full precision in [imp.fire_test]: L20 output vs the NCW-model replay and NCS output vs the L20 reflex_article replay, both > 1e-9; own-model replays are exact up to rounding."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs article). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. L20 must_fail = the wrong-weights model (NCW) is absent from the run output; NCS must_fail = the shared-MS file is not the article model (the control is seen to differ)."""
+
+[imp.fire_test]
+l20_vs_ncw_model = 0.005095923031147587
+ncs_vs_l20_article_model = 1.347900877044965
+source = "(b) 2026-11-18: checker.imp_rows on the synthetic own-model raw file of this spec (rfx_support.synth_raw), max over n >= W and the inputs of the variant"
+[imp.fire_test.discrimination]
+L14 = 1.5719432451719513
+L20 = 0.0
+L21 = 0.8800042612634151
+L30 = 1.5473638063717237
+NCL = 0.00029387102785333186
+NCA = 0.0033030525037230085
+NC2 = 0.2647324314802534
+NC1 = 1.74166711190344
+NCH = 0.8403759974391795
+NCK = 0.0005084729136069777
+NCW = 0.005095923031142702
+NCS = 1.34790081739684
+NCT = 3.19462541010969
+# source: (b) variant own-model output vs the L20 reflex_code model, via the same residual function; each > [tolerances.imp] except L20 itself (must_pass discriminates)
+
+# ----------------------------------------------------------------------------- findings (planning chat 2026-11-18, reproduced here with reference.py)
+[findings]
+sum_vs_simulation_gain_L14 = 1.6653345369377348e-15
+sum_vs_simulation_phase_L14 = 4.440892098500626e-15
+sum_vs_simulation_gain_L20 = 1.2989609388114332e-14
+sum_vs_simulation_phase_L20 = 1.554312234475219e-14
+sum_vs_simulation_gain_L21 = 1.6653345369377348e-14
+sum_vs_simulation_phase_L21 = 7.993605777301127e-15
+sum_vs_simulation_gain_L30 = 5.6066262743570405e-15
+sum_vs_simulation_phase_L30 = 2.353672812205332e-14
+dc_gain_dev_max = 1.595363437672801e-16
+ramp_residual_abs_max = 1.3007778847892697e-16
+nyquist_gain_max = 1.2256127959612667e-17
+loop_end_terms_max = 0.0
+g_at_T_eq_L_dev = 1.5927648842125269e-15
+zerolag_phase_L14 = -0.5798402196411704
+ss_half_phase_L14 = -0.5798402196411706
+zerolag_phase_L20 = -0.6223438049722934
+ss_half_phase_L20 = -0.6223438049722938
+zerolag_phase_L21 = -0.627627151840485
+ss_half_phase_L21 = -0.6276271518404852
+zerolag_phase_L30 = -0.6616264924260098
+ss_half_phase_L30 = -0.6616264924260103
+ramp_max_abs_reflex_L20 = 2.857284406486799
+ramp_sum_row700_L20 = -3.3306690738754695e-17
+ramp_sqrt_ms_row700_L20 = 1.2981683159668917e-10
+ramp_sqrt_ms_row1500_L20 = 1.3610963292548537e-16
+ramp_reflex_row1500_L20 = -1.3866609594752426
+flat_max_abs_reflex_L20 = 0.0
+bound_max_abs_all_rows = 5.0
+gate_margin_L14 = 0.036981783618884045
+gate_margin_L20 = 0.0741488158830217
+gate_margin_L21 = 0.08141716431912929
+gate_margin_L30 = 0.07151874696480431
+warmup_bars_1e12 = 676.8660238347372
+float32_weights_trace_L20 = 4.423856567736806e-07
+invariance_scale10_L20 = 7.039507865513883e-13
+invariance_offset_L20 = 1.1803023836076676e-12
+ncs_pair_per_input_trace_L20 = 0.5161194125283666
+ncs_pair_per_input_trace_L14 = 1.1421471219070067
+bound_ncs_max_abs_r = 5.000000055879355
+bound_float32_weights_analytic = 5.000000055879355
+source = """(b) 2026-11-18, reference.py. 1: Sum is the FIR on Filt (weights (L-1)/(2L) at lags 0 and L, -1/L at lags 1..L-1), H_Sum = G*H_SS(L/2), DC gain 0, ramp residual 0; sum_vs_simulation_* = max |simulated Sum - H_Sum| (amplitude-normalised gain, phase) over T = 5-100. 2: loop end terms k = 0 and k = L are identically zero (loop_end_terms_max = max floating-point value of those terms over 3000 bars, L20); a loop bound off by one at either end changes nothing, so it is not a usable control. 4: G(T = L) = 1 (g_at_T_eq_L_dev = max |G - 1|), so Sum's phase at T = L is the SuperSmoother(L/2) phase (zerolag_phase_L*). 5: ramp ill-conditioning (L20, rows >= W). 6: bound attained. 7: gate margin = min sqrt(MS)/amplitude over the sine rows >= W. 8: warm-up. 9: Zorro PI floors, per L in [floor.per_variant]. 10: float32 weights (old file) vs exact. 11: invariance in the float64 model."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """Reflex source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept (CLAUDE.md
+section 4.8), and its cause found before anything is changed:
+1. All 84 real checks PASS: 4 variants (L14, L20, L21, L30) x 21 checks = Sum: flat, 5 sine gains, alt gain, 5 sine phases, ramp residual (13) +
+   Reflex: 5 trace (one per sine), 1 bound, 2 invariance (sc, of) (8), against the tables / model above at the tolerances above. The alt phase row of
+   every variant that exports sum (11 rows: 4 real, 1 info, 6 controls) is SKIP (expected gain < phase_gate), not PASS, and is not one of the 84.
+   INFO rows (flat / ramp r, start-up rows < W) are written with result INFO and are not counted. A SKIP row where the checker should have checked
+   (or the reverse) is a failed run.
+2. Each of the 8 negative controls (NCA, NC2, NC1, NCH, NCK, NCW, NCS, NCT) FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] and the copies vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant (a gate that removes every row of a sine is an ERROR), no NaN /
+   infinite value. The NCL rows (role info) are written as INFO, never PASS / FAIL, and are not counted in item 1.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 4 real + 8 negative controls + 1 info (NCL) = 13 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 (13 variants), and every [imp].must_fail replay > 1e-9 (2 rows; guards seen to fire).
+7. Floor guard: for every real variant, max |Zorro - book| <= tolerance / 10 for gain (3e-6), phase (3e-6 rad), resid (1e-10), trace (3e-6) and invariance (1e-10)
+   (D2 rule 3 floor side; flat: tolerance / 10 = 1e-10). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected Reflex.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current Reflex.c blob (7c6b235c00f053faef6f70dff71d9e09b99c440d at fd3d8eb) is recorded and the corrected file differs from it only by R-1, R-2, R-3, R-5; Reflex_Superseded.c is the current body verbatim, renamed rx_ -> rxo_;
+   (iii) reference.py reproduces this file's expected tables, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 (relative 1e-9 for values > 1). Every number is stored at full
+        precision (HPF Amendment 1, A1.2). Each inline control body is checked at run time, not by reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every margin >= 10x; after stage 2 also the two includes resolve)."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_ZEROLAG = "(b) INFO, not a check: G(T = L) = 1 (finding 4), so Sum's phase at T = L is the SuperSmoother(L/2) phase: -0.5798402196411704 (L14), -0.6223438049722934 (L20), -0.627627151840485 (L21), -0.6616264924260098 (L30) rad. Normalisation keeps the phase: Reflex lags about 0.62 rad (about 2 bars at L = 20) at the assumed cycle period; the article's 'exactly in phase, zero lag' statement holds for the slope / summation stage, not for the smoothed output (CLAUDE.md 4.7: judged by what it does)."
+O_RAMP_ILLCONDITIONED = "(b) The ARTICLE model itself gives max |Reflex| = 2.8573 over rows >= W on the ramp (Sum ~ 3.3e-17, sqrt(MS) 1.30e-10 at row 700 and 1.36e-16 at row 1500) and exactly 0 on the flat input (every bar rounds identically; not to be relied on in Zorro). Flat / ramp / alt rows of the normalised output are INFO only (D6 rule 2)."
+O_NCK = "(b) NCK (Sum divisor L-1): Sum gain error 5.084811e-02 (1695x the gain tolerance) but trace 1.570e-06 (the PI floor): the normalisation cancels a scale error, so the linear checks on Sum are the only detector. This is D6 rule 1's evidence for exporting the linear stage."
+O_NCL = "(b) NCL = the article as printed (1.414, 3.14159), INFO, never PASS/FAIL (D1 rule 3): effect vs the exact article Sum gain 1.0553e-04 (3.52x tol), phase 2.0749e-04 rad (6.92x tol), trace 2.9544e-04 (9.85x tol), with the PI macro in the cosine."
+O_FLOAT32_WEIGHTS = "(b) R-3: the old float32 weights (0.04f, 0.96f) vs exact weights, trace effect 4.424e-07 at L = 20, below the PI floor of the trace check: not a control (cannot meet the 10x rule), recorded as information."
+O_STARTUP = "(a)/(b) No start-up rule is printed (R-4): rows < W of r are INFO rows (info-startup), the replay and the trace start at W = 700."
+O_NCS_STRUCTURE = "(b) The planning chat's NCS numbers (trace L20 5.161e-01, L14 1.142) correspond to a pair of instances that share MS only with each other on the SAME input (reproduced here: 5.1612e-01 / 1.1421e+00). The generated script calls the superseded function on all 8 inputs per instance, so ONE static MS is shared by all 16 calls of every bar; the effects in [variants.effect] of NCS / NCT are for that real call order (reference.simulate_shared). Both exceed 10x."
+O_BOUND_FLOAT32 = "(b) The old file's float32 weights (R-3) are visible to the BOUND check on the first call that meets MS = 0, not to the trace: with w1 = float32(0.04) = 0.03999999910593033 the first non-zero Sum row has MS = w1*Sum^2 and |r| = 1/sqrt(w1) = 5.000000055879355 > 5 (NCS, the first superseded call of the run: measured max |r| 5.000000055879355 vs the allowance 5*(1 + 1e-12)); NCT's first Sum row meets an MS that NCS already made non-zero, so NCT holds the bound. The weights' own trace effect is 4.424e-07 (finding 10), below the PI floor. NCS therefore FAILS the bound check as well as the trace check; bound is not in [detect.required] (a consequence of the file-static MS, not the designed detector)."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-article residual per kind per real variant; the latter is the measured floor (expected ~ the PI gap)."
+O_LOOP_BOUNDS = "(b) A Sum loop bound off by one at either end changes nothing (the k = 0 and k = L terms are identically zero, finding 2): it is not a usable control and none is included."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-18, BEFORE any run. Base: 960ae09 (spec pre-registered; tooling 853dc20). Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [findings], [observations].
+[amendment_1]
+date = "2026-11-18"
+base_commit = "960ae09"
+before_run = true
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-iv), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed.",
+  "A1.2 Generator layout change, no criterion: the multi-output calls pass two local scalars instead of the addresses of array elements. `var rfx_o_sum; var rfx_o_ms;` are declared once before the first call; every call is `Y[k_r] = fn(S, L, &rfx_o_sum, &rfx_o_ms);` directly followed by `Y[k_sum] = rfx_o_sum; Y[k_ms] = rfx_o_ms;`. Reason (c): `&Y[k]` (address of an array element) as an out-parameter has never been compiled in this project, gotchas section 7 shows only `&scalar`; the change avoids a failed [Test] click. Raw columns, slot order, call order, calls per bar (144) and every expected value are unchanged; the Y array keeps its 400 slots. The superseded-file calls (NCS, NCT) return r only and are unchanged. The six existing specs regenerate byte-identical scripts.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_rfx_corrected_code.py (14 tests): indicators/ehlers/Reflex.c contains [corrected_code].lines inside `var ReflexCore(vars Price, int Length, var* pSum, var* pMS)` and .wrapper_lines inside `var Reflex(vars Price, int Length)`, verbatim (whitespace-normalised, comments stripped). Guards seen to fire on temp copies, each reported not-ok: `rx_w1 = rx_w1/100` -> `/1000` (core), `rx_half = rx_half/2;` removed (core), `vars rx_MS = series(0, 2);` -> `static var rx_MS;` (core), `rx_MS[0] = rx_w1...` -> `rx_MS = rx_w1...` (core), `sqrt(2.0)` -> `sqrt(2.1)` (core), `return ReflexCore(...)` -> `return rx_s;` (wrapper), `series(0, 2)` moved after the first use of rx_MS (core). Wrong function name and lines-only-in-comments also not-ok. Both series() calls precede the first use (asserted); no `static`, no `INITRUN`, no `Period` identifier, no decimal literal product, only the float32-exact literals 2.0 and 1.0 in the file."
+cond_ii = "PASS. Old blob 7c6b235c00f053faef6f70dff71d9e09b99c440d (Reflex.c at fd3d8eb, confirmed by git rev-parse) recorded. Token multiset difference old -> new function, REMOVED (exactly asserted): rx_HalfLength x2 and SuperSmoother2Pole x1 (R-2: the int half length and the call of SuperSmoother2Pole(int)), `static` x1, `if` x1, `is` x1, INITRUN x1 (R-1: the file-static MS and its INITRUN reset), 0.04 x1 and 0.96 x1 (R-3: float32 weight literals), rx_Reflex x3 (the old local result variable, now rx_R). ADDED: the ReflexCore signature and `pSum` / `pMS` out-parameters and their two assignments, `rx_half` (real half length, R-2), `rx_k` = sqrt(2.0) (D1 rule 1), the coefficient lines (rx_a1, rx_b1, rx_c2, rx_c3, rx_c1 with exp / cos / PI: the SuperSmoother computed in this file, R-2), `rx_w1` / `rx_w2` from integers 4/100 and 96/100 (R-3), `rx_Filt = series(Price[0], Length + 2)` and `rx_MS = series(0, 2)` and the Filt recursion line (R-1 / R-2), `rx_MS[0]` / `rx_MS[1]` (per-instance series, R-1), `rx_R`, and the wrapper `Reflex` (rx_s, rx_m, `&`, return ReflexCore). No other token differs: the Slope line, the Sum loop with Sum / Length (token-identical, asserted) and the `if (MS > 0)` line are carried over. Guards seen to fire: three single-statement changes of the carried-over lines make the carried-over match fail. Reflex_Superseded.c is token-identical to the old blob after Reflex -> Reflex_Superseded and rx_ -> rxo_ (header comments only added); guards seen to fire: one rxo_ left as rx_, 0.96 -> 0.97, `static` removed, Length / 2 -> Length / 3 (all not-ok)."
+cond_iii = "PASS. analysis/harness/tests/test_reference_rfx_spec.py, 15 tests OK. Largest deviation per section: expected 0.000e+00, floor 0.000e+00, effects 0.000e+00, findings 0.000e+00, imp_fire_test 0.000e+00 (the spec was generated from this reference, so 0 is self-consistency; the independent comparisons are the planning chat's (b) values, asserted at 1e-13 for the tables, 1e-3 for the floors, 1e-2 for the effects, in the same test file, and the independent EasyLanguage translation in test_reference_rfx.py)."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/RFX_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; the three includes (SuperSmoother2Pole.c, Reflex_Superseded.c, Reflex.c) resolve. INFO: D2 floors gain 5.609e-07, flat 1.057e-16, phase 1.103e-06, resid 8.660e-16, trace 1.570e-06, invariance 2.196e-12 (x10 each within tolerance: window ok). Control margins (all >= 10x): NCA trace 110x, NC2 trace 8.82e+03x, NC1 trace 5.81e+04x, NCH trace 3.12e+03x, NCK gain 1.69e+03x, NCW trace 170x, NCS trace 4.49e+04x, NCT trace 6.26e+04x. NCL (role info): effect/tolerance gain 3.52x, flat 0x, phase 6.92x, resid 4.44e-07x, trace 9.85x; reported, never PASS/FAIL."
+tests_before = 445
+tests_after = 460
+tests_added = 15
+suite = "bash analysis/harness/run_tests.sh: TOTAL 460  PASS 460  FAIL 0  ERROR 0  SKIP 0 (Claude Code shell, 2026-11-18; the commit-message count comes from the user's Git Bash run)"
+blob_Reflex_c_old = "7c6b235c00f053faef6f70dff71d9e09b99c440d"
+blob_Reflex_c_new = "002fcc59845457bf17ef7808800f7ce49ded5a92"
+blob_Reflex_Superseded_c_new = "60ab523bf1d1f6b232ba19b60b343e3b8f42c3b6"
+blob_source = "(b) git rev-parse fd3d8eb:indicators/ehlers/Reflex.c (old); git hash-object indicators/ehlers/Reflex.c and Reflex_Superseded.c (new), 2026-11-18, Claude Code shell"
+script = "strategies/tests/GEN_RFX_Reflex.c"
+script_sha256 = "bbf9680c9c4739fa087102b0a89888fad1dc4a4a54ef9537b28a59c16c1d83cd"
+script_check = "(b) read-through 2026-11-18: includes SuperSmoother2Pole.c, Reflex_Superseded.c, Reflex.c in that order with the relative paths of [zorro].include; alt input X[6] = lvl + amp*rfx_sgn, static rfx_sgn reset to 1 at INITRUN, flipped once per fed bar after the row is written; the copies sc* (X[8]-X[12]) and of* (X[13]-X[17]) are built from integers (lvl_sc = 11/10, amp_sc = 1/10, lvl_of = 22/10, amp_of = 1/100) before the 18 unconditional series() calls and before any indicator call; 144 unconditional calls per bar in fixed variant-major order: ReflexCore for L14, L20, L21, L30 on the 8 base inputs and the 10 copies (72) and for NC1 (22) on the 8 base inputs (8) = 80, six inline bodies (rfx_ncl, rfx_nca, rfx_nc2, rfx_nch, rfx_nck, rfx_ncw) defined once each with unique local prefixes on the 8 base inputs (48), Reflex_Superseded(S, 20) on the 8 base inputs then Reflex_Superseded(S, 14) on the 8 base inputs (16, the order the spec's NCS / NCT effects assume); no bare `Period` identifier; no decimal-literal product at the start of an expression (the lint's float32 rule and a regex scan: none); the two local scalars rfx_o_sum / rfx_o_ms are declared once before the first call and every call is directly followed by its two copies (asserted for all 128 calls); raw file Data/GEN_RFX_raw.csv, 340 columns, deleted at INITRUN (no-overwrite guard), header written once in chunks of at most 9 names per append, rows in chunks of 9 values, the last row latched (rfx_done = 1) before quit() and nothing is written after it. C:/Zorro/Data/GEN_RFX_raw.csv does not exist yet. (c) NOT compiled: no Zorro here; the first [Test] shows any Error line."
+
+# ============================================================================ Amendment 2
+# 2026-11-18, AFTER run 1. Post-run record only. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings], the generated script.
+[amendment_2]
+date = "2026-11-18"
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Run date 2026-11-18; script strategies/tests/GEN_RFX_Reflex.c sha256 bbf9680c9c4739fa087102b0a89888fad1dc4a4a54ef9537b28a59c16c1d83cd; one [Test] click on a fresh load; Zorro window: Warning 047 only, no line starting with Error, 'RFX batch complete: 3000 rows written' (user report, 2026-11-18). Results file analysis/harness/results/RFX_ArticleFidelity_20261118.csv (commit ad487b7); raw analysis/harness/results/RFX_ArticleFidelity_20261118_raw_run1.csv (local, gitignored) sha256 f1ab5494281e531bd971ea3fcbd22a538cb88df9d577dcc2dba9c3b0b98d1d75. Counts: variants_run=13 real=4 neg_control=8 info=1. (1) 84 of 84 real checks PASS, 0 FAIL, 0 ERROR; 11 alt-phase rows SKIP, not counted in the 84. (2) 8 of 8 controls detected on every required kind; FAIL rows NCA 11, NC2 15, NC1 15, NCH 14, NCK 5, NCW 5, NCS 6 (incl. 1 bound), NCT 5 = 76. (3) 0 gated-out trace rows, no guard row, no ERROR row. (4) IMP must_pass 13 of 13 (largest residual about 2.8e-12 against tolerance 1e-9); must_fail 2 of 2 (L20 vs NCW model 5.096e-3 max over inputs, 9.155e-4 on s20 alone; NCS vs L20 article model 1.348). (5) Floor guard 20 of 20 PASS, tightest L20 trace 1.570e-6 against 3e-6. (6) NCL (info) gain 1.055e-4, phase 2.075e-4, trace 2.954e-4, reported only.",
+  "A2.2 Read twice (HARNESS_DESIGN section 4): the planning chat's prediction (docs/harness/RFX_RUN1_PREDICTION.md, 901b3a0) was written before the checker ran and was read by Claude Code only after the checker finished. Agreement on the verdict, every per-control FAIL count and kind, the NCL INFO values, the bound values (NCS 5.000000055879355, NCT 3.9208, NCW 4.9386), 0 gated rows and the floor guard. Two disagreements, verdicts unaffected: (i) IMP residuals differ in the 13th digit (L20 2.128e-12 vs 1.5e-12, NCS 3.696e-13 vs 2.8e-13), about 1e-12 against 1e-9; (c) the checker's maximum covers more output columns and invariance copies than the planning chat's measurement did, not verified. (ii) The L20-vs-NCW fire test: the prediction quoted the s20 value 9.155e-4, the checker reports the maximum over inputs 5.096e-3 (s100); the s20 value is identical in both.",
+  "A2.3 Run observations: (b) NCK is seen only by the Sum gain (gain ratio 1.695e+03; phase and trace ratios 0.037 and 0.052, below 1), which confirms HARNESS_DESIGN D6 rule 1 in a run. (b) The old float32 weights (0.04, 0.96) are visible only as NCS's bound row, max |Reflex| 5.000000055879355 against the structural bound 5. (b) The raw file uses %.15f, absolute resolution 1e-15, adequate for this spec (flat and resid rows are INFO or at 1e-9 tolerance).",
+  "A2.4 Rerun note: a rerun needs a Zorro restart first, because Reflex_Superseded's file-static MS carries over between [Test] presses (the defect this spec's NCS and NCT controls model).",
+]

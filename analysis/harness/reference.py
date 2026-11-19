@@ -456,6 +456,145 @@ IMP_MODELS["us_printed(20, pass3)"] = lambda: Seeded(us_printed(20), "pass3")   
 IMP_MODELS["us_nx(20)"] = lambda: one_minus(hp_code(20, k=math.sqrt(2.0) / 2.0), "zero")         # NCX: x - HighPassFilter
 
 
+
+
+# ---------------------------------------------------------------------------------------------------
+# Reflex (RFX stage 1; HARNESS_DESIGN D6, docs/harness/REFLEX_SOURCE_REVIEW.md). (a) Source: Ehlers, "Reflex: A New Zero-Lag
+# Indicator", TASC V.38:02 (2020), sidebar "EasyLanguage Code For Reflex Indicator":
+#     a1 = expvalue(-1.414*3.14159 / (.5*Length));  b1 = 2*a1*Cosine(1.414*180 / (.5*Length));
+#     c2 = b1;  c3 = -a1*a1;  c1 = 1 - c2 - c3;
+#     Filt = c1*(Close + Close[1]) / 2 + c2*Filt[1] + c3*Filt[2];
+#     Slope = (Filt[Length] - Filt) / Length;
+#     Sum = 0;  For count = 1 to Length Begin Sum = Sum + (Filt + count*Slope) - Filt[count]; End;  Sum = Sum / Length;
+#     MS = .04*Sum*Sum + .96*MS[1];   If MS <> 0 Then Reflex = Sum / SquareRoot(MS);
+# D1 rule 1: 1.414 -> sqrt(2), 3.14159 -> pi, degrees -> radians; D1 rule 2: .5, .04, .96 literal. `.5*Length` is REAL (R-2).
+# No start-up rule is printed (R-4): Filt history = the first price (series(Price[0], ...)), MS starts at 0.
+# Operation order follows the corrected code / the sidebar line by line (the ramp rows depend on rounding noise, finding 5).
+# ---------------------------------------------------------------------------------------------------
+ReflexModel = namedtuple("ReflexModel", "L half w1 w2 root2 pi_exp pi_cos deg a1_add div")
+ReflexOut = namedtuple("ReflexOut", "sum ms r")
+SharedModel = namedtuple("SharedModel", "Ls index")     # old Reflex.c: ONE static MS shared by the listed calls, call order
+
+F32_004 = float(np.float32(0.04))      # the old Reflex.c literals (R-3, gotchas 9d.1)
+F32_096 = float(np.float32(0.96))
+
+
+def reflex_article(L, half=None, w1=None, w2=None, root2=None, pi_exp=None, pi_cos=None, deg=False, a1_add=0.0,
+                   div=None):
+    """The article Reflex as a model (D1: exact sqrt(2) and pi; weights 4/100 and 96/100). Keyword hooks (default off)
+    are the negative controls / the Zorro-side variants:
+        half   fixed smoothing period instead of L/2 (NCH: the old integer half length)
+        w1, w2 MS weights (NCW 41/1000, 959/1000; old float32 weights, finding 10)
+        root2, pi_exp, pi_cos   constants (NCL: 1414/1000, 314159/100000, Zorro PI; code: Zorro PI in both)
+        deg    NC2: the cosine argument in degrees, sqrt(2)*180/half
+        a1_add NCA: added to a1 before b1, c3 and c1 are derived
+        div    NCK: divisor of Sum (default L)"""
+    return ReflexModel(L=L, half=half, w1=4.0 / 100 if w1 is None else w1, w2=96.0 / 100 if w2 is None else w2,
+                       root2=math.sqrt(2.0) if root2 is None else root2, pi_exp=math.pi if pi_exp is None else pi_exp,
+                       pi_cos=math.pi if pi_cos is None else pi_cos, deg=deg, a1_add=a1_add, div=div)
+
+
+def reflex_code(L, **kw):
+    """The [corrected_code] lines of the RFX spec (Zorro PI in the exponent and the cosine): reflex_article with
+    pi_exp = pi_cos = PI_ZORRO. Same keyword hooks as reflex_article."""
+    kw.setdefault("pi_exp", PI_ZORRO)
+    kw.setdefault("pi_cos", PI_ZORRO)
+    return reflex_article(L, **kw)
+
+
+def _reflex_coefs(m):
+    half = m.L / 2.0 if m.half is None else float(m.half)
+    a1 = math.exp(-m.root2 * m.pi_exp / half) + m.a1_add
+    arg = m.root2 * 180.0 / half if m.deg else m.root2 * m.pi_cos / half
+    b1 = 2.0 * a1 * math.cos(arg)
+    c2, c3 = b1, -a1 * a1
+    return 1.0 - c2 - c3, c2, c3
+
+
+def _reflex_step(F, L, div, w1, w2, ms_prev):
+    """One bar after F (list, newest last, >= L+1 entries) got its new Filt: (sum, ms, r). C order of operations."""
+    t = len(F) - 1
+    f0 = F[t]
+    slope = (F[t - L] - f0) / L
+    s = 0.0
+    for c in range(1, L + 1):
+        s += (f0 + c * slope) - F[t - c]
+    s = s / (L if div is None else div)
+    ms = w1 * s * s + w2 * ms_prev
+    return s, ms, (s / math.sqrt(ms) if ms > 0 else 0.0)
+
+
+def simulate_reflex(m, x):
+    """Run a ReflexModel on x: ReflexOut(sum, ms, r) arrays. Filt history before n = 0 = x[0] (price seed), MS starts 0."""
+    x = np.asarray(x, dtype=float)
+    c1, c2, c3 = _reflex_coefs(m)
+    L = m.L
+    F = [float(x[0])] * (L + 2)
+    ssum, ms_a, r = np.empty(len(x)), np.empty(len(x)), np.empty(len(x))
+    ms = 0.0
+    for n in range(len(x)):
+        p1 = x[n - 1] if n else x[0]
+        F.append(c1 * (x[n] + p1) / 2.0 + c2 * F[-1] + c3 * F[-2])
+        ssum[n], ms, r[n] = _reflex_step(F, L, m.div, m.w1, m.w2, ms)
+        ms_a[n] = ms
+    return ReflexOut(ssum, ms_a, r)
+
+
+def simulate_shared(Ls, xs):
+    """The OLD Reflex.c (superseded): per call slot an integer-half SuperSmoother2Pole (Zorro PI, price seed) feeding a
+    Filt series seeded with that slot's first output, float32 weights, and ONE MS shared by every slot, updated slot after
+    slot in the given order on every bar (`static var rx_MS`, R-1). Ls: L per slot; xs: input array per slot, same order
+    as the generator's calls. Returns [ReflexOut] per slot."""
+    nb = len(xs[0])
+    ss = [simulate(ss2_code(L // 2), x) for L, x in zip(Ls, xs)]                # SS2 output per slot (own price seed)
+    F = [[float(s[0])] * (L + 2) for L, s in zip(Ls, ss)]
+    outs = [ReflexOut(np.empty(nb), np.empty(nb), np.empty(nb)) for _ in Ls]
+    ms = 0.0
+    for n in range(nb):
+        for k, (L, s) in enumerate(zip(Ls, ss)):
+            F[k].append(float(s[n]))
+            sm, ms, r = _reflex_step(F[k], L, None, F32_004, F32_096, ms)
+            outs[k].sum[n], outs[k].ms[n], outs[k].r[n] = sm, ms, r
+    return outs
+
+
+def reflex_superseded(Ls, index=0):
+    """Model handle for [imp]: the old Reflex.c called once per bar for each L in Ls (call order); `index` = which call."""
+    return SharedModel(Ls=tuple(Ls), index=index)
+
+
+def reflex_sum_filter(L, half=None, pi_value=None):
+    """Sum as ONE linear filter of the price (finding 1): H_Sum = G(z) * H_SS(half), G = (L-1)/(2L) (1 + z^-L)
+    - (1/L) sum_{k=1}^{L-1} z^-k. Exact constants unless pi_value is given (then reflex_code's)."""
+    half = L / 2.0 if half is None else half
+    ss = ss2_article(half) if pi_value is None else ss2_code(half, pi_value=pi_value)
+    g = [(L - 1.0) / (2.0 * L)] + [-1.0 / L] * (L - 1) + [(L - 1.0) / (2.0 * L)]
+    return Filter(b=tuple(float(v) for v in np.convolve(g, ss.b)), a=ss.a)
+
+
+_REFLEX_ARTICLE_RE = re.compile(r"reflex_article\((\d{1,3})\)")
+
+
+def reflex_article_model(name):
+    """Resolve a spec's article-model string ('reflex_article(20)') to a ReflexModel. Restricted grammar, no eval."""
+    m = _REFLEX_ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
+    return reflex_article(int(m.group(1))) if m and int(m.group(1)) > 0 else None
+
+
+# [imp] model registry for RFX (c: names chosen here). Zorro-PI code models for the real variants, controls' own models.
+for _L in (14, 20, 21, 30):
+    IMP_MODELS["reflex_code(%d)" % _L] = (lambda L=_L: reflex_code(L))
+IMP_MODELS["reflex_code(22)"] = lambda: reflex_code(22)                                           # NC1
+IMP_MODELS["reflex_article(20)"] = lambda: reflex_article(20)                                    # NCS must_fail replay
+IMP_MODELS["reflex_nca(20)"] = lambda: reflex_code(20, a1_add=1.0 / 1000)                        # NCA
+IMP_MODELS["reflex_nc2(20)"] = lambda: reflex_code(20, deg=True)                                 # NC2
+IMP_MODELS["reflex_nch(21)"] = lambda: reflex_code(21, half=10.0)                                # NCH: integer half length
+IMP_MODELS["reflex_nck(20)"] = lambda: reflex_code(20, div=19)                                   # NCK: divisor L-1
+IMP_MODELS["reflex_ncw(20)"] = lambda: reflex_code(20, w1=41.0 / 1000, w2=959.0 / 1000)          # NCW
+IMP_MODELS["reflex_printed(20)"] = lambda: reflex_code(20, root2=1414.0 / 1000, pi_exp=314159.0 / 100000)   # NCL (cos: Zorro PI)
+IMP_MODELS["reflex_superseded(20,14)[0]"] = lambda: reflex_superseded((20, 14), 0)               # NCS (instance 1, L20)
+IMP_MODELS["reflex_superseded(20,14)[1]"] = lambda: reflex_superseded((20, 14), 1)               # NCT (instance 2, L14)
+
 def bump3(v, units=1):
     """Add `units` to the 3rd significant digit of v (e.g. 0.8007 -> 0.8017)."""
     step = 10.0 ** (math.floor(math.log10(abs(v))) - 2)
