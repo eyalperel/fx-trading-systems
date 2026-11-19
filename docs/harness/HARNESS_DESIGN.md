@@ -343,3 +343,13 @@ give |r| = 1/sqrt(float32(0.04)) = 5.000000055879 on the first superseded call, 
    SKIP; Zorro vs article = `PI` gap (gain 6.5e-7, phase 7.6e-7 rad). (b) The ramp check is structural only for this family: no
    control moved DC gain or ramp lag; detection came from gain, phase, alt gain and start-up. (b) A 3- vs 4-bar seed is invisible on
    flat and ramp; only a sine start-up sees it. Amendment 2: post-run record.
+   RFX status 2026-11-18 (first oscillator spec, D6): source TASC V.38:02 Reflex sidebar; review `05be788` (R-1 shared static MS, R-2
+   int half length, R-3 float32 weights, R-4 no start-up rule, R-5 header); D6 `5087c39`; tooling `853dc20` (multi-output calls,
+   trace / bound / invariance, shared-state replay); spec `960ae09` (4 real x 21 checks, 8 controls incl. the real superseded file as
+   NCS/NCT, NCL info); corrected .c + superseded control + test `5840f20`; generator out-parameters via local scalars `62b4e97`
+   (A1.2); Amendment 1 + script `353c94f`. Prediction committed before the checker `901b3a0`. **Run 1 PASS** (`ad487b7`): 84/84,
+   8/8 controls (76 FAIL rows, as predicted row by row), IMP 13/13 must_pass (<= 2.8e-12) + 2/2 must_fail, floor 20/20 (tightest
+   trace 1.570e-6 <= 3e-6, = the pre-run `PI` gap), 0 gated rows, 11 alt-phase SKIP. (b) NCK (Sum divisor) was seen only by the Sum
+   gain checks (trace at the floor): D6 rule 1 confirmed in a run. (b) The old float32 weights showed up only as NCS's bound row
+   (5.000000055879), not in trace. (b) Raw values are `%.15f` (absolute resolution 1e-15): adequate here; a quantity near 1e-14 would
+   need `%.17g`. Amendment 2: post-run record.
