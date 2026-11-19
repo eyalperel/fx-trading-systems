@@ -292,7 +292,15 @@ on the MODEL's MS, never on the run's, so a broken variant cannot gate away its 
 bar (8 inputs x 2 instances, variant-major) reproduced 1.347901 / 1.878025, the same for three input orders; the old float32 weights
 give |r| = 1/sqrt(float32(0.04)) = 5.000000055879 on the first superseded call, so the bound check also fires on NCS (not required).
 
-**Open items (2026-11-17).**
+**D6 applied to MESAStochastic, 2026-11-19 (MST_ArticleFidelity spec).** Rule 3: a two-sided bound on an exported intermediate (the raw
+Stoc, [0, 1]) when the final output has no exact bound (the second SuperSmoother overshoots to -0.0295 / 1.0295). Rule 2: the gate is
+on the model's HH - LL range (margin 0.028 at L14, T = 100). Rule 5 (multi-instance control): not applicable, the indicator has no
+statics; recorded, no control invented. Trace tolerance 5e-5 for this spec (b): the 3e-5 default failed the D2 window because
+normalisation amplifies the `PI` gap where HH - LL is small (floor 3.875e-6 at L14, T = 100); each oscillator spec measures its own
+window (D2 rule 3). (b) Windowed indicators (stochastic, min/max, rolling rank) need sines with T > L: a 21- vs 20-bar window differed
+by at most 7.6e-14 at T = 5 / 10 / 20 and by 6.2e-2 / 8.1e-2 at T = 40 / 100.
+
+**Open items (2026-11-17).
 - The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
   run record should carry every pre-registered exception (small tooling task).
 - Intermittent test errors: `test_checker_amend1.test_cli` MemoryError twice in Claude Code's shell; once 4/144
@@ -353,3 +361,12 @@ give |r| = 1/sqrt(float32(0.04)) = 5.000000055879 on the first superseded call, 
    gain checks (trace at the floor): D6 rule 1 confirmed in a run. (b) The old float32 weights showed up only as NCS's bound row
    (5.000000055879), not in trace. (b) Raw values are `%.15f` (absolute resolution 1e-15): adequate here; a quantity near 1e-14 would
    need `%.17g`. Amendment 2: post-run record.
+   MST status 2026-11-19 (second oscillator spec, D6): source TASC V.32:1 sidebar; review `3f0de96` (M-1 window, M-2 scale, M-6
+   fallback, M-9 exports, M-8 header, M-4 upstream, M-5 kept); tooling `85b7431`; spec `0fd34ee` (4 real x 21 checks, 5 controls, 2 info);
+   corrected .c + superseded control + test `0332395`; Amendment 1 + script `4843ee2`. Prediction committed before the checker
+   `57b1abf`. **Run 1 PASS** (`17a8604`): 84/84, 5/5 controls (29 FAIL rows: NCW 2, NCA 5, NCP 15, NC1 2, NCS 5), IMP 11/11 must_pass
+   (<= 8.9e-16) + 2/2 must_fail, floor 20/20, 0 gated rows, 10 alt-phase SKIP; 11 variants. Zorro vs article = `PI` gap (trace max
+   3.875e-6). (b) A window-length error is invisible on sines with T <= L (finding 1). (b) The final output is not bounded; the bound
+   is on the raw Stoc. (b) NCS exports only the final output, so its bound could not be checked; trace caught it (2.04e6 x). Second
+   read scope: verdict, counts, traces, control and IMP fire values; bound / flat / ramp / alt / invariance / start-up values were
+   compared only in the planning-chat back-check. Amendment 2: post-run record.
