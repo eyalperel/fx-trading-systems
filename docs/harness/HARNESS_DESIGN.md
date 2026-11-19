@@ -300,6 +300,25 @@ normalisation amplifies the `PI` gap where HH - LL is small (floor 3.875e-6 at L
 window (D2 rule 3). (b) Windowed indicators (stochastic, min/max, rolling rank) need sines with T > L: a 21- vs 20-bar window differed
 by at most 7.6e-14 at T = 5 / 10 / 20 and by 6.2e-2 / 8.1e-2 at T = 40 / 100.
 
+**D6 applied to LaguerreRSI, 2026-11-19 (LRSI_ArticleFidelity spec).** Rule 1: two linear stages are exported, l0 (EMA) and l3 (EMA x three
+allpass stages), both with DC gain 1, so the v1 checks including ramp lag apply to each against its own analytic table (l0 lag g/(1-g),
+l3 lag g/(1-g) + 3(1+g)/(1-g)); the normalised out is checked by trace, invariance, bound and the known answers. Rule 2: the gate is on the
+model's CU + CD (denominator of the normalisation), margin 0.0756 at G05, T = 100; no row gated. Rule 3: the exact bound is on the FINAL
+output itself, out in [0, 1] (unlike MESAStochastic, where only the raw Stoc is bounded). Rule 5: a shared-static control needs its seeded
+call on a CHECKED input: the superseded file's one-shot `lr_init` seed lands on the first superseded call of the run, so NCS / NCT use a
+per-variant `skip_inputs = ["flat"]` (no call, no column, no check; listed in the results header) to put that call on `s5`, where start-up
+sees it; and the shared hold (`lr_prevRSI`, acts only on CU + CD = 0 rows, i.e. flat) is covered by a no-static pre-run lint of the
+corrected .c (`[lint].no_static`, comments excluded; seen to fire on the superseded file: 2 hits) instead of a control (c: a control cannot
+show it on these inputs). Generated scripts return at INITRUN before any indicator call, so the superseded file's own INITRUN resets never
+run: restart Zorro before a rerun. Rule 6 refined: where the source DEFINES a start-up (here L-1, all stages zero, bar 1 computed),
+start-up is PASS/FAIL against the model (kind `startup`), not INFO; it was the only kind that saw NCP and NCS (9.39e5 x / 5.98e5 x). New kind
+`ramp_exact` for saturating oscillators: rising ramp out = 1 and falling ramp out = 0 exactly on rows >= W (tolerance 1e-12; the falling
+ramp `rampdn` is a new input). Real-valued parameters (gamma) are built from integers at run time (`real_params`). (b) Residuals: Zorro vs
+the source model about 5e-16 (trace, start-up) and at most 2.3e-12 (gain, phase, lag); no `PI` gap. (b) The IMP residual (8.5e-13) is
+larger than the Zorro-vs-model trace because IMP replays the exported %.15f x, whose rounding is divided by CU + CD (down to ~7.6e-4); the
+prediction's trace / start-up maxima had the same cause (Amendment 2, A2.3). (c) A predicting model must be fed inputs rebuilt from
+integers, not the exported x, when the output is normalised.
+
 **Open items (2026-11-17).**
 - The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
   run record should carry every pre-registered exception (small tooling task).
@@ -370,3 +389,13 @@ by at most 7.6e-14 at T = 5 / 10 / 20 and by 6.2e-2 / 8.1e-2 at T = 40 / 100.
    is on the raw Stoc. (b) NCS exports only the final output, so its bound could not be checked; trace caught it (2.04e6 x). Second
    read scope: verdict, counts, traces, control and IMP fire values; bound / flat / ramp / alt / invariance / start-up values were
    compared only in the planning-chat back-check. Amendment 2: post-run record.
+   LRS status 2026-11-19 (third oscillator spec, D6): source Ehlers, Cybernetic Analysis (2004) Fig. 14.8; review `6382607` (L-1 zero start, L-2
+   hold, L-3 no statics, L-4 gamma literals, L-5 exports, L-6 header, L-7 record only); tooling `c2fcd44` (real params, four-column calls,
+   linear checks on two outputs, rampdn, ramp_exact, startup on out, CU + CD gate, skip_inputs, no-static lint); spec `824a3cc` (3 real x 43
+   checks, 4 controls, 2 info); corrected .c + superseded control + test `a8955d1`; Amendment 1 + script `b85cfd9`. Prediction committed
+   before the checker `63d1c21`. **Run 1 PASS** (`15ae118`): 129/129, 4/4 controls (60 FAIL rows: NCG 32, NC25 22, NCP 5, NCS 1), IMP 9/9
+   must_pass (<= 8.539e-13) + must_fail 0.0008469690517214912, floor 21/21, 0 gated rows; 9 variants. Zorro vs the source model about 5e-16.
+   (b) Start-up and the exact ramp answers are real PASS/FAIL checks here. (b) NCP and NCS were seen only by start-up; NCS only on `s5`
+   after skip_inputs. (b) The prediction's ~1e-12 trace / start-up maxima came from feeding its model the exported %.15f x; corrected in
+   Amendment 2 (A2.3), verdict and counts unaffected. Second read scope: verdict, items 1-7, per-kind maxima, every control FAIL row, IMP and
+   floor values. Amendment 2: post-run record.
