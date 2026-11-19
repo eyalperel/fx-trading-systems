@@ -595,6 +595,130 @@ IMP_MODELS["reflex_printed(20)"] = lambda: reflex_code(20, root2=1414.0 / 1000, 
 IMP_MODELS["reflex_superseded(20,14)[0]"] = lambda: reflex_superseded((20, 14), 0)               # NCS (instance 1, L20)
 IMP_MODELS["reflex_superseded(20,14)[1]"] = lambda: reflex_superseded((20, 14), 1)               # NCT (instance 2, L14)
 
+# ---------------------------------------------------------------------------------------------------
+# MESAStochastic (MST stage 1; HARNESS_DESIGN D6, docs/harness/MESASTOCHASTIC_SOURCE_REVIEW.md). (a) Source: Ehlers, "Predictive
+# And Successful Indicators", TASC V.32:1 (2014), sidebar "EasyLanguage Code To Compute The MESA Stochastic Indicator":
+#     HP / Filt = the Roofing Filter (48, 10);  HighestC / LowestC over Filt[0..Length-1] (Length bars);
+#     Stoc = (Filt - LowestC) / (HighestC - LowestC);
+#     MESAStochastic = c1*(Stoc + Stoc[1])/2 + c2*MESAStochastic[1] + c3*MESAStochastic[2]   (the SuperSmoother(10) coefficients)
+# D1 rule 1: .707 -> sqrt(2)/2, 1.414 -> sqrt(2), 3.14159 -> pi, degrees -> radians. Scale 0-1, no zero-range guard, no start-up rule.
+# Library conventions (M-4 / M-5 / M-6), implemented by default: Roof from the RFF cascade (HP history 0, input history = first
+# price, first Roof = 0); the window history is seeded with the first Roof value; zero range -> Stoc = 0.5 (`fallback`); the
+# final SuperSmoother starts with Stoc and output histories at the first Stoc (`final_seed = "first"`).
+# ---------------------------------------------------------------------------------------------------
+MesaModel = namedtuple("MesaModel", "L hp ss win scale fallback da_final literals final_seed pi_value")
+MesaOut = namedtuple("MesaOut", "roof stoc out rng")        # rng = HighestC - LowestC per row (the trace gate quantity)
+
+
+def mesa_article(L, hp, ss, win=None, scale=1.0, fallback=0.5, da_final=0.0, literals="exact", final_seed="first",
+                 pi_value=None):
+    """The article MESAStochastic (exact constants, D1) with the library conventions. Keyword hooks (default off):
+        win         window length (default L; NCW: L + 1, review M-1)
+        scale       multiplier of the raw stochastic before the final smoothing (default 1.0; the old file: 100)
+        fallback    Stoc when HighestC == LowestC (default 0.5, M-6; the old file: 50)
+        da_final    NCA: added to the final SuperSmoother's a1 before b1, c3 and c1 are derived (Roof untouched)
+        literals    "exact" | "printed" (NCL: .707, 1.414, 3.14159 built from integers in HP, the roofing SS and the final SS;
+                    the cosines use the library's PI, as the other INFO variants)
+        final_seed  "first" (library: Stoc and output histories start at the first Stoc) | "zero" (the source: both start at 0)
+        pi_value    None = exact pi (the article tables); PI_ZORRO = the code (see mesa_code)"""
+    if literals not in ("exact", "printed"):
+        raise ValueError("literals must be 'exact' or 'printed', got %r" % (literals,))
+    if final_seed not in ("first", "zero"):
+        raise ValueError("final_seed must be 'first' or 'zero', got %r" % (final_seed,))
+    return MesaModel(L=L, hp=hp, ss=ss, win=win, scale=scale, fallback=fallback, da_final=da_final, literals=literals,
+                     final_seed=final_seed, pi_value=pi_value)
+
+
+def mesa_code(L, hp, ss, **kw):
+    """The [corrected_code] of the MST spec: mesa_article with Zorro's PI (and k = sqrt(2)/2 in the HP, as HighPassFilter.c)."""
+    kw.setdefault("pi_value", PI_ZORRO)
+    return mesa_article(L, hp, ss, **kw)
+
+
+def mesa_superseded(L, hp, ss):
+    """The OLD MESAStochastic.c: window L + 1 (M-1), scale 100 (M-2), fallback 50, same seeds, Zorro PI."""
+    return mesa_code(L, hp, ss, win=L + 1, scale=100.0, fallback=50.0)
+
+
+def _ss2_general(period, root2, pi_exp, pi_cos, a1_add=0.0):
+    """SuperSmoother 2-pole in the article's own form: a1 = exp(-root2*pi_exp/P) + a1_add; b1 = 2 a1 cos(root2*pi_cos/P); c2 = b1;
+    c3 = -a1^2; c1 = 1 - c2 - c3; Filt = c1*(x + x1)/2 + c2*Filt[1] + c3*Filt[2]."""
+    a1 = math.exp(-root2 * pi_exp / period) + a1_add
+    b1 = 2.0 * a1 * math.cos(root2 * pi_cos / period)
+    c2, c3 = b1, -a1 * a1
+    c1 = 1.0 - c2 - c3
+    return Filter(b=(c1 / 2.0, c1 / 2.0), a=(c2, c3))
+
+
+def _mesa_filters(m):
+    """(HP filter, roofing SS filter, final SS filter) of a MesaModel."""
+    if m.literals == "printed":
+        k, k1, k2 = 707.0 / 1000, 1414.0 / 1000, 314159.0 / 100000
+        hpf = hp_code(m.hp, k=k)                                                    # Zorro PI in the trig arguments
+        ssr = _ss2_general(m.ss, k1, k2, PI_ZORRO)
+        ssf = _ss2_general(m.ss, k1, k2, PI_ZORRO, m.da_final)
+        return hpf, ssr, ssf
+    if m.pi_value is None:
+        hpf, ssr = hp_article(m.hp), ss2_article(m.ss)
+        ssf = _ss2_general(m.ss, math.sqrt(2.0), math.pi, math.pi, m.da_final) if m.da_final else ssr
+    else:
+        hpf, ssr = hp_code(m.hp, k=math.sqrt(2.0) / 2.0, pi_value=m.pi_value), ss2_code(m.ss, pi_value=m.pi_value)
+        ssf = (_ss2_general(m.ss, math.sqrt(2.0), m.pi_value, m.pi_value, m.da_final) if m.da_final else ssr)
+    return hpf, ssr, ssf
+
+
+def simulate_mesa(m, x):
+    """Run a MesaModel on x: MesaOut(roof, stoc, out, rng) arrays (float64)."""
+    x = np.asarray(x, dtype=float)
+    hpf, ssr, ssf = _mesa_filters(m)
+    roof = simulate(cascade(hpf, ssr), x, seed="zero")                              # RFF O_SEED: HP history 0, input history x[0] (the RFF cascade model, one filter)
+    win = m.L if m.win is None else m.win
+    pad = np.concatenate([np.full(win - 1, roof[0]), roof])                         # window history seeded with the first Roof
+    v = np.lib.stride_tricks.sliding_window_view(pad, win)
+    hh, ll = v.max(axis=1), v.min(axis=1)
+    rng = hh - ll
+    ok = rng != 0.0
+    stoc = np.full(len(x), float(m.fallback))
+    stoc[ok] = m.scale * (roof[ok] - ll[ok]) / rng[ok]                              # C order: (scale*(Roof - LL))/(HH - LL)
+    if m.final_seed == "zero":
+        out = simulate(ssf, np.concatenate([[0.0], stoc]), seed="zero")[1:]         # Stoc[1] = 0 and the output history 0
+    else:
+        out = simulate(ssf, stoc, seed="price")                                     # both histories start at the first Stoc
+    return MesaOut(roof, stoc, out, rng)
+
+
+_MESA_ARTICLE_RE = re.compile(r"mesa_article\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)")
+
+
+def mesa_article_model(name):
+    """Resolve a spec's article-model string ('mesa_article(20,48,10)') to a MesaModel. Restricted grammar, no eval."""
+    m = _MESA_ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
+    if not m or min(int(g) for g in m.groups()) <= 0:
+        return None
+    return mesa_article(*(int(g) for g in m.groups()))
+
+
+def osc_article_model(name):
+    """Article model of an oscillator spec: reflex_article(L) or mesa_article(L,hp,ss); None if unknown."""
+    return reflex_article_model(name) or mesa_article_model(name)
+
+
+def mesa_roof_filter(hp, ss):
+    """The Roof stage of mesa_article as ONE linear filter (analytic tables): the RFF article cascade."""
+    return roof_article(hp, ss)
+
+
+# [imp] model registry for MST (c: names chosen here).
+for _L, _hp, _ss in ((14, 48, 10), (20, 48, 10), (30, 48, 10), (20, 48, 20), (22, 48, 10), (20, 40, 10)):
+    IMP_MODELS["mesa_code(%d,%d,%d)" % (_L, _hp, _ss)] = (lambda L=_L, h=_hp, s=_ss: mesa_code(L, h, s))
+IMP_MODELS["mesa_article(20,48,10)"] = lambda: mesa_article(20, 48, 10)                             # NCS must_fail replay
+IMP_MODELS["mesa_code(20,48,10,final_seed=zero)"] = lambda: mesa_code(20, 48, 10, final_seed="zero")   # NCZ
+IMP_MODELS["mesa_code(20,48,10,win=21)"] = lambda: mesa_code(20, 48, 10, win=21)                  # NCW
+IMP_MODELS["mesa_code(20,48,10,da_final=1/1000)"] = lambda: mesa_code(20, 48, 10, da_final=1.0 / 1000)   # NCA
+IMP_MODELS["mesa_printed(20,48,10)"] = lambda: mesa_article(20, 48, 10, literals="printed")        # NCL
+IMP_MODELS["mesa_superseded(20,48,10)"] = lambda: mesa_superseded(20, 48, 10)                      # NCS
+
+
 def bump3(v, units=1):
     """Add `units` to the 3rd significant digit of v (e.g. 0.8007 -> 0.8017)."""
     step = 10.0 ** (math.floor(math.log10(abs(v))) - 2)
