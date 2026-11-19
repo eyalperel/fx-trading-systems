@@ -300,7 +300,7 @@ normalisation amplifies the `PI` gap where HH - LL is small (floor 3.875e-6 at L
 window (D2 rule 3). (b) Windowed indicators (stochastic, min/max, rolling rank) need sines with T > L: a 21- vs 20-bar window differed
 by at most 7.6e-14 at T = 5 / 10 / 20 and by 6.2e-2 / 8.1e-2 at T = 40 / 100.
 
-**Open items (2026-11-17).
+**Open items (2026-11-17).**
 - The `L_FLOAT32` exemption INFO line appears in lint output and pre-run records but not in the results header; the
   run record should carry every pre-registered exception (small tooling task).
 - Intermittent test errors: `test_checker_amend1.test_cli` MemoryError twice in Claude Code's shell; once 4/144
