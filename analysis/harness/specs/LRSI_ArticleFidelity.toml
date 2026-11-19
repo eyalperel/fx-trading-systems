@@ -1,0 +1,823 @@
+# LRSI_ArticleFidelity.toml -- Laguerre RSI (Ehlers, Cybernetic Analysis 2004, Fig. 14.8), SOURCE FIDELITY + IMPLEMENTATION (HARNESS_DESIGN §1, both
+# questions), the THIRD spec of the OSCILLATOR family (HARNESS_DESIGN D6; first RFX, second MST).
+# Pre-registration: this file, committed BEFORE the corrected LaguerreRSI.c / LaguerreRSI_Superseded.c are written and BEFORE the generated script is run
+# (CLAUDE.md §4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of LRSI stage 1 (planning chat 2026-11-19; decisions L-1..L-7 of docs/harness/LAGUERRERSI_SOURCE_REVIEW.md and D6 accepted by the user; brief
+# docs/harness/LRSI_STAGE1_PROMPT.md incl. its Amendment 1 (NCS call order, user decision A + C)), built on the RFX / MST oscillator tooling plus: real-valued
+# call parameters built from integers, four columns per call (l0 / l3 / den / out), linear checks on TWO outputs, the falling ramp `rampdn`, the check kinds
+# ramp_exact and startup on the normalised output, the gate on the model's CU + CD, per-variant `skip_inputs`, the no-static pre-run lint (this branch).
+# Format: as specs/MESA_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>; the linear checks carry a final -l0 / -l3).
+#
+# What differs from MST:
+#   * One REAL-valued parameter (gamma), built at run time from integers (lrs_g1_2 = 1/2, lrs_g7_10 = 7/10, lrs_g4_5 = 4/5; gotchas 9d.1, 9d.8). Real
+#     variants G05 (0.5, the book's and the C2 default), G07 (0.7), G08 (0.8).
+#   * Every real variant is called through LaguerreRSICore(Close, gamma, &l0, &l3, &den) and exports four outputs: l0 (the EMA stage), l3 (the last allpass
+#     stage), den (CU + CD, information only) and out (the RSI, the return value). The v1 checks (flat, 5 gains, alt gain, 5 phases, alt phase, ramp lag; D4)
+#     run on BOTH l0 and l3, each against its own analytic table (DC gain 1: ramp lag, no residual). Trace, invariance, bound, ramp_exact and start-up read out.
+#   * No trig, no PI, no decimal literal in the corrected code: there is NO Zorro-PI gap and NO NCL variant (nothing printed differs from its exact value:
+#     gamma is an input, 0.5 is exact). Model = code; the floor is the IMP residual (rounding level).
+#   * Start-up IS defined by the source (L-1: all histories 0, bar 1 computed): rows < W of out on every sine are PASS/FAIL against the model (startup kind).
+#   * Known answers on the ramps (new kind ramp_exact): rising ramp out = 1.0 exactly, falling ramp out = 0.0 exactly, rows >= W.
+#   * The final output itself is exactly bounded: out in [0, 1] (two-sided, read from out).
+#   * NCS / NCT are the REAL superseded file (LaguerreRSI_Superseded.c, written in stage 2) called as TWO instances (both gamma 0.5) with skip_inputs = ["flat"]
+#     (brief Amendment 1, decision A): the run's only seed (file static lr_init) then lands on NCS's s5 call, which its start-up check sees. The shared hold
+#     (lr_prevRSI) acts only on CU + CD = 0 rows, i.e. flat: covered by the no-static pre-run lint (decision C), not by a control (O_HOLD).
+
+[batch]
+name = "LRS_ArticleFidelity"
+id_prefix = "LRS"
+indicator = "LaguerreRSICore"            # Light-C function called by the `param` variants (corrected LaguerreRSI.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/LRSI_ArticleFidelity.toml (this file)"
+script_name = "GEN_LRS_LaguerreRSI"     # generated Light-C file; the generator never overwrites
+real_params = true                       # params elements may be [n, d] pairs: gamma built at run time from integers (gotchas 9d.1, 9d.8)
+
+[source]
+article = "Ehlers, J. F., Cybernetic Analysis for Stocks and Futures (Wiley 2004), ch. 14 'Time Warp - Without Space Travel', Fig. 14.8 'EasyLanguage Code to Compute a Laguerre RSI Indicator', p. 221; Fig. 14.9 (EFS, pp. 222-224) agrees"
+formula = """
+(a) Inputs: gamma(.5);   Vars: L0(0), L1(0), L2(0), L3(0), CU(0), CD(0), RSI(0);
+    L0 = (1 - gamma)*Close + gamma*L0[1];
+    L1 = - gamma *L0 + L0[1] + gamma *L1[1];
+    L2 = - gamma *L1 + L1[1] + gamma *L2[1];
+    L3 = - gamma *L2 + L2[1] + gamma *L3[1];
+    CU = 0;  CD = 0;
+    If L0 >= L1 then CU = L0 - L1 Else CD = L1 - L0;
+    If L1 >= L2 then CU = CU + L1 - L2 Else CD = CD + L2 - L1;
+    If L2 >= L3 then CU = CU + L2 - L3 Else CD = CD + L3 - L2;
+    If CU + CD <> 0 then RSI = CU / (CU + CD);
+    Plot1(RSI, "RSI"); Plot2(.8); Plot3(.2);
+(a) All variables start at 0 and bar 1 is computed (L-1). RSI holds its previous value when CU + CD = 0, initial 0 (L-2). Input Close; only gamma is an input.
+(b) Transfer functions: L0 = (1 - g)/(1 - g z^-1) (an EMA); each later stage multiplies by the allpass A = (z^-1 - g)/(1 - g z^-1). So L3 = L0 x A^3:
+    |L3| = |L0| at every frequency, DC gain 1 for both; ramp lag L0 = g/(1 - g), L3 = g/(1 - g) + 3 (1 + g)/(1 - g).
+"""
+reference = "analysis/harness/reference.py lrsi_article(g, g_l0, form, seed, hold0) (simulate_lrsi; book term order), lrsi_superseded(gs, index) (simulate_lrsi_shared, the old file's shared statics in the generator's call order); lrsi_gain / lrsi_phase / lrsi_lag / lrsi_alt_phase for the analytic L0 / L3 tables (product form H_L0 x A^stage)"
+other_forms = "(a) Not tested here: the source's use (buy after the line crosses back over 0.2, sell after it crosses back under 0.8; p. 221 / p. 225) is a strategy matter. (b) The 2025 TASC form (review L-6) is the negative control NC25."
+no_ncl = "(b) No NCL variant: the source has no trig, no PI and no decimal literal in its arithmetic (gamma is an input; the book default .5 is exact in float32 and float64), so there is no 'as printed' form that differs from the exact one (brief, item 2)."
+
+# Pre-registered lines of the corrected indicators/ehlers/LaguerreRSI.c (L-1, L-2, L-3, L-5). The .c is written to these lines AFTER this file is committed
+# (stage 2); a test then asserts it contains them verbatim (whitespace-normalised, comments stripped). reference.lrsi_article(g) implements exactly these lines
+# (book term order: same value up to rounding; IMP must pass at 1e-9).
+[corrected_code]
+file = "indicators/ehlers/LaguerreRSI.c"
+function = "var LaguerreRSICore(vars Close, var gamma, var* pL0, var* pL3, var* pDen)"
+lines = """
+vars lr_L0 = series(0, 2);
+vars lr_L1 = series(0, 2);
+vars lr_L2 = series(0, 2);
+vars lr_L3 = series(0, 2);
+vars lr_R  = series(0, 2);
+var lr_k = 1;
+lr_k = lr_k - gamma;
+lr_L0[0] = lr_k*Close[0] + gamma*lr_L0[1];
+lr_L1[0] = lr_L0[1] - gamma*lr_L0[0] + gamma*lr_L1[1];
+lr_L2[0] = lr_L1[1] - gamma*lr_L1[0] + gamma*lr_L2[1];
+lr_L3[0] = lr_L2[1] - gamma*lr_L2[0] + gamma*lr_L3[1];
+var lr_CU = 0;
+var lr_CD = 0;
+if(lr_L0[0] >= lr_L1[0]) lr_CU = lr_L0[0] - lr_L1[0];
+else                     lr_CD = lr_L1[0] - lr_L0[0];
+if(lr_L1[0] >= lr_L2[0]) lr_CU = lr_CU + lr_L1[0] - lr_L2[0];
+else                     lr_CD = lr_CD + lr_L2[0] - lr_L1[0];
+if(lr_L2[0] >= lr_L3[0]) lr_CU = lr_CU + lr_L2[0] - lr_L3[0];
+else                     lr_CD = lr_CD + lr_L3[0] - lr_L2[0];
+lr_R[0] = lr_R[1];
+if(lr_CU + lr_CD != 0) lr_R[0] = lr_CU/(lr_CU + lr_CD);
+*pL0 = lr_L0[0];
+*pL3 = lr_L3[0];
+*pDen = lr_CU + lr_CD;
+return lr_R[0];"""
+wrapper_function = "var LaguerreRSI(vars Close, var gamma)"
+wrapper_lines = """
+var lr_w0;
+var lr_w3;
+var lr_wd;
+return LaguerreRSICore(Close, gamma, &lr_w0, &lr_w3, &lr_wd);"""
+notes = """(b) Changed vs the current .c (mtime 2026-08-21; blob recorded at pre-run (ii), stage 2): L-1 zero start, every stage from its series(0, 2) history, the bar is computed from the first call (the `static int lr_init` price seed, the early `return 0.5` and the `Close[0] > 0` value guard are removed); L-2 the hold lives in a per-instance series lr_R (initial 0, was `static var lr_prevRSI = 0.5`); L-3 no statics left; L-5 the stages are exported through LaguerreRSICore(Close, gamma, &l0, &l3, &den), `LaguerreRSI(Close, gamma)` is a thin wrapper so callers do not change; L-6 header with source, formula, deviations fixed, the review path and labelled claims (written with the .c); L-4 header note for callers (gamma 0.7 / 0.8 are not float32-exact: build them at run time).
+(b) The term order in L1..L3 differs from the book (`L(k-1)[1] - g*L(k-1) + g*Lk[1]` vs `-g*L(k-1) + L(k-1)[1] + g*Lk[1]`, every expression starts with a variable, gotchas 9d.8): the same value up to rounding; the model uses the book order; IMP must pass at 1e-9.
+(c) All five series() calls are unconditional and first (gotchas 3.1); L-1's zero start is each series(0, 2)'s initial history on the instance's first call (gotchas 9d.6, to be confirmed by the start-up checks, pass item 1). `*pL0 = ...` out-parameters compile in Light-C (same pattern as ReflexCore and MESAStochasticCore: RFX / MST run 1 PASS). If any line cannot compile, stage 2 stops and reports.
+Superseded file (stage 2): the CURRENT LaguerreRSI.c body verbatim as indicators/ehlers/LaguerreRSI_Superseded.c, function `LaguerreRSI_Superseded`, locals and statics `lr_` -> `lro_` (flat namespace, gotchas 1.3). It is the shared-state control NCS / NCT."""
+
+
+[zorro]
+include = ["../../indicators/ehlers/LaguerreRSI_Superseded.c", "../../indicators/ehlers/LaguerreRSI.c"]   # resolved from strategies/tests/; both written in stage 2 (lint reports LaguerreRSI_Superseded.c missing until then; the current LaguerreRSI.c exists but has no LaguerreRSICore and still has its two statics)
+raw_file = "Data/GEN_LRS_raw.csv"
+marker_file = "Data/GEN_LRS_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 3
+
+[inputs]                    # as MST, plus the falling ramp
+n_bars = 3000
+warmup = 700              # (b) W = 700 (D6 family default): start-up memory of the price seed vs the zero start, last differing row 61 / 120 / 196 (G05 / G07 / G08, [findings] startup_memory_*); 700 = 3.6x the largest
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+alternating = true          # extra input id `alt`: level + amp*(-1)^n, after the sines and before ramp
+ramp_down = true            # extra input id `rampdn`: level - slope*n, right after ramp (ramp_exact known answer 0)
+
+[inputs.invariance]         # D6 rule 4: transformed copies of every sine, fed to every variant with invariance = true
+transforms = [{ id = "sc", level = [11, 10], amp = [1, 10] }, { id = "of", level = [22, 10], amp = [1, 100] }]   # scale x10 (amp 0.1, level 1.1) and offset (level 2.2, amp 0.01)
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D4 + D6
+dc_gain = 1.0
+phase_gate = 0.05
+linear_output = ["l0", "l3"]  # the v1 checks run on BOTH outputs, each against its own table (variant key expected_outputs); check ids end in -l0 / -l3
+trace_gate = 0.01             # g: rows with (CU + CD of the MODEL)/amplitude < g are excluded from trace / invariance (D6 rule 2)
+bound = [0.0, 1.0]            # out lies in [0, 1] (two-sided, ABSOLUTE allowance [tolerances.bound])
+bound_output = "out"          # the final output itself is exactly bounded (review §4)
+ramp_exact = { ramp = 1.0, rampdn = 0.0 }   # known answers of out on rows >= W (finding 8)
+startup_output = true         # rows < W of out on every sine vs the model, PASS/FAIL (L-1: the source defines the start-up)
+source = """(b) L0 and L3 have DC gain 1 (lrsi_gain at T -> infinity = 1 to rounding; H_L0(1) = 1, |A(1)| = 1): D4 rule 1 ramp lag, flat expected error 0 (D4 rule 2), no ramp residual. phase_gate (c): judgement, as HPF / RFF / USE / RFX / MST; (b) the smallest expected gain in the six tables is the alt gain 0.11111111111111109 (G08) >= 0.05, so every sine phase AND every alt phase is checked (no SKIP row). trace_gate g = 0.01 (c): judgement (D6 default); (b) the smallest (CU + CD)/amplitude over the sine rows >= 200 of the three real models is 0.07555156262124552 (G05, T = 100), 7.6x the gate (finding 3): no gated row on a correct variant; a gated row is counted and reported. bound [0, 1] (b): CU, CD >= 0, the ratio lies in [0, 1] exactly in IEEE arithmetic and the hold is a previous ratio or the initial 0; 0.0 and 1.0 are attained (finding 7, pinning). ramp_exact (b): rising ramp out = 1.0 exactly from row 3 / 6 / 10, falling ramp 0.0 exactly after row 23 / 43 / 68 (G05 / G07 / G08; CD = 0 or CU = 0 exactly once the stages are ordered, finding 8): a known answer, not rounding noise. startup_output (a)/(b): L-1, the source defines the zero start; the model's start-up rows are the expected values."""
+
+
+[tolerances.flat]
+value = 1e-09
+source = "(a) H1 criteria section 5 (unchanged). Applies to l0 and l3: expected max |y - level| = 0 on flat over rows >= W (DC gain 1, D4 rule 2). (b) floor: see [floor].flat."
+[tolerances.gain]
+value = 3e-05
+source = "(c) D4 / D2 default for this family (SS2F / HPF / RFF / USE / RFX / MST). (b) window: floor x10 <= 3e-5 (see [floor].gain); smallest control on gain NCG 38x. Applies to the five sine gains and the alt gain of l0 and of l3."
+[tolerances.phase]
+value = 3e-05
+source = "(c) D4 rule 5 default, radians. (b) window: see [floor].phase; NCG 44x. Applies to the five sine phases and the alt phase of l0 and l3."
+[tolerances.lag]
+value = 0.001
+source = "(a) D2 rule 1 default (H1). Ramp lag of l0 and l3, bars, mean (x - y)/slope over the last 100 ramp rows. (b) floor: see [floor].lag."
+[tolerances.trace]
+value = 3e-05
+source = "(c) D6 default (RFX), unchanged here: there is no PI gap, the floor is the IMP residual (rounding level; [floor].trace). (b) window: floor x10 far below 3e-5; smallest control on trace NCG 28x (max over T)."
+[tolerances.startup]
+value = 1e-06
+source = "(c) D4 default (HPF; start-up 1e-6). Here on the normalised output, rows < W of every sine vs the model (L-1). (b) floor: [floor].startup; controls NCG / NCP / NCS >= 10x (see [detect])."
+[tolerances.ramp_exact]
+value = 1e-12
+source = "(c) NEW kind (LRSI stage 1): absolute allowance on the known answers out = 1 (ramp) / 0 (rampdn), rows >= W; (b) the model gives the answers exactly (finding 8); 1e-12 is a few-ulp allowance, as the bound."
+[tolerances.bound]
+value = 1e-12
+source = "(c) MST two-sided form, ABSOLUTE allowance tol_abs on both ends: PASS if every out row of every input lies in [0 - tol_abs, 1 + tol_abs]. (b) the bound holds exactly (finding 4)."
+[tolerances.invariance]
+value = 1e-09
+source = "(c) D6 rule 4 default: max |out(input) - out(transformed input)| over the gated rows >= W, five sines, transforms sc (amp x10) and of (level 2.2). (b) float64 floor ~1e-12 (finding 5). Zorro-internal comparison, no model."
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers alt, rampdn and the invariance copies."
+[tolerances.imp]
+value = 1e-09
+source = "(c) As HPF / SS3F / RFF / USE / RFX / MST. Applies to l0 / l3 / den (every exported base input, absolute) and to out on the gated sine rows (and copies). (b) Fire tests: see [imp.fire_test]."
+
+[lint]
+no_static = ["indicators/ehlers/LaguerreRSI.c"]
+source = "(b) Brief Amendment 1, decision C (user, 2026-11-19): the corrected LaguerreRSI.c must contain no `static` token (comments and strings excluded): the structural check for L-3 (shared lr_init / lr_prevRSI). generator.lint_no_static; seen to fire on the superseded body (2 hits, lr_init and lr_prevRSI: test_generator_lrsi). generator --lint-only refuses (L_NO_STATIC) while the file has a static or is missing; the checker writes the record into the results header (INFO L_NO_STATIC). Until stage 2 the current file has both statics: lint reports it, as it reports the missing LaguerreRSI_Superseded.c include."
+
+
+# D2 floor per quantity: largest known accepted difference, model (= the corrected code: no PI, no literal) vs THIS spec's tables / model, measured
+# with the checker's own functions on the own-model run. The Zorro-side residual is the IMP residual, expected at rounding level (MST run 1: <= 8.9e-16).
+[floor]
+gain = 1.0899059432745162e-12
+phase = 1.0125233984581428e-13
+lag = 1.0800249583553523e-12
+flat = 2.220446049250313e-15
+trace = 0.0
+invariance = 1.0507150705052481e-12
+startup = 0.0
+ramp_exact = 0.0
+source = """(b) 2026-11-19: reference.lrsi_article(n/d) simulated 3000 bars, measured with the checker (evaluate on the own-model raw file: m_gain / m_phase / m_lag / m_flat / m_trace / m_invariance / startup / ramp_exact) vs the analytic tables and the model; max over the three real variants (per variant below). There is no PI gap and no literal: the model IS the code, so trace / startup / ramp_exact are 0 and gain / phase / lag / flat are the least-squares / ramp-mean / zero-start residuals of the measuring functions. (c) The D2 floor of this spec is therefore the IMP residual (Zorro vs model, rounding level; MST run 1 measured <= 8.9e-16, the corrected code here differs from the book term order only by rounding); pass item 7 guards the run value."""
+
+[floor.per_variant.G05]
+gain = 1.0899059432745162e-12
+phase = 6.52811138479592e-14
+lag = 4.1389114358025836e-13
+flat = 0.0
+trace = 0.0
+invariance = 1.0507150705052481e-12
+startup = 0.0
+ramp_exact = 0.0
+
+[floor.per_variant.G07]
+gain = 4.505007478172729e-13
+phase = 9.237055564881302e-14
+lag = 4.547473508864641e-13
+flat = 8.881784197001252e-16
+trace = 0.0
+invariance = 3.647082635893639e-13
+startup = 0.0
+ramp_exact = 0.0
+
+[floor.per_variant.G08]
+gain = 6.862704848842327e-13
+phase = 1.0125233984581428e-13
+lag = 1.0800249583553523e-12
+flat = 2.220446049250313e-15
+trace = 0.0
+invariance = 3.011202398539581e-13
+startup = 0.0
+ramp_exact = 0.0
+
+# Expected tables: analytic H(e^jw) of L0 = (1 - g)/(1 - g z^-1) and L3 = L0 x A^3 (reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag, product form;
+# exact constants, gamma = n/d). Never from the .c file. Stored at full precision. The trace / start-up model is lrsi_article(n/d).
+[expected.G05_l0]
+flat = 0.0
+gains = [0.515441182073583, 0.752937760164676, 0.9144826257394169, 0.976250359741462, 0.996076667044026]
+gain_alt = 0.3333333333333333
+phase_alt = 0.0
+phases = { 5 = -0.5123349109077545, 10 = -0.4584578266589488, 20 = -0.286493792460628, 40 = -0.15331917019845434, 100 = -0.06258501979842945 }
+lag = 1.0
+article = "lrsi_article(1/2)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^0, gamma = 1/2) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^0), ramp lag g/(1-g) + 0(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+[expected.G05_l3]
+flat = 0.0
+gains = [0.5154411820735831, 0.7529377601646758, 0.9144826257394169, 0.9762503597414626, 0.9960766670440258]
+gain_alt = 0.3333333333333333
+phase_alt = 3.141592653589793
+phases = { 5 = -1.073070253482447, 10 = 1.1890249284130687, 20 = -2.947934343301334, 40 = -1.5444730894276493, 100 = -0.6265906978043936 }
+lag = 10.0
+article = "lrsi_article(1/2)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^3, gamma = 1/2) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^3), ramp lag g/(1-g) + 3(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+[expected.G07_l0]
+flat = 0.0
+gains = [0.29174705961302644, 0.5018320986484869, 0.7534909167069183, 0.9161156395618575, 0.9849968569076663]
+gain_alt = 0.17647058823529416
+phase_alt = 0.0
+phases = { 5 = -0.7042011354674697, 10 = -0.7590908589631391, 20 = -0.5743590867142185, 40 = -0.3409629963205521, 100 = -0.14481875420461615 }
+lag = 2.333333333333333
+article = "lrsi_article(7/10)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^0, gamma = 7/10) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^0), ramp lag g/(1-g) + 0(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+[expected.G07_l3]
+flat = 0.0
+gains = [0.2917470596130265, 0.5018320986484867, 0.7534909167069177, 0.9161156395618578, 0.984996856907666]
+gain_alt = 0.17647058823529416
+phase_alt = 3.141592653589793
+phases = { 5 = -2.416133825400453, 10 = -0.9154062977162627, 20 = 1.3201939041031179, 40 = -2.857979872282333, 100 = -1.2022268386477006 }
+lag = 19.33333333333333
+article = "lrsi_article(7/10)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^3, gamma = 7/10) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^3), ramp lag g/(1-g) + 3(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+[expected.G08_l0]
+flat = 0.0
+gains = [0.18686099078895038, 0.3402202928517172, 0.5814602765397503, 0.8185547295323827, 0.9627270885276253]
+gain_alt = 0.11111111111111109
+phase_alt = 0.0
+phases = { 5 = -0.7907222675568412, 10 = -0.9271383721938123, 20 = -0.8019659985004615, 40 = -0.5377451535315523, 100 = -0.24422102259248527 }
+lag = 4.000000000000001
+article = "lrsi_article(4/5)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^0, gamma = 4/5) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^0), ramp lag g/(1-g) + 0(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+[expected.G08_l3]
+flat = 0.0
+gains = [0.18686099078895033, 0.3402202928517173, 0.5814602765397496, 0.8185547295323836, 0.9627270885276257]
+gain_alt = 0.11111111111111109
+phase_alt = 3.141592653589793
+phases = { 5 = -3.021781750026053, 10 = -2.091738890330975, 20 = -0.2730544784005824, 40 = 2.047730334420252, 100 = -1.8980427173627845 }
+lag = 31.000000000000007
+article = "lrsi_article(4/5)"
+source = "(b) reference.lrsi_gain / lrsi_phase / lrsi_alt_phase / lrsi_lag (product form H_L0 x A^3, gamma = 4/5) at this commit: gains at T = 5,10,20,40,100, alt gain (T = 2), phases (rad, (-pi, pi]), alt phase (0 or pi: H(-1) = (1-g)/(1+g) x (-1)^3), ramp lag g/(1-g) + 3(1+g)/(1-g); flat = 0 (DC gain 1)"
+
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "G05"
+role = "real"
+label = "gamma=1/2 (the book's default and the C2 default)"
+kind = "param"
+params = [[1, 2]]
+expected = "G05_l0"
+expected_outputs = { l0 = "G05_l0", l3 = "G05_l3" }
+outputs = ["l0", "l3", "den", "out"]
+invariance = true
+
+[[variants]]
+id = "G07"
+role = "real"
+label = "gamma=7/10"
+kind = "param"
+params = [[7, 10]]
+expected = "G07_l0"
+expected_outputs = { l0 = "G07_l0", l3 = "G07_l3" }
+outputs = ["l0", "l3", "den", "out"]
+invariance = true
+
+[[variants]]
+id = "G08"
+role = "real"
+label = "gamma=4/5"
+kind = "param"
+params = [[4, 5]]
+expected = "G08_l0"
+expected_outputs = { l0 = "G08_l0", l3 = "G08_l3" }
+outputs = ["l0", "l3", "den", "out"]
+invariance = true
+
+[[variants]]
+id = "NCH"
+role = "info"
+label = "NCH: hold initial 1/2 (L-2) vs G05"
+kind = "inline"
+function = "lrs_nch"
+params = [[1, 2]]
+expected = "G05_l0"
+expected_outputs = { l0 = "G05_l0", l3 = "G05_l3" }
+outputs = ["l0", "l3", "den", "out"]
+comment = "INFO variant (L-2; not a control, not in [detect]): [corrected_code] except the held RSI starts at 1/2 (the old file's initial lr_prevRSI), held in a per-instance series seeded with 1/2 (series(nch_h, 2), gotchas 9d.6). (b) Invisible on every input here: the hold before a first defined value never fires, because x[0] != 0 makes CU + CD != 0 on the first row of every input. Reported, never PASS/FAIL."
+body = '''
+var lrs_nch(vars Close, var gamma, var* pL0, var* pL3, var* pDen)
+{
+	var nch_h = 1;
+	nch_h = nch_h / 2;
+	vars nch_L0 = series(0, 2);
+	vars nch_L1 = series(0, 2);
+	vars nch_L2 = series(0, 2);
+	vars nch_L3 = series(0, 2);
+	vars nch_R = series(nch_h, 2);
+	var nch_k = 1;
+	nch_k = nch_k - gamma;
+	nch_L0[0] = nch_k*Close[0] + gamma*nch_L0[1];
+	nch_L1[0] = nch_L0[1] - gamma*nch_L0[0] + gamma*nch_L1[1];
+	nch_L2[0] = nch_L1[1] - gamma*nch_L1[0] + gamma*nch_L2[1];
+	nch_L3[0] = nch_L2[1] - gamma*nch_L2[0] + gamma*nch_L3[1];
+	var nch_CU = 0;
+	var nch_CD = 0;
+	if(nch_L0[0] >= nch_L1[0]) nch_CU = nch_L0[0] - nch_L1[0];
+	else                       nch_CD = nch_L1[0] - nch_L0[0];
+	if(nch_L1[0] >= nch_L2[0]) nch_CU = nch_CU + nch_L1[0] - nch_L2[0];
+	else                       nch_CD = nch_CD + nch_L2[0] - nch_L1[0];
+	if(nch_L2[0] >= nch_L3[0]) nch_CU = nch_CU + nch_L2[0] - nch_L3[0];
+	else                       nch_CD = nch_CD + nch_L3[0] - nch_L2[0];
+	nch_R[0] = nch_R[1];
+	if(nch_CU + nch_CD != 0) nch_R[0] = nch_CU/(nch_CU + nch_CD);
+	*pL0 = nch_L0[0];
+	*pL3 = nch_L3[0];
+	*pDen = nch_CU + nch_CD;
+	return nch_R[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 1.0899059432745162e-12
+phase = 6.52811138479592e-14
+lag = 4.1389114358025836e-13
+trace = 0.0
+startup = 0.0
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+[[variants]]
+id = "NCG"
+role = "neg_control"
+label = "NCG: gamma + 1/1000 in the L0 line only vs G05"
+kind = "inline"
+function = "lrs_ncg"
+params = [[1, 2]]
+expected = "G05_l0"
+expected_outputs = { l0 = "G05_l0", l3 = "G05_l3" }
+outputs = ["l0", "l3", "den", "out"]
+comment = "NCG: realistic copying error (D2 rule 4: a coefficient off in its third digit): [corrected_code] except the L0 line uses gamma + 1/1000 in both places (1/1000 built from a variable, 9d.8); L1..L3 keep gamma. Compared with the G05 tables and model."
+body = '''
+var lrs_ncg(vars Close, var gamma, var* pL0, var* pL3, var* pDen)
+{
+	vars ncg_L0 = series(0, 2);
+	vars ncg_L1 = series(0, 2);
+	vars ncg_L2 = series(0, 2);
+	vars ncg_L3 = series(0, 2);
+	vars ncg_R = series(0, 2);
+	var ncg_e = 1;
+	ncg_e = ncg_e / 1000;
+	var ncg_q = gamma + ncg_e;
+	var ncg_k = 1;
+	ncg_k = ncg_k - ncg_q;
+	ncg_L0[0] = ncg_k*Close[0] + ncg_q*ncg_L0[1];
+	ncg_L1[0] = ncg_L0[1] - gamma*ncg_L0[0] + gamma*ncg_L1[1];
+	ncg_L2[0] = ncg_L1[1] - gamma*ncg_L1[0] + gamma*ncg_L2[1];
+	ncg_L3[0] = ncg_L2[1] - gamma*ncg_L2[0] + gamma*ncg_L3[1];
+	var ncg_CU = 0;
+	var ncg_CD = 0;
+	if(ncg_L0[0] >= ncg_L1[0]) ncg_CU = ncg_L0[0] - ncg_L1[0];
+	else                       ncg_CD = ncg_L1[0] - ncg_L0[0];
+	if(ncg_L1[0] >= ncg_L2[0]) ncg_CU = ncg_CU + ncg_L1[0] - ncg_L2[0];
+	else                       ncg_CD = ncg_CD + ncg_L2[0] - ncg_L1[0];
+	if(ncg_L2[0] >= ncg_L3[0]) ncg_CU = ncg_CU + ncg_L2[0] - ncg_L3[0];
+	else                       ncg_CD = ncg_CD + ncg_L3[0] - ncg_L2[0];
+	ncg_R[0] = ncg_R[1];
+	if(ncg_CU + ncg_CD != 0) ncg_R[0] = ncg_CU/(ncg_CU + ncg_CD);
+	*pL0 = ncg_L0[0];
+	*pL3 = ncg_L3[0];
+	*pDen = ncg_CU + ncg_CD;
+	return ncg_R[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.0011355290726152711
+phase = 0.0013338316281359397
+lag = 0.004008016031932016
+trace = 0.0008469690514941175
+startup = 0.0048423698983621755
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+[[variants]]
+id = "NC25"
+role = "neg_control"
+label = "NC25: L1..L3 in the TASC 2025 form (L-6) vs G05"
+kind = "inline"
+function = "lrs_nc25"
+params = [[1, 2]]
+expected = "G05_l0"
+expected_outputs = { l0 = "G05_l0", l3 = "G05_l3" }
+outputs = ["l0", "l3", "den", "out"]
+comment = "NC25: review L-6, the 2025 TASC article's stage form: L1..L3 use the PREVIOUS upstream value in the first term (Lk = L(k-1)[1] - gamma*L(k-1)[1] + gamma*Lk[1] = a delayed EMA, not an allpass). L0 unchanged. Compared with the G05 tables and model."
+body = '''
+var lrs_nc25(vars Close, var gamma, var* pL0, var* pL3, var* pDen)
+{
+	vars nc25_L0 = series(0, 2);
+	vars nc25_L1 = series(0, 2);
+	vars nc25_L2 = series(0, 2);
+	vars nc25_L3 = series(0, 2);
+	vars nc25_R = series(0, 2);
+	var nc25_k = 1;
+	nc25_k = nc25_k - gamma;
+	nc25_L0[0] = nc25_k*Close[0] + gamma*nc25_L0[1];
+	nc25_L1[0] = nc25_L0[1] - gamma*nc25_L0[1] + gamma*nc25_L1[1];
+	nc25_L2[0] = nc25_L1[1] - gamma*nc25_L1[1] + gamma*nc25_L2[1];
+	nc25_L3[0] = nc25_L2[1] - gamma*nc25_L2[1] + gamma*nc25_L3[1];
+	var nc25_CU = 0;
+	var nc25_CD = 0;
+	if(nc25_L0[0] >= nc25_L1[0]) nc25_CU = nc25_L0[0] - nc25_L1[0];
+	else                         nc25_CD = nc25_L1[0] - nc25_L0[0];
+	if(nc25_L1[0] >= nc25_L2[0]) nc25_CU = nc25_CU + nc25_L1[0] - nc25_L2[0];
+	else                         nc25_CD = nc25_CD + nc25_L2[0] - nc25_L1[0];
+	if(nc25_L2[0] >= nc25_L3[0]) nc25_CU = nc25_CU + nc25_L2[0] - nc25_L3[0];
+	else                         nc25_CD = nc25_CD + nc25_L3[0] - nc25_L2[0];
+	nc25_R[0] = nc25_R[1];
+	if(nc25_CU + nc25_CD != 0) nc25_R[0] = nc25_CU/(nc25_CU + nc25_CD);
+	*pL0 = nc25_L0[0];
+	*pL3 = nc25_L3[0];
+	*pDen = nc25_CU + nc25_CD;
+	return nc25_R[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 0.44485552574685583
+phase = 1.5370047327237826
+lag = 2.99999999999977
+trace = 0.38513302852097764
+startup = 0.3851330285209066
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+[[variants]]
+id = "NCP"
+role = "neg_control"
+label = "NCP: price seed alone (the old start-up, per instance, no statics) vs G05"
+kind = "inline"
+function = "lrs_ncp"
+params = [[1, 2]]
+expected = "G05_l0"
+expected_outputs = { l0 = "G05_l0", l3 = "G05_l3" }
+outputs = ["l0", "l3", "den", "out"]
+comment = "NCP: L-1 alone. On each instance's FIRST call (a per-instance call counter, gotchas 9d.9; no statics) every stage = Close, the bar is not computed and the call returns 1/2 (l0 = l3 = Close, den = 0 on that row; the hold is untouched, initial 0). Every later call = [corrected_code]. (b) It differs from the source only in the start-up rows (< W): the startup kind sees it, trace and the linear checks (rows >= W) cannot."
+body = '''
+var lrs_ncp(vars Close, var gamma, var* pL0, var* pL3, var* pDen)
+{
+	var ncp_h = 1;
+	ncp_h = ncp_h / 2;
+	vars ncp_n = series(0, 2);
+	vars ncp_L0 = series(0, 2);
+	vars ncp_L1 = series(0, 2);
+	vars ncp_L2 = series(0, 2);
+	vars ncp_L3 = series(0, 2);
+	vars ncp_R = series(0, 2);
+	ncp_n[0] = ncp_n[1] + 1;
+	ncp_R[0] = ncp_R[1];
+	if(ncp_n[0] == 1) {
+		ncp_L0[0] = Close[0];
+		ncp_L1[0] = Close[0];
+		ncp_L2[0] = Close[0];
+		ncp_L3[0] = Close[0];
+		*pL0 = ncp_L0[0];
+		*pL3 = ncp_L3[0];
+		*pDen = 0;
+		return ncp_h;
+	}
+	var ncp_k = 1;
+	ncp_k = ncp_k - gamma;
+	ncp_L0[0] = ncp_k*Close[0] + gamma*ncp_L0[1];
+	ncp_L1[0] = ncp_L0[1] - gamma*ncp_L0[0] + gamma*ncp_L1[1];
+	ncp_L2[0] = ncp_L1[1] - gamma*ncp_L1[0] + gamma*ncp_L2[1];
+	ncp_L3[0] = ncp_L2[1] - gamma*ncp_L2[0] + gamma*ncp_L3[1];
+	var ncp_CU = 0;
+	var ncp_CD = 0;
+	if(ncp_L0[0] >= ncp_L1[0]) ncp_CU = ncp_L0[0] - ncp_L1[0];
+	else                       ncp_CD = ncp_L1[0] - ncp_L0[0];
+	if(ncp_L1[0] >= ncp_L2[0]) ncp_CU = ncp_CU + ncp_L1[0] - ncp_L2[0];
+	else                       ncp_CD = ncp_CD + ncp_L2[0] - ncp_L1[0];
+	if(ncp_L2[0] >= ncp_L3[0]) ncp_CU = ncp_CU + ncp_L2[0] - ncp_L3[0];
+	else                       ncp_CD = ncp_CD + ncp_L3[0] - ncp_L2[0];
+	if(ncp_CU + ncp_CD != 0) ncp_R[0] = ncp_CU/(ncp_CU + ncp_CD);
+	*pL0 = ncp_L0[0];
+	*pL3 = ncp_L3[0];
+	*pDen = ncp_CU + ncp_CD;
+	return ncp_R[0];
+}'''
+[variants.effect]
+flat = 0.0
+gain = 1.0899059432745162e-12
+phase = 6.52811138479592e-14
+lag = 4.1389114358025836e-13
+trace = 0.0
+startup = 0.9392821926106899
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded LaguerreRSI.c, instance 1 (gamma 1/2, shared statics), flat skipped, vs G05"
+kind = "param"
+function = "LaguerreRSI_Superseded"
+params = [[1, 2]]
+expected = "G05_l0"
+outputs = ["out"]
+skip_inputs = ["flat"]
+comment = "NCS: the REAL superseded LaguerreRSI.c (stage 2: LaguerreRSI_Superseded.c, the current body verbatim, lr_ -> lro_) called as two instances per bar, NCS then NCT (both gamma 1/2), each on every base input except flat (brief Amendment 1, decision A) in the generator's variant-major order. The file statics lr_init / lr_prevRSI are shared by all 16 calls of every bar (L-3). (b) The run's only seed lands on NCS's FIRST call, s5 (start-up effect: [findings] ncs_startup_s5); every other (instance, input) starts from zero history = the source, bit-identical to the G05 model. Returns only out (no l0 / l3 / den columns)."
+[variants.effect]
+trace = 0.0
+startup = 0.5979633949986088
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+[[variants]]
+id = "NCT"
+role = "info"
+label = "NCT: superseded LaguerreRSI.c, instance 2 (gamma 1/2, shared statics), flat skipped, vs G05"
+kind = "param"
+function = "LaguerreRSI_Superseded"
+params = [[1, 2]]
+expected = "G05_l0"
+outputs = ["out"]
+skip_inputs = ["flat"]
+comment = "NCT: the second instance of the superseded file (D6 rule 5: two instances run every bar). INFO, not a control: (b) with NCS's first call taking the seed, NCT starts from zero history on every input and is bit-identical to the G05 model (no kind can see it, so it cannot be a control under D2 per-control detection). Its rows show the second instance runs; IMP must_pass replays it with the shared-state model in call order."
+[variants.effect]
+trace = 0.0
+startup = 0.0
+ramp_exact = 0.0
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own model (reference.IMP_MODELS; NCS / NCT: reference.simulate_lrsi_shared in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the expected tables / the G05 model, max over that kind's checks (both linear outputs); computed 2026-11-19"
+
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (ratios: NCG gain 37.9x, phase 44.5x, trace 28.2x, startup 4.84e+03x; NC25 gain 1.48e+04x, phase 5.12e+04x, lag 3e+03x, trace 1.28e+04x, startup 3.85e+05x; NCP startup 9.39e+05x; NCS startup 5.98e+05x). Kinds below 10x are not required (e.g. NCG lag 4x; NCP and NCS are invisible on rows >= W: start-up only)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (flat-* | gain-* | phase-* | ramp-lag-* | trace-T* | startup-s* | exact-* | bound | invar-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL. NCH and NCT (role info) are not controls and are not listed. [detect.required] lists exactly the kinds whose [variants.effect] is >= 10x the tolerance (brief)."
+[detect.required]
+NCG = ["gain", "phase", "trace", "startup"]
+NC25 = ["gain", "phase", "lag", "trace", "startup"]
+NCP = ["startup"]
+NCS = ["startup"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x columns EXPORTED by Zorro (reference.IMP_MODELS); residual = max |Zorro - replay| over n >= W = 700 per input: l0 / l3 / den on every exported base input (absolute); out on the sines and their copies only, on rows where (CU + CD)/amplitude >= g under the replay's own model (flat, alt and the ramps are INFO / ramp_exact); overall = the max. NCS / NCT are replayed with lrsi_superseded: the old file's shared statics over ALL superseded calls in the generator's ACTUAL call order (checker.lrsi_shared_slots: NCS on s5 .. rampdn, then NCT on s5 .. rampdn; flat skipped)."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { G05 = "lrsi_article(1/2)", G07 = "lrsi_article(7/10)", G08 = "lrsi_article(4/5)", NCH = "lrsi_article(1/2,hold0=1/2)", NCG = "lrsi_article(1/2,g_l0=1/2+1/1000)", NC25 = "lrsi_article(1/2,form=tasc2025)", NCP = "lrsi_article(1/2,seed=price)", NCS = "lrsi_superseded(1/2,1/2)[0]", NCT = "lrsi_superseded(1/2,1/2)[1]" }
+must_fail = { G05 = "lrsi_article(1/2,g_l0=1/2+1/1000)" }
+no_must_fail_ncs = "(b) No must_fail row for NCS (brief Amendment 1): replayed with the G05 lrsi_article model it is bit-identical on every row >= W (its only difference, the seed on s5, lies in rows < 61), so the row could not fire. The control is seen by its start-up check (rows < W) instead. Likewise NCP and NCH differ only in rows < W (NCP) or nowhere (NCH): [imp.fire_test.discrimination]."
+fire_test_effect = "(b) standalone model, numbers at full precision in [imp.fire_test]: G05 output vs the NCG-model replay > 1e-9; own-model replays are exact up to rounding."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs the source). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. G05 must_fail = the wrong-L0-gamma model (NCG) is absent from the run output."""
+
+[imp.fire_test]
+g05_vs_ncg_model = 0.0008469690515429118
+source = "(b) 2026-11-19: checker.imp_rows on the synthetic own-model raw file of this spec (rfx_support.synth_raw), max over n >= W and the inputs of the variant"
+[imp.fire_test.discrimination]
+G05 = 0.0
+G07 = 0.7307842800468098
+G08 = 0.9674386805376683
+NCH = 0.0
+NCG = 0.0008469690514941175
+NC25 = 0.38513302852097764
+NCP = 0.0
+NCS = 0.0
+NCT = 0.0
+# source: (b) variant own-model output vs the G05 lrsi_article model, via the same residual function (checker._imp_lrsi); each > [tolerances.imp] except G05 itself, NCH (invisible: the hold never fires before a first defined value), NCP and NCS / NCT (they differ only in rows < W, which IMP does not read: O_IMP_ROWS)
+
+# ----------------------------------------------------------------------------- findings (planning chat 2026-11-19, reproduced here with reference.py)
+[findings]
+l3_minus_l0_gain_max_G05 = 5.551115123125783e-16
+ramp_lag_theory_l0_G05 = 1.0
+ramp_lag_theory_l3_G05 = 10.0
+ramp_lag_measured_l0_G05 = 1.000000000000245
+ramp_lag_measured_l3_G05 = 9.999999999999586
+stages_vs_filter_max_G05 = 3.9968028886505635e-15
+flat_l3_max_err_G05 = 0.0
+gate_margin_G05_T5 = 1.5444174181677983
+gate_margin_G05_T10 = 1.5613948955003787
+gate_margin_G05_T20 = 1.2521910177791584
+gate_margin_G05_T40 = 0.42901079963528765
+gate_margin_G05_T100 = 0.07555156262124552
+gate_margin_G05_min = 0.07555156262124552
+gate_margin_alt_G05 = 2.000000000000046
+pinned_share_G05_T5 = 0.0
+pinned_share_G05_T10 = 0.0
+pinned_share_G05_T20 = 0.5
+pinned_share_G05_T40 = 0.7
+pinned_share_G05_T100 = 0.88
+invariance_scale10_G05 = 2.8621549574836536e-13
+invariance_offset_G05 = 1.0507150705052481e-12
+startup_memory_max_diff_G05 = 0.9392821926106899
+startup_memory_last_row_G05 = 61
+ramp_first_row_of_ones_G05 = 3
+rampdn_last_row_nonzero_G05 = 23
+alt_out_min_G05 = 0.3333333333333333
+alt_out_max_G05 = 0.6666666666666666
+alt_out_distinct_G05 = 2
+flat_zero_den_rows_G05 = 2931
+flat_first_zero_den_row_G05 = 69
+flat_held_value_G05 = 1.0
+l3_minus_l0_gain_max_G07 = 5.551115123125783e-16
+ramp_lag_theory_l0_G07 = 2.333333333333333
+ramp_lag_theory_l3_G07 = 19.33333333333333
+ramp_lag_measured_l0_G07 = 2.333333333333565
+ramp_lag_measured_l3_G07 = 19.333333333332874
+stages_vs_filter_max_G07 = 4.085620730620576e-14
+flat_l3_max_err_G07 = 8.881784197001252e-16
+gate_margin_G07_T5 = 0.5261922807346053
+gate_margin_G07_T10 = 1.5640737397439874
+gate_margin_G07_T20 = 1.2212991432978937
+gate_margin_G07_T40 = 1.1313729412971263
+gate_margin_G07_T100 = 0.24451738161783698
+gate_margin_G07_min = 0.24451738161783698
+gate_margin_alt_G07 = 1.0588235294117343
+pinned_share_G07_T5 = 0.0
+pinned_share_G07_T10 = 0.0
+pinned_share_G07_T20 = 0.1
+pinned_share_G07_T40 = 0.45
+pinned_share_G07_T100 = 0.78
+invariance_scale10_G07 = 1.7408297026122455e-13
+invariance_offset_G07 = 3.647082635893639e-13
+startup_memory_max_diff_G07 = 1.0
+startup_memory_last_row_G07 = 120
+ramp_first_row_of_ones_G07 = 6
+rampdn_last_row_nonzero_G07 = 43
+alt_out_min_G07 = 0.3333333333333333
+alt_out_max_G07 = 0.6666666666666666
+alt_out_distinct_G07 = 2
+flat_zero_den_rows_G07 = 0
+l3_minus_l0_gain_max_G08 = 8.881784197001252e-16
+ramp_lag_theory_l0_G08 = 4.000000000000001
+ramp_lag_theory_l3_G08 = 31.000000000000007
+ramp_lag_measured_l0_G08 = 4.000000000000735
+ramp_lag_measured_l3_G08 = 31.000000000001087
+stages_vs_filter_max_G08 = 3.701483564100272e-13
+flat_l3_max_err_G08 = 2.220446049250313e-15
+gate_margin_G08_T5 = 0.31807224827549163
+gate_margin_G08_T10 = 0.8264689338118414
+gate_margin_G08_T20 = 1.5603221435723125
+gate_margin_G08_T40 = 1.4936947619025975
+gate_margin_G08_T100 = 0.5505114253350429
+gate_margin_G08_min = 0.31807224827549163
+gate_margin_alt_G08 = 0.6666666666663268
+pinned_share_G08_T5 = 0.0
+pinned_share_G08_T10 = 0.0
+pinned_share_G08_T20 = 0.0
+pinned_share_G08_T40 = 0.2
+pinned_share_G08_T100 = 0.66
+invariance_scale10_G08 = 1.3777867735598193e-13
+invariance_offset_G08 = 3.011202398539581e-13
+startup_memory_max_diff_G08 = 1.0
+startup_memory_last_row_G08 = 196
+ramp_first_row_of_ones_G08 = 10
+rampdn_last_row_nonzero_G08 = 68
+alt_out_min_G08 = 0.33333333333342213
+alt_out_max_G08 = 0.6666666666667554
+alt_out_distinct_G08 = 2
+flat_zero_den_rows_G08 = 0
+out_min_all_real_all_rows = 0.0
+out_max_all_real_all_rows = 1.0
+startup_out_row0_G05_T20 = 0.7142857142857143
+startup_out_row1_G05_T20 = 0.7148014911433533
+startup_out_row2_G05_T20 = 0.8001802080788746
+startup_out_row3_G05_T20 = 1.0
+effect_NCG_trace_T5 = 8.587296356932228e-05
+effect_NCG_startup_T5 = 0.002158791270517657
+effect_NCG_trace_T10 = 0.0006342174551938473
+effect_NCG_startup_T10 = 0.0013738308618160833
+effect_NCG_trace_T20 = 0.0007133515100741228
+effect_NCG_startup_T20 = 0.0048423698983621755
+effect_NCG_trace_T40 = 0.0008146242189909225
+effect_NCG_startup_T40 = 0.0021575680392890706
+effect_NCG_trace_T100 = 0.0008469690514941175
+effect_NCG_startup_T100 = 0.0008838074092193393
+effect_NC25_trace_T5 = 0.38513302852097764
+effect_NC25_startup_T5 = 0.3851330285209066
+effect_NC25_trace_T10 = 0.3487701068339998
+effect_NC25_startup_T10 = 0.34945897192552433
+effect_NC25_trace_T20 = 0.30284144990303796
+effect_NC25_startup_T20 = 0.3494089856176332
+effect_NC25_trace_T40 = 0.2945505035341127
+effect_NC25_startup_T40 = 0.3370494092043942
+effect_NC25_trace_T100 = 0.2937768393508384
+effect_NC25_startup_T100 = 0.29443970274891845
+effect_NCP_trace_T5 = 0.0
+effect_NCP_startup_T5 = 0.5979633949986088
+effect_NCP_trace_T10 = 0.0
+effect_NCP_startup_T10 = 0.9392821926106899
+effect_NCP_trace_T20 = 0.0
+effect_NCP_startup_T20 = 0.9233174011464185
+effect_NCP_trace_T40 = 0.0
+effect_NCP_startup_T40 = 0.6160813372907071
+effect_NCP_trace_T100 = 0.0
+effect_NCP_startup_T100 = 0.2142857142857143
+effect_NCH_trace_T5 = 0.0
+effect_NCH_startup_T5 = 0.0
+effect_NCH_trace_T10 = 0.0
+effect_NCH_startup_T10 = 0.0
+effect_NCH_trace_T20 = 0.0
+effect_NCH_startup_T20 = 0.0
+effect_NCH_trace_T40 = 0.0
+effect_NCH_startup_T40 = 0.0
+effect_NCH_trace_T100 = 0.0
+effect_NCH_startup_T100 = 0.0
+effect_NCG_gain_max_analytic = 0.0011355290725828526
+effect_NCG_phase_max_analytic = 0.0013338316280959717
+effect_NCG_lag_l0_analytic = 1.0040080160320641
+effect_NC25_l3_gain_max_analytic = 0.4448555257468428
+effect_NC25_l3_phase_max_analytic = 1.5370047327232639
+effect_NC25_lag_l3_analytic = 7.0
+ncs_startup_s5 = 0.5979633949986088
+ncs_startup_s5_last_row = 69
+ncs_startup_s5_last_row_gt_1e12 = 60
+ncs_max_diff_other_pairs = 0.0
+ncs_max_diff_rows_ge_W = 0.0
+source = """(b) 2026-11-19, reference.py (planning-chat numbers of docs/harness/LRSI_STAGE1_PROMPT.md reproduced; differences in the stage-1 report). l3_minus_l0_gain_max: |L3| - |L0| over T = 5..100 and 2 (finding 1, analytic). ramp_lag_theory / measured: closed form and the review method (mean (x - L)/slope, last 100 ramp rows) (finding 1). stages_vs_filter_max: simulated L0 / L3 (simulate_lrsi) vs one-filter simulations (lrsi_l0_filter / lrsi_l3_filter, zero output history), every base input, rows >= W (brief: <= 1e-12). flat_l3_max_err: |L3 - level| on flat, rows >= W. gate_margin: min (CU + CD)/amplitude of the model, rows >= 200 (finding 3; the gate reads rows >= W, which are a subset). pinned_share: share of out rows >= 200 at exactly 0 or 1 (finding 7). invariance_*: model, five sines, rows >= W, ungated (finding 5). startup_memory: zero start vs price seed (lrsi_article seed = price), all five sines: max |diff| and the last row with |diff| > 1e-12 (finding 6). ramp_first_row_of_ones / rampdn_last_row_nonzero: rows of the known answers (finding 8). alt_out_*: out rows >= W on alt (finding 9). flat_*: rows with CU + CD = 0 exactly, the first one and the value held (finding 10). out_min / out_max_all_real_all_rows: every row of every input incl. the copies (finding 4). effect_<c>_trace / startup_T<T>: control model vs the G05 model, max |diff| over rows >= W / rows < W; effect_*_analytic: transfer-function differences (gain / phase max over T, ramp lag). ncs_*: the shared-statics replay in the generator's actual call order vs the G05 model (Amendment 1 A)."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """Laguerre RSI source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept (CLAUDE.md
+section 4.8), and its cause found before anything is changed:
+1. All 129 real checks PASS: 3 variants (G05, G07, G08) x 43 checks = l0: flat, 5 sine gains, alt gain, 5 sine phases, alt phase, ramp lag (14) +
+   l3: the same 14 (14) + out: 5 trace (one per sine), 2 invariance (sc, of), 1 bound, 2 ramp_exact (ramp, rampdn), 5 startup (one per sine) (15), against
+   the tables / model above at the tolerances above. No row is SKIP (every expected gain, alt included, is >= phase_gate). INFO rows (flat / ramp of out)
+   are written with result INFO and are not counted.
+2. Each of the 4 negative controls (NCG, NC25, NCP, NCS) FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] incl. alt, rampdn and the copies vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant (a gate that removes
+   every row of a sine is an ERROR), no NaN / infinite value. The NCH and NCT rows (role info) are written as INFO, never PASS / FAIL, and are not counted
+   in item 1. The skipped pairs NCS:flat and NCT:flat have no column and no row; the results header lists them.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 3 real + 4 negative controls + 2 info (NCH, NCT) = 9 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 (9 variants), and the [imp].must_fail replay > 1e-9 (1 row: G05 vs the NCG model; guard seen to fire).
+7. Floor guard: for every real variant, max |Zorro - book| <= tolerance / 10 for gain (3e-6), lag (1e-4), phase (3e-6 rad), startup (1e-7), trace (3e-6),
+   invariance (1e-10) and ramp_exact (1e-13) (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT accepted until explained, even if
+   items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected LaguerreRSI.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current LaguerreRSI.c blob is recorded and the corrected file differs from it only by L-1, L-2, L-3, L-5, L-6; LaguerreRSI_Superseded.c is the
+        current body verbatim, renamed lr_ -> lro_;
+   (iii) reference.py reproduces this file's expected tables, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 (relative 1e-9 for values > 1).
+        Every number is stored at full precision. Each inline control body is checked at run time, not by reading: IMP must_pass replays every variant with
+        its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every margin >= 10x; after stage 2 also the two includes resolve and the no-static check passes);
+   (v) no-static lint (brief Amendment 1, decision C): indicators/ehlers/LaguerreRSI.c contains no `static` token (comments excluded); the check is seen to
+        fire on the superseded body (2 hits: lr_init, lr_prevRSI). Recorded here and in the results header (INFO L_NO_STATIC line)."""
+
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_PIN = "(b) Pinning (finding 7, rows >= 200): the share of out rows at exactly 0 or 1 grows with T and depends on gamma: G05 0.0 / 0.0 / 0.5 / 0.7 / 0.88, G07 0.0 / 0.0 / 0.1 / 0.45 / 0.78, G08 0.0 / 0.0 / 0.0 / 0.2 / 0.66 at T = 5 / 10 / 20 / 40 / 100 ([findings] pinned_share_*). A pinned row only tests that the four stages are ordered; the informative rows are short T and the transitions, which is why T = 5 and 10 and three gammas are in the spec."
+O_ALT = "(b) Alt input: out alternates between two values, min 0.3333333333333333 / max 0.6666666666666666 (G05), 0.3333333333333333 / 0.6666666666666666 (G07), 0.33333333333342213 / 0.6666666666667554 (G08) over rows >= W (= 1/3 and 2/3 to rounding; [findings] alt_out_*). Reported, INFO only (alt out is not a check; the alt gain and phase of l0 / l3 are)."
+O_FLAT = "(b) Flat (D6 rule 2: INFO, never PASS/FAIL): G05 reaches CU + CD = 0 exactly at row 69 and holds 1.0 from there; G07 / G08 have 0 / 0 rows with CU + CD = 0 (never exactly 0: out is normalised rounding noise) ([findings] flat_*)."
+O_HOLD = "(b) Brief Amendment 1, decision C: the shared hold of the superseded file (lr_prevRSI) acts only on CU + CD = 0 rows, which occur only on flat (G05 from row 69, finding 10); flat out is INFO (D6 rule 2), so no control can show it on these inputs. L-3 is covered by the no-static pre-run lint ([lint], pre-run item v), not by a control."
+O_NCS = "(b) Brief Amendment 1, decision A: with skip_inputs = [\"flat\"] the first superseded call of the run is NCS on s5, which takes the run's only seed (file static lr_init): its start-up differs from the G05 model by up to 0.5979633949986088 (last row with |diff| > 0: 69, > 1e-12: 60; the planning chat's value for the price seed at T = 5 is 0.5979633949986088 = NCP T = 5). Every other (instance, input) pair of NCS / NCT is bit-identical to the G05 model on every row (max |diff| 0.0); on rows >= W no pair differs (0.0). NCS is therefore detected by startup on s5 only ([detect.required])."
+O_NCT = "(b) NCT (instance 2 of the superseded file) is role info: it starts from zero history on every input (NCS took the seed) and equals the G05 model bit for bit, so no kind can see it and it cannot be a negative control under D2 per-control detection. It is run so that two instances share the statics every bar (D6 rule 5) and is replayed by IMP with the shared-state model in call order."
+O_NCP = "(b) NCP (price seed alone, no statics) differs from the source only in rows < W: start-up 0.5979633949986088 / 0.9392821926106899 / 0.9233174011464185 / 0.6160813372907071 / 0.2142857142857143 at T = 5 / 10 / 20 / 40 / 100 ([findings] effect_NCP_startup_T*), trace (rows >= W) 0.0. Detected by startup; its IMP discrimination is 0 (O_IMP_ROWS)."
+O_NCH = "(b) NCH (hold initial 1/2, L-2) is invisible on every input here: the hold before a first defined value never fires, because x[0] != 0 gives CU + CD != 0 on the first row of every input; effect vs the G05 model 0.0 (start-up) / 0.0 (trace), max over the five sines. INFO, never PASS/FAIL."
+O_NCG = "(b) NCG (gamma + 1/1000 in L0 only): analytic gain effect max 0.0011355290725828526, phase max 0.0013338316280959717 rad, ramp lag of l0 1.0040080160320641 bars (theory 1; 4x the lag tolerance: lag is not required) ([findings] effect_NCG_*_analytic); trace by T 8.587296356932228e-05 / 0.0006342174551938473 / 0.0007133515100741228 / 0.0008146242189909225 / 0.0008469690514941175."
+O_NC25 = "(b) NC25 (TASC 2025 stage form): L0 unchanged; L3 analytic gain effect max 0.4448555257468428, phase max 1.5370047327232639 rad, ramp lag of l3 7.0 bars (vs 10); trace by T 0.38513302852097764 / 0.3487701068339998 / 0.30284144990303796 / 0.2945505035341127 / 0.2937768393508384."
+O_GATE = "(b) Gate margin (CU + CD)/amplitude of the model, rows >= 200, min over the sine set: G05 0.07555156262124552 (T = 100), G07 0.24451738161783698, G08 0.31807224827549163 (finding 3; alt: 2.000000000000046 / 1.0588235294117343 / 0.6666666666663268). The gate g = 0.01 excludes no row of a correct variant."
+O_STARTUP = "(a)/(b) The source defines the start-up (L-1: zero histories, bar 1 computed), so rows < W of out on every sine are PASS/FAIL against the model (startup kind). G05, T = 20, rows 0-3: 0.7142857142857143, 0.7148014911433533, 0.8001802080788746, 1.0. Start-up memory (price seed vs zero start): last differing row 61 / 120 / 196 (G05 / G07 / G08); W = 700."
+O_IMP_ROWS = "(b) IMP reads rows >= W only: NCP and NCS differ from the source only in rows < W and NCH nowhere, so their discrimination against the G05 model is 0 ([imp.fire_test.discrimination]); their own-model must_pass replays still check the run, and NCP / NCS are detected by startup."
+O_NO_NCL = "(b) No NCL variant: no trig, no PI and no decimal literal in the source's arithmetic; gamma = 0.5 is exact (brief item 2)."
+O_L4_FLOAT32 = "(b) L-4: 0.7 and 0.8 are not float32-exact (gotchas 9d.1); the harness builds every gamma at run time from integers (lrs_g7_10 = 7/10, lrs_g4_5 = 4/5) and the model uses the same double values (7/10, 4/5)."
+O_SKIP = "(b) Brief Amendment 1, decision A: NCS:flat and NCT:flat are skipped (no call, no raw column, no check); the results header lists them (SKIPPED_INPUTS line)."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-model residual per kind per real variant; the latter is the measured floor (expected at rounding level: no PI gap)."
+O_STATICS_RESET = "(b) The generated script's own statics (lrs_n, lrs_done, lrs_hdr, lrs_rows, lrs_sgn) are reset at INITRUN. The superseded file's statics are not (it is called only after INITRUN returns): restart Zorro before a rerun ([run_notes])."
+
+# ----------------------------------------------------------------------------- run notes
+[run_notes]
+rerun = "(b)/(c) Restart Zorro before any rerun of the generated script (brief Amendment 1): the superseded file's statics lr_init / lr_prevRSI persist across [Test] presses of a loaded script and the generated script returns at INITRUN before any indicator call, so the file's own INITRUN resets never run; without a restart no call seeds and NCS would not be detected (as RFX A2.4)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
