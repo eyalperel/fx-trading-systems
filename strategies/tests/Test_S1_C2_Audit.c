@@ -26,10 +26,12 @@ void run()
 
     vars Price = series(priceClose());
 
-    // Compute before the lookback guard. Both calls unconditional,
+    // Compute before the lookback guard. All calls unconditional,
     // fixed order - series() allocates by call order.
     var reflexVal = Reflex(Price, REFLEX_LENGTH);
-    var fisherVal = FisherTransform(FISHER_PERIOD);
+    // Fisher takes the source's (H+L)/2 input (F-2), NOT the close series Price built for Reflex.
+    vars fisherMid = series((priceHigh() + priceLow())/2, FISHER_PERIOD);
+    var fisherVal = FisherTransform(fisherMid, FISHER_PERIOD);
 
     if(is(LOOKBACK)) return;
 

@@ -98,6 +98,8 @@ def linear_list(spec):
     if not spec.get("osc"):
         return []
     lin = spec["osc"]["linear"]
+    if lin is None:                                  # FSH: no linear stage
+        return []
     return list(lin) if isinstance(lin, (list, tuple)) else [lin]
 
 
@@ -314,9 +316,43 @@ def n_osc_checks(spec, variant):
     """trace per sine + bound (if exported) + invariance per transform (only variants with `outputs` in an oscillator spec)."""
     if not (spec.get("osc") and variant.get("outputs")):
         return 0
-    return (len(spec["ts"]) + (1 if has_bound(spec, variant) else 0)
-            + (len(spec.get("transforms", [])) if variant.get("invariance") else 0)
-            + len(ramp_exact_inputs(spec, variant)) + (len(spec["ts"]) if spec["osc"].get("startup") else 0))
+    osc = spec["osc"]
+    outs = variant["outputs"]
+    if not (osc.get("trace_outputs") or osc.get("bounds") or osc.get("ramp_exact_outputs") or osc.get("trigger")
+            or osc.get("flat_zero")):
+        return (len(spec["ts"]) + (1 if has_bound(spec, variant) else 0)
+                + (len(spec.get("transforms", [])) if variant.get("invariance") else 0)
+                + len(ramp_exact_inputs(spec, variant)) + (len(spec["ts"]) if osc.get("startup") else 0))
+    # FSH stage 1 keys (each counts only what the variant exports)
+    to = osc.get("trace_outputs")
+    n = len(spec["ts"]) * (sum(o in outs for o in to) if to else 1)
+    n += sum(o in outs for o in osc["bounds"]) if osc.get("bounds") else (1 if has_bound(spec, variant) else 0)
+    n += len(spec.get("transforms", [])) if variant.get("invariance") else 0
+    n += len(fisher_exact_pairs(spec, variant)) if osc.get("ramp_exact_outputs") else len(ramp_exact_inputs(spec, variant))
+    n += len(spec["ts"]) if osc.get("startup") else 0
+    n += 1 if has_trigger(spec, variant) else 0
+    n += 1 if flat_zero_outputs(spec, variant) else 0
+    return n
+
+
+def fisher_exact_pairs(spec, variant):
+    """[(output, input, expected)] of the ramp_exact_outputs checks the variant gets (exported output, input it is called on)."""
+    reo = spec["osc"].get("ramp_exact_outputs") or {}
+    ins = variant_inputs(spec, variant)
+    return [(o, i, e) for o, tab in reo.items() if o in variant["outputs"] for i, e in tab.items() if i in ins]
+
+
+def has_trigger(spec, variant):
+    """FSH: the trigger row exists for a variant that exports trig and returns out."""
+    return bool(spec["osc"].get("trigger")) and "trig" in variant["outputs"] and variant["outputs"][-1] == "out"
+
+
+def flat_zero_outputs(spec, variant):
+    """FSH: the flat_zero outputs the variant exports (flat must be one of its inputs); [] = no flat_zero row."""
+    fz = spec["osc"].get("flat_zero") or []
+    if "flat" not in variant_inputs(spec, variant):
+        return []
+    return [o for o in fz if o in variant["outputs"]]
 
 
 def n_checks(spec, variant):
@@ -433,12 +469,16 @@ def _kind(check_id):
         return "info"
     if tail.startswith("exact"):                     # LRSI: ramp known answers of the normalised output (exact-ramp / exact-rampdn)
         return "ramp_exact"
+    if tail.startswith("trigger"):                   # FSH: trig[n] == out[n-1]
+        return "trigger"
+    if tail.startswith("flatzero"):                  # FSH: flat rows of raw / v1 / out are 0
+        return "flat_zero"
     return "lag" if tail.startswith("ramp") else "flat"
 
 
 def _extra_kinds(spec):
     """D4 kinds enabled by the spec (tolerance present), in report order."""
-    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact")
+    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact", "trigger", "flat_zero")
             if spec.get("tol_" + k) is not None]
 
 
@@ -593,6 +633,8 @@ def imp_rows(spec, raw, x=None):
                     per = _imp_reflex(spec, raw, vmap[vid], model, shared_cache)
                 elif isinstance(model, (R.LrsiModel, R.LrsiShared)):           # LRS: replay l0 / l3 / den / gated out
                     per = _imp_lrsi(spec, raw, vmap[vid], model, shared_cache)
+                elif isinstance(model, (R.FisherModel, R.FisherShared)):       # FSH: replay raw / v1 / rng / trig / out
+                    per = _imp_fisher(spec, raw, vmap[vid], model, shared_cache)
                 else:
                     for i in variant_inputs(spec, vmap[vid]):
                         xi = raw.cols["x_" + i]
@@ -630,6 +672,8 @@ def model_out(model, x):
             _MODEL_CACHE[key] = R.simulate_mesa(model, x)
         elif isinstance(model, R.LrsiModel):
             _MODEL_CACHE[key] = R.simulate_lrsi(model, x)
+        elif isinstance(model, R.FisherModel):
+            _MODEL_CACHE[key] = R.simulate_fisher(model, x)
         else:
             _MODEL_CACHE[key] = R.simulate_reflex(model, x)
     return _MODEL_CACHE[key]
@@ -642,12 +686,26 @@ def gate_q(mo):
         return mo.rng
     if isinstance(mo, R.LrsiOut):
         return mo.den
+    if isinstance(mo, R.FisherOut):                  # FSH: the model's window range MaxH - MinL
+        return mo.rng
     return np.sqrt(mo.ms)
 
 
 def norm_out(mo):
-    """The normalised output of a model output: Reflex r, MESAStochastic out, Laguerre RSI out."""
-    return mo.out if isinstance(mo, (R.MesaOut, R.LrsiOut)) else mo.r
+    """The normalised output of a model output: Reflex r, MESAStochastic out, Laguerre RSI out, Fisher out."""
+    return mo.out if isinstance(mo, (R.MesaOut, R.LrsiOut, R.FisherOut)) else mo.r
+
+
+def osc_mask(spec, mo, amp, gates):
+    """FSH per-output gate (rows n >= warmup), evaluated on the MODEL: 'range' = gate_q(mo)/amp >= trace_gate (D6 rule 2);
+    'clamp' = min |pre-clamp v1 -/+ thr| >= clamp_gate (a rounding flip of the clamp moves Fish by atanh(.999) - atanh(.99)).
+    (c) The clamp gate removes the flip row only; a flip would also move later rows (v1 memory .67^n, Fish .5^n); none is expected
+    on these inputs (model margin 7.1e-4 vs the gate 1e-6)."""
+    w = spec["w"]
+    m = gate_mask_q(spec, gate_q(mo), amp)
+    if "clamp" in gates:
+        m = m & (mo.cdist[w:] >= spec["osc"]["clamp_gate"])
+    return m
 
 
 def gate_mask_q(spec, q, amp):
@@ -704,6 +762,114 @@ def _orow(spec, variant, cid, inp, e, a, tol, d, res=None, role=None):
                 role=role or variant["role"])
 
 
+def _trace_rows_multi(spec, variant, x, ov, model):
+    """FSH: trace replay of every exported output in spec["osc"]["trace_outputs"], per sine, rows >= warmup, on the rows the MODEL's
+    gates for that output let in (osc_mask). Ids trace-<output>-T<t>. Every row of a sine gated = ERROR (nothing compared)."""
+    w = spec["w"]
+    rows = []
+    for o, gates in spec["osc"]["trace_outputs"].items():
+        if o not in variant["outputs"]:
+            continue
+        zo = ov.get(o, {})
+        for t in spec["ts"]:
+            iid, cid = "s%d" % t, "trace-%s-T%d" % (o, t)
+            if model is None or iid not in zo:
+                rows.append(_orow(spec, variant, cid, "%s, sine T=%d" % (o, t), 0.0, float("nan"), spec["tol_trace"],
+                                  float("nan"), res="ERROR"))
+                continue
+            mo = model_out(model, x[iid])
+            mask = osc_mask(spec, mo, spec["amp"], gates)
+            used = int(mask.sum())
+            d = float(np.max(np.abs(zo[iid][w:][mask] - getattr(mo, o)[w:][mask]))) if used else float("nan")
+            rows.append(_orow(spec, variant, cid, "%s, sine T=%d, rows>=%d, gates %s, gated out %d of %d"
+                              % (o, t, w, "+".join(gates), mask.size - used, mask.size), 0.0, d, spec["tol_trace"], d))
+    return rows
+
+
+def _bound_rows_multi(spec, variant, ov):
+    """FSH: one bound row per exported output of spec["osc"]["bounds"], every row of every input of that output. A pair [lo, hi] is
+    two-sided with the ABSOLUTE allowance tol_bound (MST form); a number b is one-sided |y| <= b with the RELATIVE allowance
+    b * tol_bound (Reflex form). Ids bound-<output>."""
+    rows = []
+    tol = spec["tol_bound"]
+    for o, b in spec["osc"]["bounds"].items():
+        if o not in variant["outputs"]:
+            continue
+        allr = list(ov.get(o, {}).values())
+        cid = "bound-%s" % o
+        if not allr or not all(np.all(np.isfinite(a_)) for a_ in allr):
+            rows.append(_orow(spec, variant, cid, "%s: no rows or non-finite" % o, float("nan"), float("nan"), tol,
+                              float("nan"), res="ERROR"))
+        elif isinstance(b, (list, tuple)):
+            top, bot, exc = m_bound_two_sided(allr, b[0], b[1])
+            low = (b[0] - bot) > max(0.0, top - b[1])
+            rows.append(_orow(spec, variant, cid, "%s over every row of %d inputs: min %r, max %r vs [%r, %r]; %s side reported"
+                              % (o, len(allr), bot, top, b[0], b[1], "low" if low else "high"),
+                              b[0] if low else b[1], bot if low else top, tol, exc))
+        else:
+            a = m_bound(allr)
+            rows.append(_orow(spec, variant, cid, "max |%s| over every row of %d inputs vs %r (relative allowance)" % (o, len(allr), b),
+                              b, a, b * tol, max(0.0, a - b)))
+    return rows
+
+
+def _exact_rows_multi(spec, variant, x, ov, model):
+    """FSH: known answers on the ramps, rows >= warmup, per (output, input) of ramp_exact_outputs: a number, or "model" (the article
+    model's own output on that input, row by row). ABSOLUTE tolerance tol_ramp_exact. Ids exact-<output>-<input>."""
+    w = spec["w"]
+    rows = []
+    tol = spec["tol_ramp_exact"]
+    for o, iid, e in fisher_exact_pairs(spec, variant):
+        cid = "exact-%s-%s" % (o, iid)
+        zo = ov.get(o, {})
+        if iid not in zo or (e == "model" and model is None):
+            rows.append(_orow(spec, variant, cid, "%s %s: no column or no model" % (o, iid), float("nan"), float("nan"), tol,
+                              float("nan"), res="ERROR"))
+            continue
+        a_ = zo[iid][w:]
+        ref = getattr(model_out(model, x[iid]), o)[w:] if e == "model" else np.full(a_.shape, float(e))
+        dev = np.abs(a_ - ref)
+        fin = bool(np.all(np.isfinite(dev)))
+        k = int(np.argmax(dev)) if fin else 0
+        d = float(dev[k]) if fin else float("nan")
+        rows.append(_orow(spec, variant, cid, "%s %s, rows>=%d: must equal %s (row furthest from it reported: n=%d); max |%s| = %r"
+                          % (o, iid, w, "the model" if e == "model" else repr(float(e)), w + k, o,
+                             float(np.max(np.abs(a_))) if fin else float("nan")),
+                          float(ref[k]), float(a_[k]), tol, d))
+    return rows
+
+
+def _trigger_row(spec, variant, ov):
+    """FSH: trig[n] must equal out[n-1] exactly for n >= 1 on every input trig is exported for (Zorro-internal, no model)."""
+    tr, out = ov["trig"], ov[variant["outputs"][-1]]
+    ins = [i for i in tr if i in out]
+    if not ins:
+        return _orow(spec, variant, "trigger", "no trig column", 0.0, float("nan"), spec["tol_trigger"], float("nan"), res="ERROR")
+    d = 0.0
+    for i in ins:
+        di = np.abs(tr[i][1:] - out[i][:-1])
+        if not np.all(np.isfinite(di)):
+            d = float("nan")
+            break
+        d = max(d, float(np.max(di)))
+    t0 = max(float(np.max(np.abs(tr[i][:1]))) for i in ins)
+    return _orow(spec, variant, "trigger", "trig[n] vs %s[n-1], n>=1, %d inputs (exact); max |trig[0]| = %r (INFO)"
+                 % (variant["outputs"][-1], len(ins), t0), 0.0, d, spec["tol_trigger"], d)
+
+
+def _flat_zero_row(spec, variant, ov):
+    """FSH: every flat row (n >= 0) of the listed outputs must be 0 (implementation known answer under the zero-range guard)."""
+    outs = flat_zero_outputs(spec, variant)
+    vals = [ov[o]["flat"] for o in outs if "flat" in ov.get(o, {})]
+    if len(vals) != len(outs) or not all(np.all(np.isfinite(a_)) for a_ in vals):
+        return _orow(spec, variant, "flatzero", "flat: missing or non-finite", 0.0, float("nan"), spec["tol_flat_zero"],
+                     float("nan"), res="ERROR")
+    per = {o: float(np.max(np.abs(a_))) for o, a_ in zip(outs, vals)}
+    d = max(per.values())
+    return _orow(spec, variant, "flatzero", "flat, every row: max |y| of %s (%s)"
+                 % ("/".join(outs), ", ".join("%s %r" % kv for kv in per.items())), 0.0, d, spec["tol_flat_zero"], d)
+
+
 def osc_rows(spec, variant, x, ov):
     """The D6 checks of one variant with `outputs`: trace per sine (rule 2), bound (rule 3), invariance per transform
     (rule 4, only variants with invariance = true) and, for real variants, INFO rows (flat / ramp / start-up of the
@@ -712,18 +878,23 @@ def osc_rows(spec, variant, x, ov):
     rz = ov[variant["outputs"][-1]]
     model = R.osc_article_model(variant.get("article"))
     rows = []
-    for t in spec["ts"]:
-        iid = "s%d" % t
-        if model is None or iid not in rz:
-            rows.append(_orow(spec, variant, "trace-T%d" % t, "sine T=%d" % t, 0.0, float("nan"), spec["tol_trace"],
-                              float("nan"), res="ERROR"))
-            continue
-        d, used, gated = m_trace(spec, rz[iid], model_out(model, x[iid]), spec["amp"])
-        rows.append(_orow(spec, variant, "trace-T%d" % t,
-                          "sine T=%d, rows>=%d, gated out %d of %d" % (t, w, gated, gated + used), 0.0, d,
-                          spec["tol_trace"], d))
-    bo = bound_output_of(spec, variant)
-    if isinstance(osc["bound"], (list, tuple)):                      # MST: two-sided ABSOLUTE bound [lo, hi] on the named output
+    if osc.get("trace_outputs"):                                     # FSH: trace on several outputs, per-output gates on the MODEL
+        rows += _trace_rows_multi(spec, variant, x, ov, model)
+    else:
+        for t in spec["ts"]:
+            iid = "s%d" % t
+            if model is None or iid not in rz:
+                rows.append(_orow(spec, variant, "trace-T%d" % t, "sine T=%d" % t, 0.0, float("nan"), spec["tol_trace"],
+                                  float("nan"), res="ERROR"))
+                continue
+            d, used, gated = m_trace(spec, rz[iid], model_out(model, x[iid]), spec["amp"])
+            rows.append(_orow(spec, variant, "trace-T%d" % t,
+                              "sine T=%d, rows>=%d, gated out %d of %d" % (t, w, gated, gated + used), 0.0, d,
+                              spec["tol_trace"], d))
+    bo = bound_output_of(spec, variant) if not osc.get("bounds") else None
+    if osc.get("bounds"):                                            # FSH: one bound row per exported output
+        rows += _bound_rows_multi(spec, variant, ov)
+    elif isinstance(osc["bound"], (list, tuple)):                    # MST: two-sided ABSOLUTE bound [lo, hi] on the named output
         if has_bound(spec, variant):
             lo_b, hi_b = osc["bound"]
             allr = list(ov.get(bo, {}).values())
@@ -750,13 +921,24 @@ def osc_rows(spec, variant, x, ov):
                 if model is None or base not in rz or cp not in rz:
                     worst = float("nan")
                     break
-                d, used = m_invariance_q(spec, rz[base], rz[cp], gate_q(model_out(model, x[base])), spec["amp"])
+                if (osc.get("trace_outputs") or {}).get(variant["outputs"][-1]):   # FSH: the return output's trace gates
+                    mask = osc_mask(spec, model_out(model, x[base]), spec["amp"], osc["trace_outputs"][variant["outputs"][-1]])
+                    used = int(mask.sum())
+                    d = float(np.max(np.abs(rz[base][w:][mask] - rz[cp][w:][mask]))) if used else float("nan")
+                else:
+                    d, used = m_invariance_q(spec, rz[base], rz[cp], gate_q(model_out(model, x[base])), spec["amp"])
                 worst, used_all = max(worst, d) if math.isfinite(d) else float("nan"), used_all + used
                 if not math.isfinite(worst):
                     break
             rows.append(_orow(spec, variant, "invar-%s" % tr["id"],
                               "%s: every sine vs its copy (level %g, amp %g), %d gated rows used" % (tr["id"], tr["level"], tr["amp"], used_all),
                               0.0, worst, spec["tol_invariance"], worst))
+    if osc.get("ramp_exact_outputs"):                                # FSH: known answers per output (number or the model)
+        rows += _exact_rows_multi(spec, variant, x, ov, model)
+    if has_trigger(spec, variant):
+        rows.append(_trigger_row(spec, variant, ov))
+    if flat_zero_outputs(spec, variant):
+        rows.append(_flat_zero_row(spec, variant, ov))
     rex = osc.get("ramp_exact") or {}
     for iid in ramp_exact_inputs(spec, variant):                     # LRSI: known answers, rows >= W (absolute tol)
         if iid not in rz:
@@ -925,11 +1107,64 @@ def _imp_lrsi(spec, raw, v, model, cache):
     return per
 
 
+def fisher_shared_slots(spec, model):
+    """[(variant id, input, L)] of every call of the superseded FisherTransform file, in the generator's ACTUAL call order: the
+    variants whose [imp].must_pass model is a FisherShared with the same L list, in spec (= variant-major call) order, each on its
+    variant_inputs. Only these calls touch the file statics ft_Value1 / ft_Fish."""
+    out = []
+    for v in spec["variants"]:
+        mk = R.IMP_MODELS.get(spec["imp"]["must_pass"].get(v["id"], ""))
+        m = mk() if mk else None
+        if isinstance(m, R.FisherShared) and m.Ls == model.Ls:
+            out += [(v["id"], i, m.Ls[m.index]) for i in variant_inputs(spec, v)]
+    return out
+
+
+def _imp_fisher(spec, raw, v, model, cache):
+    """IMP replay of an FSH variant on the EXPORTED x, residual per input, rows >= warmup. Every exported output is compared; on the
+    sines and their copies an output listed in [checks].trace_outputs is compared only on the rows the REPLAY's own gates let in
+    (osc_mask); everything else (rng, trig, and every output on flat / ramp / rampdn: exact known answers there) absolutely. A
+    FisherShared model replays the superseded file's shared statics over ALL its calls in the generator's call order
+    (fisher_shared_slots). A non-finite value (everything gated out) is an ERROR upstream, never 0."""
+    w, vid = spec["w"], v["id"]
+    if isinstance(model, R.FisherShared):
+        key = ("fisher", model.Ls)
+        if key not in cache:
+            slots = fisher_shared_slots(spec, model)
+            sims = R.simulate_fisher_shared([s[2] for s in slots], [raw.cols["x_" + s[1]] for s in slots])
+            cache[key] = {(s[0], s[1]): o for s, o in zip(slots, sims)}
+        mo_of = lambda i: cache[key][(vid, i)]
+    else:
+        mo_of = lambda i: model_out(model, raw.cols["x_" + i])
+    sines = set(sine_inputs(spec))
+    to = spec["osc"].get("trace_outputs") or {}
+    per = {}
+    for i in variant_inputs(spec, v):
+        mo = mo_of(i)
+        d = 0.0
+        for o in v["outputs"]:
+            col = "%s_%s_%s" % (o, vid, i)
+            if col not in raw.cols:
+                continue
+            z, arr = raw.cols[col][w:], getattr(mo, o)[w:]
+            if i in sines and o in to:
+                mask = osc_mask(spec, mo, input_amp(spec, i), to[o])
+                dr = float(np.max(np.abs(z[mask] - arr[mask]))) if mask.any() else float("nan")
+            else:
+                dr = float(np.max(np.abs(z - arr)))
+            d = float("nan") if not math.isfinite(dr) else max(d, dr)
+            if not math.isfinite(d):
+                break
+        per[i] = d
+    return per
+
+
 def floor_quantities(spec):
     """(kind, tolerance/10) the floor guard checks per real variant: gain, lag (dc_gain 1 only), then the D4 kinds
-    enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged."""
-    q = [("gain", spec["tol_gain"] / 10)]
-    if _has_lag(spec):
+    enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged. A spec without a linear stage (FSH: no gain / lag
+    tolerance) has no gain / lag rows."""
+    q = [("gain", spec["tol_gain"] / 10)] if spec.get("tol_gain") is not None else []
+    if _has_lag(spec) and spec.get("tol_lag") is not None:
         q.append(("lag", spec["tol_lag"] / 10))
     return q + [(k, spec["tol_" + k] / 10) for k in _extra_kinds(spec) if k != "bound"]     # bound: no Zorro-vs-book difference
 
@@ -950,7 +1185,7 @@ def floor_rows(spec, rows):
             out.append(dict(check_id="%sfloor-%s" % (pre, q), indicator=spec["indicator"],
                             params=v["params"], asset=spec["asset"], input="max |Zorro - book| " + q,
                             expected=0.0, actual=a, abs_diff=a, tolerance=tol,
-                            ratio=(a / tol) if fin else float("nan"),
+                            ratio=(a / tol) if (fin and tol) else float("nan"),      # FSH trigger: tolerance 0 (exact)
                             result=("ERROR" if not fin else ("PASS" if a <= tol else "FAIL")), role="floor"))
     return out
 
@@ -1043,7 +1278,8 @@ def imp_trailer(spec, rows):
         pre = "%s-%s-" % (p, v["id"])
         gains = [r["actual"] for r in rows if r["role"] == "real" and r["check_id"].startswith(pre)
                  and _kind(r["check_id"]) == "gain"]
-        out.append("# O_PEAK %s max_measured_gain=%r (INFO)" % (v["id"], max(gains)))
+        if gains:                                          # FSH: no linear stage, no gain rows, no O_PEAK line
+            out.append("# O_PEAK %s max_measured_gain=%r (INFO)" % (v["id"], max(gains)))
     for v in spec["variants"]:
         if v["role"] != "real":
             continue
@@ -1051,8 +1287,9 @@ def imp_trailer(spec, rows):
         imp = [r["actual"] for r in rows if r["role"] == "imp" and r["check_id"] == pre + "imp-pass"]
         fl = {q: [r["actual"] for r in rows if r["check_id"] == pre + "floor-" + q][0]
               for q, _ in floor_quantities(spec)}
-        txt = "# O_IMP_RESIDUAL %s imp=%s zorro_vs_book_gain_max=%.3e" % (
-            v["id"], "%.3e" % imp[0] if imp else "n/a", fl["gain"])
+        txt = "# O_IMP_RESIDUAL %s imp=%s" % (v["id"], "%.3e" % imp[0] if imp else "n/a")
+        if "gain" in fl:
+            txt += " zorro_vs_book_gain_max=%.3e" % fl["gain"]
         if "lag" in fl:
             txt += " zorro_vs_book_lag=%.3e" % fl["lag"]
         for k in _extra_kinds(spec):

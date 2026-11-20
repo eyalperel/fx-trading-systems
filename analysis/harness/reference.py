@@ -699,8 +699,10 @@ def mesa_article_model(name):
 
 
 def osc_article_model(name):
-    """Article model of an oscillator spec: reflex_article(L), mesa_article(L,hp,ss) or lrsi_article(n/d); None if unknown."""
-    return reflex_article_model(name) or mesa_article_model(name) or lrsi_article_model(name)
+    """Article model of an oscillator spec: reflex_article(L), mesa_article(L,hp,ss), lrsi_article(n/d) or fisher_article(L); None if
+    unknown."""
+    return (reflex_article_model(name) or mesa_article_model(name) or lrsi_article_model(name)
+            or fisher_article_model(name))
 
 
 def mesa_roof_filter(hp, ss):
@@ -909,6 +911,162 @@ IMP_MODELS["lrsi_article(1/2,form=tasc2025)"] = lambda: lrsi_article(0.5, form="
 IMP_MODELS["lrsi_article(1/2,seed=price)"] = lambda: lrsi_article(0.5, seed="price")                    # NCP
 IMP_MODELS["lrsi_superseded(1/2,1/2)[0]"] = lambda: lrsi_superseded((0.5, 0.5), 0)                    # NCS (instance 1)
 IMP_MODELS["lrsi_superseded(1/2,1/2)[1]"] = lambda: lrsi_superseded((0.5, 0.5), 1)                    # NCT (instance 2, INFO)
+
+
+# ---------------------------------------------------------------------------------------------------
+# Fisher Transform (FSH stage 1; HARNESS_DESIGN D6, docs/harness/FISHER_SOURCE_REVIEW.md). (a) Source A: Ehlers, "Using The Fisher
+# Transform", TASC V.20:11 (2002), Fig. 5, p. 41:
+#     MaxH = Highest(Price, Len);  MinL = Lowest(Price, Len);
+#     Value1 = .33*2*((Price - MinL)/(MaxH - MinL) - .5) + .67*Value1[1];
+#     If Value1 > .99 then Value1 = .999;  If Value1 < -.99 then Value1 = -.999;
+#     Fish = .5*Log((1 + Value1)/(1 - Value1)) + .5*Fish[1];   Plot2(Fish[1], "Trigger")
+# Value1 and Fish start at 0; no start-up rule (F-5). The zero-range guard raw = 0 is OURS (F-4: the source divides by zero). D1 rule 2:
+# every literal taken at its decimal value, built from integers (F-3). The window holds the last Len values incl. [0], padded with x[0]
+# before Len values exist (Zorro series(), gotchas 9d.6; (c) to be confirmed by the trace and start-up rows).
+# The model follows the [corrected_code] step order: raw = x - lo; raw = raw/rng; raw = raw - 1/2; raw = raw*2 (= 2*((x - lo)/rng - .5),
+# the same operations in the same order); V = a*raw + b*V[1]; clamp; F = k*log((1 + V)/(1 - V)) + (1/2)*F[1].
+# ---------------------------------------------------------------------------------------------------
+FisherModel = namedtuple("FisherModel", "L a b thr cl k literals")
+FisherOut = namedtuple("FisherOut", "raw pre v1 rng trig out cdist")   # pre = pre-clamp Value1; cdist = min |pre -/+ thr| (clamp gate)
+FisherShared = namedtuple("FisherShared", "Ls index")                    # old FisherTransform.c: statics shared by the listed calls
+FISHER_LITERALS = ("exact", "float32")
+FISHER_LN1999 = math.log(1999.0)        # (b) |Fish| < 2*atanh(.999) = ln(1999) for source A (approached, not attained)
+
+
+def f32(v):
+    """The float32 value of v as a Python float (Zorro decimal literals, gotchas 9d.1)."""
+    return float(np.float32(v))
+
+
+def _frac_pair(p, what):
+    if (not isinstance(p, (tuple, list)) or len(p) != 2 or not all(isinstance(i, int) and not isinstance(i, bool) for i in p)
+            or p[1] <= 0):
+        raise ValueError("%s must be an integer pair (n, d) with d > 0, got %r" % (what, p))
+    return p[0] / p[1]
+
+
+def fisher_article(L, a=(33, 100), b=(67, 100), thr=(99, 100), cl=(999, 1000), k=(1, 2), literals="exact"):
+    """Source A (Fig. 5) as a model. Rationals are integer pairs (n, d), evaluated as n/d in float64 (= the run-time integer build of
+    the corrected code, F-3). Keyword hooks are the controls / INFO variants:
+        a, b      Value1 EMA weights (NCW: a = 331/1000; NCB: 1/2, 1/2)
+        thr, cl   clamp trigger and set value (NCC: cl = 99/100; NCB: 9999/10000 both)
+        k         log gain (NCK, NCB: 1/4); the Fish feedback weight is always 1/2 (source A and B)
+        literals  "exact" | "float32" (NC32: a, b, thr, cl, k each rounded to float32, as the current file's decimal literals)
+    L is the window length (NCL: L + 1)."""
+    if literals not in FISHER_LITERALS:
+        raise ValueError("literals must be one of %s, got %r" % (FISHER_LITERALS, literals))
+    if not isinstance(L, int) or isinstance(L, bool) or L < 1:
+        raise ValueError("L must be a positive integer, got %r" % (L,))
+    vals = [_frac_pair(p, n) for p, n in ((a, "a"), (b, "b"), (thr, "thr"), (cl, "cl"), (k, "k"))]
+    if literals == "float32":
+        vals = [f32(v) for v in vals]
+    return FisherModel(L, *vals, literals)
+
+
+def fisher_window(x, L):
+    """(hi, lo) arrays: max / min over the last L values incl. x[n], history before n = 0 padded with x[0] (series(), 9d.6)."""
+    x = np.asarray(x, dtype=float)
+    pad = np.concatenate([np.full(L - 1, x[0]), x])
+    v = np.lib.stride_tricks.sliding_window_view(pad, L)
+    return v.max(axis=1), v.min(axis=1)
+
+
+def _fisher_raw(xn, hi, lo):
+    """raw of one bar in the corrected code's step order; 0 when the range is not > 0 (F-4, ours)."""
+    rng = hi - lo
+    if not rng > 0:
+        return 0.0, rng
+    r = xn - lo
+    r = r / rng
+    r = r - 0.5
+    r = r * 2
+    return r, rng
+
+
+def _fisher_step(raw, vprev, fprev, a, b, thr, cl, k):
+    """One bar of the recursion: (pre, v1, out). C order: V = a*raw + b*V[1]; clamp (> thr -> cl, then < -thr -> -cl);
+    F = k*log((1 + V)/(1 - V)) + (1/2)*F[1]."""
+    pre = a * raw + b * vprev
+    v = pre
+    if v > thr:
+        v = cl
+    if v < -thr:
+        v = -cl
+    f = k * math.log((1.0 + v) / (1.0 - v)) + 0.5 * fprev
+    return pre, v, f
+
+
+def simulate_fisher(m, x):
+    """Run a FisherModel on x (per-instance state, Value1 and Fish start at 0): FisherOut arrays (float64)."""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    hi, lo = fisher_window(x, m.L)
+    o = {f: np.empty(n) for f in FisherOut._fields}
+    vp = fp = 0.0
+    for t in range(n):
+        raw, rng = _fisher_raw(float(x[t]), float(hi[t]), float(lo[t]))
+        pre, v, f = _fisher_step(raw, vp, fp, m.a, m.b, m.thr, m.cl, m.k)
+        for key, val in (("raw", raw), ("pre", pre), ("v1", v), ("rng", rng), ("trig", fp), ("out", f),
+                         ("cdist", min(abs(pre - m.thr), abs(pre + m.thr)))):
+            o[key][t] = val
+        vp, fp = v, f
+    return FisherOut(**o)
+
+
+def fisher_superseded(Ls, index=0):
+    """Model handle for [imp]: the OLD FisherTransform.c (FisherTransform_Superseded, stage 2) called once per bar per slot of the
+    listed L values (the slots' call order is the generator's; `index` = which instance)."""
+    return FisherShared(Ls=tuple(int(L) for L in Ls), index=index)
+
+
+def simulate_fisher_shared(Ls, xs):
+    """The OLD FisherTransform.c (read 2026-11-19, blob 259954ed; review F-1 / F-3), with the stage-2 input change only (Price is a
+    parameter). One call slot per (L, input) in the generator's ACTUAL call order. Per slot its own input series and window (series()
+    by call order); the FILE STATICS `ft_Value1`, `ft_Fish` (and the global `ft_Trigger` = ft_Fish before the update) are shared by
+    every slot: each call reads the state the previous call of ANY slot left. Float32 literals .33 / .67 / .99 / .999 (9d.1); 2.0, 0.5,
+    1.0 exact. The file's own INITRUN resets never run in a generated script (c, as LRS / RFX). Returns [FisherOut] per slot
+    (trig = the shared ft_Fish before the call's update, i.e. ft_Trigger)."""
+    nb = len(xs[0])
+    xs = [np.asarray(x, dtype=float) for x in xs]
+    wins = [fisher_window(x, L) for L, x in zip(Ls, xs)]
+    a, b, thr, cl = f32(0.33), f32(0.67), f32(0.99), f32(0.999)
+    outs = [{f: np.empty(nb) for f in FisherOut._fields} for _ in xs]
+    vs = fs = 0.0
+    for t in range(nb):
+        for s, x in enumerate(xs):
+            hi, lo = wins[s]
+            rng = float(hi[t]) - float(lo[t])
+            raw = 2.0 * ((float(x[t]) - float(lo[t])) / rng - 0.5) if rng > 0 else 0.0     # the old file's own order
+            pre, v, f = _fisher_step(raw, vs, fs, a, b, thr, cl, 0.5)
+            o = outs[s]
+            for key, val in (("raw", raw), ("pre", pre), ("v1", v), ("rng", rng), ("trig", fs), ("out", f),
+                             ("cdist", min(abs(pre - thr), abs(pre + thr)))):
+                o[key][t] = val
+            vs, fs = v, f
+    return [FisherOut(**o) for o in outs]
+
+
+_FISHER_ARTICLE_RE = re.compile(r"fisher_article\((\d{1,3})\)")
+
+
+def fisher_article_model(name):
+    """Resolve 'fisher_article(L)' (source A, exact literals) to a FisherModel. Restricted grammar, no eval."""
+    m = _FISHER_ARTICLE_RE.fullmatch(name) if isinstance(name, str) else None
+    return fisher_article(int(m.group(1))) if m and int(m.group(1)) > 0 else None
+
+
+# [imp] model registry for FSH (c: names chosen here). Explicit entries, no eval.
+for _L in (10, 20):
+    IMP_MODELS["fisher_article(%d)" % _L] = (lambda L=_L: fisher_article(L))
+IMP_MODELS["fisher_article(11)"] = lambda: fisher_article(11)                                              # NCL: window Len + 1
+IMP_MODELS["fisher_article(10,a=331/1000)"] = lambda: fisher_article(10, a=(331, 1000))                    # NCW
+IMP_MODELS["fisher_article(10,cl=99/100)"] = lambda: fisher_article(10, cl=(99, 100))                      # NCC
+IMP_MODELS["fisher_article(10,k=1/4)"] = lambda: fisher_article(10, k=(1, 4))                              # NCK
+IMP_MODELS["fisher_article(10,literals=float32)"] = lambda: fisher_article(10, literals="float32")          # NC32
+IMP_MODELS["fisher_article(10,a=1/2,b=1/2,thr=9999/10000,cl=9999/10000,k=1/4)"] = \
+    lambda: fisher_article(10, a=(1, 2), b=(1, 2), thr=(9999, 10000), cl=(9999, 10000), k=(1, 4))          # NCB (INFO, the book)
+IMP_MODELS["fisher_superseded(10,10)[0]"] = lambda: fisher_superseded((10, 10), 0)                         # NCS (instance 1)
+IMP_MODELS["fisher_superseded(10,10)[1]"] = lambda: fisher_superseded((10, 10), 1)                         # NCT (instance 2)
 
 
 def bump3(v, units=1):

@@ -1,0 +1,1049 @@
+# FSH_ArticleFidelity.toml -- Fisher Transform (Ehlers, TASC V.20:11 2002, Fig. 5), SOURCE FIDELITY + IMPLEMENTATION (HARNESS_DESIGN section 1, both
+# questions), the FOURTH spec of the OSCILLATOR family (HARNESS_DESIGN D6; RFX, MST, LRSI before it).
+# Pre-registration: this file, committed BEFORE the corrected FisherTransform.c / FisherTransform_Superseded.c are written and BEFORE the generated script
+# is run (CLAUDE.md section 4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of FSH stage 1 (planning chat 2026-11-19; source A and decisions F-1..F-9 of docs/harness/FISHER_SOURCE_REVIEW.md (bdc83da) and D6 accepted by the
+# user; brief docs/harness/FISHER_STAGE1_PROMPT.md), built on the RFX / MST / LRSI oscillator tooling plus (this branch): five columns per call
+# (raw / v1 / rng / trig by out-parameter, out returned), NO linear stage ([checks].linear_stage = false, F-7), trace replay on several outputs with
+# per-output gates on the MODEL (range; range + clamp distance), one bound per output, ramp_exact per output (a number or the model), the new kinds
+# `trigger` (trig[n] == out[n-1] exactly) and `flat_zero`, and the Fisher reference models fisher_article / fisher_superseded.
+# Format: as specs/LRSI_ArticleFidelity.toml. Labels: (a) source states, (b) measured / computed here, (c) inference.
+# Ids must not contain '-' (check ids are <prefix>-<variantid>-<check>).
+#
+# What differs from LRSI:
+#   * No linear stage (F-7): the normalisation divides by the window range, so there are no v1 gain / phase / lag checks; every check reads the exported
+#     stages raw (the normalised price, [-1, 1]), v1 (the smoothed and clamped Value1) and out (Fish). rng (MaxH - MinL) is exported for IMP and
+#     information only; trig (Fish[1]) for the trigger check.
+#   * Trace replay on raw, v1 and out, rows >= W, each on the rows the MODEL's gates let in: raw the range gate (range/amplitude >= 0.01, D6 default);
+#     v1 and out also the clamp-distance gate (min |pre-clamp v1 -/+ .99| >= 1e-6, judgement (c)): a rounding flip of the clamp moves Fish by
+#     atanh(.999) - atanh(.99) = 1.1535487548879537. Expected gated rows on a correct variant: 0 (finding gate_*).
+#   * Trace tolerance 1e-9, not the D6 default 3e-5: no PI gap, floor <= ~1e-11 ([floor]); 3e-5 would leave NC32 (the current file's float32 literals,
+#     F-3, effect 1.288e-05) undetectable, so F-3 would be unverified.
+#   * Three exact bounds: raw in [-1, 1], v1 in [-.999, .999] (two-sided, absolute allowance), |out| <= ln(1999) (one-sided, relative allowance).
+#     (b) In float64, Fish reaches ln(1999) EXACTLY on the ramps (finding out_max_abs_all_*): the allowance is not needed there, but the bound is
+#     attained, not only approached (the review's "never attained exactly" holds for the real number, not for its float64 rounding).
+#   * Known answers: ramps raw = +-1 and v1 = +-.999 exactly, out = the model (rows >= W); flat raw = v1 = out = 0 (our guard, F-4; flat_zero).
+#   * Start-up is not defined by the source (F-5): INFO only (D6 rule 6), the info-startup row.
+#   * No NCL "as printed" variant (D1): every literal of Fig. 5 is taken at its decimal value (D1 rule 2) and none equals a named constant, so there is no
+#     rule-1 / rule-4 replacement whose printed form could differ. NOTE: the control id `NCL` in THIS spec is the window Len + 1 control (brief naming),
+#     not the "literals as printed" INFO variant of the SS3 / USE / RFX / MST specs.
+#   * NCS / NCT are the REAL superseded file (FisherTransform_Superseded.c, written in stage 2) called as TWO instances (both Len 10) on every base input.
+#     The file statics ft_Value1 / ft_Fish are the IIR state itself, shared by all 16 calls of every bar: the effect is large on every input and every
+#     row (unlike LRS, where the shared state was a one-shot seed), so no skip_inputs is needed.
+
+[batch]
+name = "FSH_ArticleFidelity"
+id_prefix = "FSH"
+indicator = "FisherCore"                 # Light-C function called by the `param` variants (corrected FisherTransform.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/FSH_ArticleFidelity.toml (this file)"
+script_name = "GEN_FSH_FisherTransform"  # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'Using The Fisher Transform', Technical Analysis of Stocks & Commodities V.20:11 (2002), pp. 40-42; Fig. 5 'EasyLanguage code', p. 41 (source A, the reference). INFO variant NCB: Ehlers, Cybernetic Analysis for Stocks and Futures (Wiley 2004), ch. 1, Fig. 1.7, p. 7 (source B)"
+formula = """
+(a) Inputs: Price((H+L)/2), Len(10);   Vars: MaxH(0), MinL(0), Fish(0);
+    MaxH = Highest(Price, Len);  MinL = Lowest(Price, Len);
+    Value1 = .33*2*((Price - MinL)/(MaxH - MinL) - .5) + .67*Value1[1];
+    If Value1 > .99 then Value1 = .999;
+    If Value1 < -.99 then Value1 = -.999;
+    Fish = .5*Log((1 + Value1)/(1 - Value1)) + .5*Fish[1];
+    Plot1(Fish, "Fisher"); Plot2(Fish[1], "Trigger");
+(a) Value1 and Fish start at 0 (Value1 is an EasyLanguage built-in, Fish(0)); no start-up rule (F-5). The source does not guard MaxH = MinL (division by zero).
+(b) Exported here: raw = 2*((Price - MinL)/(MaxH - MinL) - .5) (0 when MaxH - MinL is not > 0: OUR guard, F-4), v1 = Value1 after the clamp, rng = MaxH - MinL,
+    trig = Fish[1], out = Fish. Bounds: raw in [-1, 1]; |v1| <= .999 and no v1 in (.99, .999); |out| < ln(1999) = 2*atanh(.999) (real numbers).
+(b) Source B (Fig. 1.7): .5 / .5 EMA, clamp .9999 / .9999, log gain .25 (the INFO variant NCB).
+"""
+reference = "analysis/harness/reference.py fisher_article(L, a, b, thr, cl, k, literals) (simulate_fisher; per-instance state, window padded with x[0]), fisher_superseded(Ls, index) (simulate_fisher_shared: the old file's shared statics in the generator's actual call order, float32 literals)"
+other_forms = "(a) Not tested here: the source's use (Fish / Trigger crossover, p. 41) is a strategy matter. (a) Source B's EFS form (Fig. 1.8) starts its window from the bar's own High / Low (F-6): recorded only. Start-up conventions (F-5): INFO."
+no_ncl = "(b) No NCL 'as printed' variant (brief): every literal of Fig. 5 (.33, .67, .99, .999, .5) is taken at its decimal value (D1 rule 2) and none equals a named constant, so no rule-1 / rule-4 replacement exists. The control id NCL in this spec is the window Len + 1 control."
+
+# Pre-registered lines of the corrected indicators/ehlers/FisherTransform.c (F-1, F-2, F-3, F-4 kept, F-7). The .c is written to these lines AFTER this file
+# is committed (stage 2); a test then asserts it contains them verbatim (whitespace-normalised, comments stripped). reference.fisher_article(L) implements
+# exactly these lines (same operations in the same order: IMP must pass at 1e-9).
+[corrected_code]
+file = "indicators/ehlers/FisherTransform.c"
+function = "var FisherCore(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)"
+lines = """
+vars fi_V = series(0, 2);
+vars fi_F = series(0, 2);
+var fi_a = 33;   fi_a = fi_a/100;
+var fi_b = 67;   fi_b = fi_b/100;
+var fi_t = 99;   fi_t = fi_t/100;
+var fi_c = 999;  fi_c = fi_c/1000;
+var fi_h = 1;    fi_h = fi_h/2;
+var fi_hi = MaxVal(Price, Len);
+var fi_lo = MinVal(Price, Len);
+var fi_rng = fi_hi - fi_lo;
+var fi_raw = 0;
+if(fi_rng > 0) {
+    fi_raw = Price[0] - fi_lo;
+    fi_raw = fi_raw/fi_rng;
+    fi_raw = fi_raw - fi_h;
+    fi_raw = fi_raw*2;
+}
+fi_V[0] = fi_a*fi_raw + fi_b*fi_V[1];
+var fi_nt = 0;   fi_nt = fi_nt - fi_t;
+var fi_nc = 0;   fi_nc = fi_nc - fi_c;
+if(fi_V[0] > fi_t)  fi_V[0] = fi_c;
+if(fi_V[0] < fi_nt) fi_V[0] = fi_nc;
+var fi_u = 1;
+var fi_num = fi_u + fi_V[0];
+var fi_den = fi_u - fi_V[0];
+fi_F[0] = fi_h*log(fi_num/fi_den) + fi_h*fi_F[1];
+*pRaw  = fi_raw;
+*pV1   = fi_V[0];
+*pRng  = fi_rng;
+*pTrig = fi_F[1];
+return fi_F[0];"""
+wrapper_function = "var FisherTransform(vars Price, int Len)"
+wrapper_lines = """
+var fi_w1;
+var fi_w2;
+var fi_w3;
+var fi_w4;
+return FisherCore(Price, Len, &fi_w1, &fi_w2, &fi_w3, &fi_w4);"""
+notes = """(b) Changed vs the current .c (blob 259954ed90f4674733f41c46b6694c5f1320cfd0 at bdc83da, recorded again at pre-run (ii), stage 2): F-1 per-instance state, Value1 and Fish in series(0, 2) (zero start = the source's Value1(0) / Fish(0)), the trigger is the out-parameter pTrig = Fish[1] (the global ft_Trigger and both statics removed); F-2 Price is a parameter (callers pass series((priceHigh() + priceLow())/2)); F-3 every constant built from integers at run time (.33 = 33/100, .67 = 67/100, .99 = 99/100, .999 = 999/1000, .5 = 1/2); F-4 the zero-range guard kept (raw = 0, ours, labelled in the header); F-7 the stages exported through FisherCore(Price, Len, &raw, &v1, &rng, &trig), FisherTransform(Price, Len) a thin wrapper; F-8 header with source and page, formula, deviations fixed, the review path and labelled claims (written with the .c).
+(b) Every expression starts with a variable (gotchas 9d.8; `fi_raw*2` is variable-first) and there is no decimal literal at all (asserted by test_generator_fsh). The model computes raw as 2*((x - lo)/rng - .5); the code's step order (x - lo, /rng, - 1/2, *2) is the same arithmetic in the same order.
+(c) Both series() calls are unconditional and first (gotchas 3.1); the zero start is each series(0, 2)'s initial history on the instance's first call (gotchas 9d.6). The `*pRaw = ...` out-parameters compile in Light-C (same pattern as ReflexCore / MESAStochasticCore / LaguerreRSICore: RFX / MST / LRS run 1 PASS); `int Len` as a parameter compiles (CLAUDE.md section 6, H1 run 2). If any line cannot compile, stage 2 stops and reports.
+(c) MaxVal / MinVal(Price, Len) read Price[0..Len-1]: the caller's series must hold at least Len values (here [zorro].series_len = 21 >= 20, the largest Len). Stage 2 should say so in the header (default series() length = LookBack, c).
+Superseded file (stage 2): the CURRENT FisherTransform.c body as indicators/ehlers/FisherTransform_Superseded.c, function `FisherTransform_Superseded(vars Price, int Period)`; the ONLY behavioural edit is the input (line 42's series((priceHigh() + priceLow()) * 0.5) replaced by the Price parameter); statics, literals, guard, clamp and the trigger global unchanged; ft_ -> fto_ (flat namespace, gotchas 1.3). It is the shared-state control NCS / NCT."""
+
+
+[zorro]
+include = ["../../indicators/ehlers/FisherTransform_Superseded.c", "../../indicators/ehlers/FisherTransform.c"]   # resolved from strategies/tests/; both written in stage 2 (lint reports FisherTransform_Superseded.c missing until then; the current FisherTransform.c exists but has no FisherCore and still has its two statics)
+raw_file = "Data/GEN_FSH_raw.csv"
+marker_file = "Data/GEN_FSH_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 21           # (c) MaxVal / MinVal(Price, Len) read Price[0..Len-1] of the INPUT series: it must hold >= 20 values (FR20); 21 covers NCL (11) and FR20. The older specs use 3 (their indicators keep their own histories).
+
+[inputs]                    # as LRSI, without the alternating input (no linear stage reads it)
+n_bars = 3000
+warmup = 700              # (b) W = 700 (D6 family default): start-up memory .67^n < 1e-12 from n = 69, .5^n from n = 40, plus the Len window; the EFS-style start-up differs until row <= 80 ([findings] startup_efs_last_row_*): 700 = 8.6x
+level = [11, 10]            # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]              # 0.01
+slope = [1, 10000]          # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+ramp_down = true            # extra input id `rampdn`: level - slope*n, right after ramp (known answers raw = -1, v1 = -.999)
+
+[inputs.invariance]         # D6 rule 4: transformed copies of every sine, fed to every variant with invariance = true
+transforms = [{ id = "sc", level = [11, 10], amp = [1, 10] }, { id = "of", level = [22, 10], amp = [1, 100] }]   # scale x10 (amp 0.1, level 1.1) and offset (level 2.2, amp 0.01)
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                    # HARNESS_DESIGN D6 + this spec's notes
+linear_stage = false        # F-7: no linear front end from price (the normalisation divides by the range): no v1 checks, no linear output
+trace_gate = 0.01           # g: range/amplitude of the MODEL (D6 default), applies to raw, v1 and out
+clamp_gate = 1e-06          # g2: min |pre-clamp v1 -/+ .99| of the MODEL, applies to v1 and out (judgement (c))
+trace_outputs = { raw = ["range"], v1 = ["range", "clamp"], out = ["range", "clamp"] }
+bounds = { raw = [-1.0, 1.0], v1 = [-0.999, 0.999], out = 7.6004023345004 }   # out: ln(1999) = 7.6004023345004 (repr of math.log(1999)), one-sided |out| <= ln(1999) with the relative allowance
+ramp_exact_outputs = { raw = { ramp = 1.0, rampdn = -1.0 }, v1 = { ramp = 0.999, rampdn = -0.999 }, out = { ramp = "model", rampdn = "model" } }
+trigger = true              # trig[n] == out[n-1] exactly, n >= 1, every base input (Zorro-internal)
+flat_zero = ["raw", "v1", "out"]
+source = """(b) Gates (D6 rule 2, both on the MODEL, never the run): range/amplitude min 0.048943483704833035 (FR10, T = 100), 4.9x the gate g = 0.01; clamp distance min 0.0007121303005288571 (FR20, T = 100), 712x g2 = 1e-6 ([findings] gate_*): no gated row on a correct variant; gated rows are counted in the input text; every row of a sine gated = ERROR. g2 (c): judgement; rounding at ~1e-15 cannot flip a clamp more than 1e-6 away, a copying error of the clamp (NCC) or the weights (NCW) is not hidden by it. bounds (b): raw is the position of x inside its own window, exactly in [-1, 1] (0 on the guard); v1 is clamped to +-.999 (= 999/1000 built at run time; the pre-clamp maximum .33 + .67 x .999 = 0.99933); |out| <= 2 atanh(.999) = ln(1999) (geometric sum of the .5 feedback). ramp_exact (b): on the rising / falling ramp x is the window max / min from row 1, so raw = +-1 exactly (rows >= 1) and v1 = +-.999 exactly from row 12; out converges to +-ln(1999) geometrically and is EXACTLY ln(1999) in float64 on rows >= W (finding ramp_out_minus_ln1999_*: 0.0); it is compared with the model (brief) and the input text reports max |out|. trigger (b): the corrected code returns trig = Fish[1] by construction; a one-row shift or a stale global fails it. flat_zero (b): on flat the guard fires on every row (rng = 0 exactly) and raw = v1 = out = 0 (F-4: an implementation known answer, not a source check)."""
+
+
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers rampdn and the invariance copies."
+[tolerances.trace]
+value = 1e-09
+source = "(c) Brief (planning chat 2026-11-19), NOT the D6 default 3e-5: no PI gap and the floor is rounding ([floor].trace, x10 within 1e-9); 3e-5 would leave NC32 (float32 literals, F-3, effect 1.288e-05) undetectable. Applies to raw, v1 and out, rows >= W, gated (see [checks])."
+[tolerances.bound]
+value = 1e-12
+source = "(c) D6 default. ABSOLUTE allowance on the two-sided bounds of raw ([-1, 1]) and v1 ([-.999, .999]); RELATIVE allowance (ln(1999) x 1e-12) on the one-sided |out| <= ln(1999). Every row of every input of that output."
+[tolerances.invariance]
+value = 1e-09
+source = "(c) D6 rule 4 default: max |out(sine) - out(transformed sine)| over the gated rows >= W (the out gates), five sines, transforms sc (amp x10) and of (level 2.2). (b) float64 floor 5.3e-12 ([findings] invariance_*), x10 = 5.3e-11. Zorro-internal comparison, no model."
+[tolerances.ramp_exact]
+value = 1e-12
+source = "(c) LRSI kind, per output here: raw = +-1 and v1 = +-.999 (absolute), out vs the model, rows >= W; (b) the model gives raw / v1 exactly and out = ln(1999) exactly (findings ramp_*): 1e-12 is a few-ulp allowance."
+[tolerances.trigger]
+value = 0.0
+source = "(b) Exact by construction: the corrected code exports trig = Fish[1] of the same series, so trig[n] must equal out[n-1] bit for bit (n >= 1). Zorro-internal, no model; 0 tolerance (brief)."
+[tolerances.flat_zero]
+value = 1e-12
+source = "(c) Brief: raw, v1 and out on flat must be 0 (the model gives exactly 0 on all 3000 rows, finding flat_*); 1e-12 absolute, every row n >= 0."
+[tolerances.imp]
+value = 1e-09
+source = "(c) As HPF / SS3F / RFF / USE / RFX / MST / LRS. Applies to every exported output: raw / v1 / out on the sines and copies on the rows the replay's own gates let in, everything else absolutely ([imp].what). (b) Expected residual: [floor].imp_exported_x_* (export rounding of x divided by the range); fire tests [imp.fire_test]."
+
+[lint]
+no_static = ["indicators/ehlers/FisherTransform.c"]
+source = "(b) As LRSI Amendment 1 C: the corrected FisherTransform.c must contain no `static` token (comments and strings excluded): the structural check for F-1. generator.lint_no_static; seen to fire on the superseded body (2 hits, ft_Value1 and ft_Fish: test_generator_fsh). (c) It does NOT see the non-static global `var ft_Trigger` of the old file; F-1's trigger global is covered by the trigger check and by [corrected_code]. Until stage 2 the current file has both statics: lint reports it, as it reports the missing FisherTransform_Superseded.c include."
+
+
+# D2 floor per quantity (see source).
+
+[floor]
+trace = 1.06421538248469e-11
+invariance = 5.31930055558405e-12
+ramp_exact = 0.0
+flat_zero = 0.0
+trigger = 0.0
+bound = 0.0
+imp_exported_x_FR10 = 5.234035427292838e-12
+imp_exported_x_FR20 = 1.4743761767022079e-12
+x_1ulp_FR10 = 1.06421538248469e-11
+x_1ulp_FR20 = 2.8617108682738035e-12
+source = """(b) 2026-11-19, tests/fsh_support.floor_estimates and numbers(). The model IS the corrected code (no trig, no PI, no decimal literal), so the
+checker on the own-model raw file gives 0 for trace / ramp_exact / flat_zero / trigger / bound; the floor of this spec is therefore rounding. Two
+estimates, max over raw / v1 / out, rows >= W: imp_exported_x = the model on x printed with %.15f (what IMP replays) vs on the exact x (brief item 8:
+the export rounding is divided by the range, down to 4.9e-4, and amplified by atanh' near .99); x_1ulp = the model on x moved by -1 / 0 / +1 ulp per
+row (numpy default_rng(12345); flat excluded, Zorro's flat is one double) vs the exact x, (c) an estimate of Zorro vs the model if Zorro's sin()
+differs from numpy's by an ulp. trace = the largest of the four (FR10 x_1ulp); floor x10 <= 1e-9 (the window holds, brief STOP rule not met).
+invariance = the model's own scale / offset difference (finding 6). (c) Expected Zorro vs model at run time: rounding level (LRS 5e-16 on
+well-conditioned rows); pass item 7 guards the run value."""
+
+# Expected values: the trace / ramp_exact model per variant (no linear stage, so no tables). Never from the .c file.
+[expected.FR10]
+article = "fisher_article(10)"
+source = "(b) reference.fisher_article(10): source A, Len 10, literals at their decimal values built as integer ratios (33/100, 67/100, 99/100, 999/1000, 1/2), per-instance state starting at 0, window padded with x[0]"
+
+[expected.FR20]
+article = "fisher_article(20)"
+source = "(b) reference.fisher_article(20): as FR10 with Len 20"
+
+
+# ----------------------------------------------------------------------------- variants
+
+[[variants]]
+id = "FR10"
+role = "real"
+label = "Len=10 (the C1 slot value, source A default)"
+kind = "param"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+invariance = true
+
+[[variants]]
+id = "FR20"
+role = "real"
+label = "Len=20"
+kind = "param"
+params = [20]
+expected = "FR20"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+invariance = true
+
+[[variants]]
+id = "NCB"
+role = "info"
+label = "NCB: source B (Cybernetic Analysis Fig. 1.7): EMA 1/2, clamp 9999/10000, log gain 1/4, Len 10 vs FR10"
+kind = "inline"
+function = "fsh_ncb"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+comment = "INFO variant (not a control, not in [detect]): [corrected_code] with source B's constants (a = b = 1/2, thr = cl = 9999/10000, log gain 1/4; Fish feedback 1/2 as both sources). Reported, never PASS/FAIL. (b) Its v1 reaches .9999 > .999, so its bound-v1 row is above the FR10 bound by 9e-4 (INFO)."
+body = '''
+var fsh_ncb(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars ncb_V = series(0, 2);
+	vars ncb_F = series(0, 2);
+	var ncb_a = 1;    ncb_a = ncb_a/2;
+	var ncb_b = 1;    ncb_b = ncb_b/2;
+	var ncb_t = 9999; ncb_t = ncb_t/10000;
+	var ncb_c = 9999; ncb_c = ncb_c/10000;
+	var ncb_h = 1;    ncb_h = ncb_h/2;
+	var ncb_k = 1;    ncb_k = ncb_k/4;
+	var ncb_hi = MaxVal(Price, Len);
+	var ncb_lo = MinVal(Price, Len);
+	var ncb_rng = ncb_hi - ncb_lo;
+	var ncb_raw = 0;
+	if(ncb_rng > 0) {
+		ncb_raw = Price[0] - ncb_lo;
+		ncb_raw = ncb_raw/ncb_rng;
+		ncb_raw = ncb_raw - ncb_h;
+		ncb_raw = ncb_raw*2;
+	}
+	ncb_V[0] = ncb_a*ncb_raw + ncb_b*ncb_V[1];
+	var ncb_nt = 0;   ncb_nt = ncb_nt - ncb_t;
+	var ncb_nc = 0;   ncb_nc = ncb_nc - ncb_c;
+	if(ncb_V[0] > ncb_t)  ncb_V[0] = ncb_c;
+	if(ncb_V[0] < ncb_nt) ncb_V[0] = ncb_nc;
+	var ncb_u = 1;
+	var ncb_num = ncb_u + ncb_V[0];
+	var ncb_den = ncb_u - ncb_V[0];
+	ncb_F[0] = ncb_k*log(ncb_num/ncb_den) + ncb_h*ncb_F[1];
+	*pRaw  = ncb_raw;
+	*pV1   = ncb_V[0];
+	*pRng  = ncb_rng;
+	*pTrig = ncb_F[1];
+	return ncb_F[0];
+}'''
+[variants.effect]
+trace = 2.7090517957574587
+bound = 0.0009000000000000119
+ramp_exact = 2.648683558857302
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCW"
+role = "neg_control"
+label = "NCW: Value1 weight 331/1000 in place of 33/100 vs FR10"
+kind = "inline"
+function = "fsh_ncw"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+comment = "NCW: realistic copying error (D2 rule 4: third digit): [corrected_code] except fi_a = 331/1000 (built from integers). raw unchanged; v1 / out move; the ramps still pin v1 at .999."
+body = '''
+var fsh_ncw(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars ncw_V = series(0, 2);
+	vars ncw_F = series(0, 2);
+	var ncw_a = 331;  ncw_a = ncw_a/1000;
+	var ncw_b = 67;   ncw_b = ncw_b/100;
+	var ncw_t = 99;   ncw_t = ncw_t/100;
+	var ncw_c = 999;  ncw_c = ncw_c/1000;
+	var ncw_h = 1;    ncw_h = ncw_h/2;
+	var ncw_hi = MaxVal(Price, Len);
+	var ncw_lo = MinVal(Price, Len);
+	var ncw_rng = ncw_hi - ncw_lo;
+	var ncw_raw = 0;
+	if(ncw_rng > 0) {
+		ncw_raw = Price[0] - ncw_lo;
+		ncw_raw = ncw_raw/ncw_rng;
+		ncw_raw = ncw_raw - ncw_h;
+		ncw_raw = ncw_raw*2;
+	}
+	ncw_V[0] = ncw_a*ncw_raw + ncw_b*ncw_V[1];
+	var ncw_nt = 0;   ncw_nt = ncw_nt - ncw_t;
+	var ncw_nc = 0;   ncw_nc = ncw_nc - ncw_c;
+	if(ncw_V[0] > ncw_t)  ncw_V[0] = ncw_c;
+	if(ncw_V[0] < ncw_nt) ncw_V[0] = ncw_nc;
+	var ncw_u = 1;
+	var ncw_num = ncw_u + ncw_V[0];
+	var ncw_den = ncw_u - ncw_V[0];
+	ncw_F[0] = ncw_h*log(ncw_num/ncw_den) + ncw_h*ncw_F[1];
+	*pRaw  = ncw_raw;
+	*pV1   = ncw_V[0];
+	*pRng  = ncw_rng;
+	*pTrig = ncw_F[1];
+	return ncw_F[0];
+}'''
+[variants.effect]
+trace = 1.3044958329183087
+bound = 0.0
+ramp_exact = 0.0
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCC"
+role = "neg_control"
+label = "NCC: clamp set value 99/100 (= the trigger) in place of 999/1000 vs FR10"
+kind = "inline"
+function = "fsh_ncc"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+comment = "NCC: the clamp sets Value1 to the trigger value .99 instead of .999 (a plausible misreading of Fig. 5). Invisible while v1 stays below .99 (T = 5 / 10 / 20); seen at T = 40 / 100 and on the ramps (v1 = .99, Fish -> 5.2933048247244905)."
+body = '''
+var fsh_ncc(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars ncc_V = series(0, 2);
+	vars ncc_F = series(0, 2);
+	var ncc_a = 33;   ncc_a = ncc_a/100;
+	var ncc_b = 67;   ncc_b = ncc_b/100;
+	var ncc_t = 99;   ncc_t = ncc_t/100;
+	var ncc_c = 99;   ncc_c = ncc_c/100;
+	var ncc_h = 1;    ncc_h = ncc_h/2;
+	var ncc_hi = MaxVal(Price, Len);
+	var ncc_lo = MinVal(Price, Len);
+	var ncc_rng = ncc_hi - ncc_lo;
+	var ncc_raw = 0;
+	if(ncc_rng > 0) {
+		ncc_raw = Price[0] - ncc_lo;
+		ncc_raw = ncc_raw/ncc_rng;
+		ncc_raw = ncc_raw - ncc_h;
+		ncc_raw = ncc_raw*2;
+	}
+	ncc_V[0] = ncc_a*ncc_raw + ncc_b*ncc_V[1];
+	var ncc_nt = 0;   ncc_nt = ncc_nt - ncc_t;
+	var ncc_nc = 0;   ncc_nc = ncc_nc - ncc_c;
+	if(ncc_V[0] > ncc_t)  ncc_V[0] = ncc_c;
+	if(ncc_V[0] < ncc_nt) ncc_V[0] = ncc_nc;
+	var ncc_u = 1;
+	var ncc_num = ncc_u + ncc_V[0];
+	var ncc_den = ncc_u - ncc_V[0];
+	ncc_F[0] = ncc_h*log(ncc_num/ncc_den) + ncc_h*ncc_F[1];
+	*pRaw  = ncc_raw;
+	*pV1   = ncc_V[0];
+	*pRng  = ncc_rng;
+	*pTrig = ncc_F[1];
+	return ncc_F[0];
+}'''
+[variants.effect]
+trace = 2.307097509641541
+bound = 0.0
+ramp_exact = 2.307097509775909
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCK"
+role = "neg_control"
+label = "NCK: log gain 1/4 (the book's) in place of 1/2 vs FR10"
+kind = "inline"
+function = "fsh_nck"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+comment = "NCK: source B's log gain .25 inside source A (Fish = .25 ln(...) + .5 Fish[1]); raw and v1 unchanged; ramp Fish -> 3.8002011672502."
+body = '''
+var fsh_nck(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars nck_V = series(0, 2);
+	vars nck_F = series(0, 2);
+	var nck_a = 33;   nck_a = nck_a/100;
+	var nck_b = 67;   nck_b = nck_b/100;
+	var nck_t = 99;   nck_t = nck_t/100;
+	var nck_c = 999;  nck_c = nck_c/1000;
+	var nck_h = 1;    nck_h = nck_h/2;
+	var nck_k = 1;    nck_k = nck_k/4;
+	var nck_hi = MaxVal(Price, Len);
+	var nck_lo = MinVal(Price, Len);
+	var nck_rng = nck_hi - nck_lo;
+	var nck_raw = 0;
+	if(nck_rng > 0) {
+		nck_raw = Price[0] - nck_lo;
+		nck_raw = nck_raw/nck_rng;
+		nck_raw = nck_raw - nck_h;
+		nck_raw = nck_raw*2;
+	}
+	nck_V[0] = nck_a*nck_raw + nck_b*nck_V[1];
+	var nck_nt = 0;   nck_nt = nck_nt - nck_t;
+	var nck_nc = 0;   nck_nc = nck_nc - nck_c;
+	if(nck_V[0] > nck_t)  nck_V[0] = nck_c;
+	if(nck_V[0] < nck_nt) nck_V[0] = nck_nc;
+	var nck_u = 1;
+	var nck_num = nck_u + nck_V[0];
+	var nck_den = nck_u - nck_V[0];
+	nck_F[0] = nck_k*log(nck_num/nck_den) + nck_h*nck_F[1];
+	*pRaw  = nck_raw;
+	*pV1   = nck_V[0];
+	*pRng  = nck_rng;
+	*pTrig = nck_F[1];
+	return nck_F[0];
+}'''
+[variants.effect]
+trace = 3.8002011671664833
+bound = 0.0
+ramp_exact = 3.8002011672502
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCL"
+role = "neg_control"
+label = "NCL: window Len + 1 (11) vs FR10"
+kind = "inline"
+function = "fsh_ncl"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+comment = "NCL: the window one bar too long (MaxVal / MinVal over Len + 1). (b) Invisible at T <= L (MST finding 1): seen only at T = 20 / 40 / 100. NOTE: this id is the window control (brief naming), not a literals-as-printed variant (this spec has none: [source].no_ncl)."
+body = '''
+var fsh_ncl(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars ncl_V = series(0, 2);
+	vars ncl_F = series(0, 2);
+	var ncl_a = 33;   ncl_a = ncl_a/100;
+	var ncl_b = 67;   ncl_b = ncl_b/100;
+	var ncl_t = 99;   ncl_t = ncl_t/100;
+	var ncl_c = 999;  ncl_c = ncl_c/1000;
+	var ncl_h = 1;    ncl_h = ncl_h/2;
+	int ncl_L = Len + 1;
+	var ncl_hi = MaxVal(Price, ncl_L);
+	var ncl_lo = MinVal(Price, ncl_L);
+	var ncl_rng = ncl_hi - ncl_lo;
+	var ncl_raw = 0;
+	if(ncl_rng > 0) {
+		ncl_raw = Price[0] - ncl_lo;
+		ncl_raw = ncl_raw/ncl_rng;
+		ncl_raw = ncl_raw - ncl_h;
+		ncl_raw = ncl_raw*2;
+	}
+	ncl_V[0] = ncl_a*ncl_raw + ncl_b*ncl_V[1];
+	var ncl_nt = 0;   ncl_nt = ncl_nt - ncl_t;
+	var ncl_nc = 0;   ncl_nc = ncl_nc - ncl_c;
+	if(ncl_V[0] > ncl_t)  ncl_V[0] = ncl_c;
+	if(ncl_V[0] < ncl_nt) ncl_V[0] = ncl_nc;
+	var ncl_u = 1;
+	var ncl_num = ncl_u + ncl_V[0];
+	var ncl_den = ncl_u - ncl_V[0];
+	ncl_F[0] = ncl_h*log(ncl_num/ncl_den) + ncl_h*ncl_F[1];
+	*pRaw  = ncl_raw;
+	*pV1   = ncl_V[0];
+	*pRng  = ncl_rng;
+	*pTrig = ncl_F[1];
+	return ncl_F[0];
+}'''
+[variants.effect]
+trace = 1.2104669944656683
+bound = 0.0
+ramp_exact = 0.0
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NC32"
+role = "neg_control"
+label = "NC32: the current file's float32 literals .33 / .67 / .99 / .999, per-instance state vs FR10"
+kind = "inline"
+function = "fsh_nc32"
+params = [10]
+expected = "FR10"
+outputs = ["raw", "v1", "rng", "trig", "out"]
+lint_allow_float32 = ["0.33", "0.67", "0.99", "0.999"]
+lint_allow_reason = "NC32 reproduces the CURRENT FisherTransform.c literals, which are float32 by gotchas 9d.1 (F-3): the float32 values are the point of this control"
+comment = "NC32: F-3 alone. [corrected_code] with the four constants written as decimal literals (float32 in this Zorro build, gotchas 9d.1; the lint exemption below is scoped to this body). Per-instance state (no statics). (b) This control is what makes F-3 a checked fix: Fish moves by up to 1.288e-05 = 1.3e4 x the trace tolerance; v1 on the ramps is float32(.999) = 0.9990000128746033 (ramp_exact and bound fire)."
+body = '''
+var fsh_nc32(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)
+{
+	vars n32_V = series(0, 2);
+	vars n32_F = series(0, 2);
+	var n32_a = 0.33;
+	var n32_b = 0.67;
+	var n32_t = 0.99;
+	var n32_c = 0.999;
+	var n32_h = 1;    n32_h = n32_h/2;
+	var n32_hi = MaxVal(Price, Len);
+	var n32_lo = MinVal(Price, Len);
+	var n32_rng = n32_hi - n32_lo;
+	var n32_raw = 0;
+	if(n32_rng > 0) {
+		n32_raw = Price[0] - n32_lo;
+		n32_raw = n32_raw/n32_rng;
+		n32_raw = n32_raw - n32_h;
+		n32_raw = n32_raw*2;
+	}
+	n32_V[0] = n32_a*n32_raw + n32_b*n32_V[1];
+	var n32_nt = 0;   n32_nt = n32_nt - n32_t;
+	var n32_nc = 0;   n32_nc = n32_nc - n32_c;
+	if(n32_V[0] > n32_t)  n32_V[0] = n32_c;
+	if(n32_V[0] < n32_nt) n32_V[0] = n32_nc;
+	var n32_u = 1;
+	var n32_num = n32_u + n32_V[0];
+	var n32_den = n32_u - n32_V[0];
+	n32_F[0] = n32_h*log(n32_num/n32_den) + n32_h*n32_F[1];
+	*pRaw  = n32_raw;
+	*pV1   = n32_V[0];
+	*pRng  = n32_rng;
+	*pTrig = n32_F[1];
+	return n32_F[0];
+}'''
+[variants.effect]
+trace = 1.2881126671082654e-05
+bound = 1.2881126671970833e-05
+ramp_exact = 1.2881126671970833e-05
+trigger = 0.0
+flat_zero = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded FisherTransform.c, instance 1 (Len 10, shared statics) vs FR10"
+kind = "param"
+function = "FisherTransform_Superseded"
+params = [10]
+expected = "FR10"
+outputs = ["out"]
+comment = "NCS: the REAL superseded FisherTransform.c (stage 2: FisherTransform_Superseded.c, the current body, Price as a parameter, ft_ -> fto_) called as two instances per bar, NCS then NCT (both Len 10), each on every base input in the generator's variant-major order. The file statics ft_Value1 / ft_Fish are shared by all 16 calls of every bar (F-1), float32 literals (F-3). Returns only out (no raw / v1 / rng / trig columns: its trigger is a global). (b) Differs from the FR10 model on every input and almost every row (findings ncs_*)."
+[variants.effect]
+trace = 8.538772022406814
+bound = 0.0
+ramp_exact = 9.198226649480118
+flat_zero = 1.0588693621200393
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+[[variants]]
+id = "NCT"
+role = "neg_control"
+label = "NCT: superseded FisherTransform.c, instance 2 (Len 10, shared statics) vs FR10"
+kind = "param"
+function = "FisherTransform_Superseded"
+params = [10]
+expected = "FR10"
+outputs = ["out"]
+comment = "NCT: the second instance of the superseded file (D6 rule 5). Unlike LRS (NCT info, bit-identical there), the shared state here is the IIR state itself, so NCT differs as much as NCS (findings nct_*): a control, as RFX's NCT."
+[variants.effect]
+trace = 8.541591986805996
+bound = 0.0
+ramp_exact = 9.200746131800337
+flat_zero = 0.988130059637926
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCT: reference.simulate_fisher_shared over the 16 superseded calls in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR10 model (fisher_article(10)), max over that kind's checks (every output); computed 2026-11-19 (tests/fsh_support.numbers)"
+
+
+[detect]
+source = "(b) Each listed kind has [variants.effect] >= 10x its tolerance (trigger: tolerance 0, listed only if the effect is > 0). Ratios: NCW trace 1.3e+09x; NCC trace 2.31e+09x, ramp_exact 2.31e+12x; NCK trace 3.8e+09x, ramp_exact 3.8e+12x; NCL trace 1.21e+09x; NC32 trace 1.29e+04x, bound 1.29e+07x, ramp_exact 1.29e+07x; NCS trace 8.54e+09x, ramp_exact 9.2e+12x, flat_zero 1.06e+12x; NCT trace 8.54e+09x, ramp_exact 9.2e+12x, flat_zero 9.88e+11x. Kinds below 10x are not required (e.g. raw of NCW / NCC / NCK / NC32 is unchanged; NCL is invisible at T <= L)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (trace-* | bound-* | invar-* | exact-* | trigger | flatzero) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL. NCB (role info) is not a control and is not listed."
+[detect.required]
+NCW = ["trace"]
+NCC = ["trace", "ramp_exact"]
+NCK = ["trace", "ramp_exact"]
+NCL = ["trace"]
+NC32 = ["trace", "bound", "ramp_exact"]
+NCS = ["trace", "ramp_exact", "flat_zero"]
+NCT = ["trace", "ramp_exact", "flat_zero"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x columns EXPORTED by Zorro (reference.IMP_MODELS); residual = max |Zorro - replay| over n >= W = 700 per input and overall: every exported output (raw, v1, rng, trig, out); on the sines and their copies an output listed in [checks].trace_outputs (raw, v1, out) is compared on the rows the REPLAY's own gates let in, everything else (rng, trig, and every output on flat / ramp / rampdn, which are exact known answers) absolutely. NCS / NCT are replayed with fisher_superseded: the old file's shared statics over ALL superseded calls in the generator's ACTUAL call order (checker.fisher_shared_slots: NCS on flat .. rampdn, then NCT on flat .. rampdn)."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { FR10 = "fisher_article(10)", FR20 = "fisher_article(20)", NCB = "fisher_article(10,a=1/2,b=1/2,thr=9999/10000,cl=9999/10000,k=1/4)", NCW = "fisher_article(10,a=331/1000)", NCC = "fisher_article(10,cl=99/100)", NCK = "fisher_article(10,k=1/4)", NCL = "fisher_article(11)", NC32 = "fisher_article(10,literals=float32)", NCS = "fisher_superseded(10,10)[0]", NCT = "fisher_superseded(10,10)[1]" }
+must_fail = { FR10 = "fisher_article(10,a=331/1000)", NCS = "fisher_article(10)" }
+fire_test_effect = "(b) standalone model, numbers at full precision in [imp.fire_test]: FR10 output vs the NCW-model replay > 1e-9; NCS output vs the FR10 model > 1e-9; own-model replays are exact (0) on the synthetic raw file."
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs the source). IMP FAIL on any real variant: Zorro / implementation problem; the fidelity result is not interpretable. FR10 must_fail = the NCW model is absent from the run output; NCS must_fail = the superseded calls do not behave as the source (the shared state is visible to IMP)."""
+
+[imp.fire_test]
+fr10_vs_ncw_model = 1.3044958329183087
+ncs_vs_fr10_model = 9.198226649480118
+source = "(b) 2026-11-19: checker.imp_rows on the synthetic own-model raw file of this spec (rfx_support.synth_raw; exact x, so these are the model-vs-model discriminations, not the run values), max over n >= W and the inputs of the variant"
+[imp.fire_test.must_pass_own_model]
+FR10 = 0.0
+FR20 = 0.0
+NCB = 0.0
+NCW = 0.0
+NCC = 0.0
+NCK = 0.0
+NCL = 0.0
+NC32 = 0.0
+NCS = 0.0
+NCT = 0.0
+[imp.fire_test.discrimination]
+FR10 = 0.0
+FR20 = 3.0598542837263594
+NCB = 2.7090517957574587
+NCW = 1.3044958329183087
+NCC = 2.307097509775909
+NCK = 3.8002011672502
+NCL = 1.2104669944656683
+NC32 = 1.2881126671970833e-05
+NCS = 9.198226649480118
+NCT = 9.200746131800337
+# source: (b) variant own-model output vs the FR10 fisher_article(10) model via the same residual function (checker._imp_fisher); each > [tolerances.imp] except FR10 itself
+
+# ----------------------------------------------------------------------------- findings (planning chat 2026-11-19, reproduced here with reference.py)
+[findings]
+clamp_jump = 1.1535487548879537
+clamped_share_FR10_T10 = 0.0
+clamped_share_FR10_T100 = 0.68
+clamped_share_FR10_T20 = 0.0
+clamped_share_FR10_T40 = 0.2
+clamped_share_FR10_T5 = 0.0
+clamped_share_FR20_T10 = 0.0
+clamped_share_FR20_T100 = 0.62
+clamped_share_FR20_T20 = 0.0
+clamped_share_FR20_T40 = 0.0
+clamped_share_FR20_T5 = 0.0
+effect_NC32_out_T10 = 5.860321539152835e-08
+effect_NC32_out_T100 = 1.2881126671082654e-05
+effect_NC32_out_T20 = 5.316100502028576e-07
+effect_NC32_out_T40 = 1.2420105017341143e-05
+effect_NC32_out_T5 = 1.3957208222503681e-08
+effect_NC32_ramp_out_last = 7.600415215627072
+effect_NC32_ramp_v1_last = 0.9990000128746033
+effect_NC32_rampdn_out_last = -7.600415215627072
+effect_NC32_rampdn_v1_last = -0.9990000128746033
+effect_NC32_raw_T10 = 0.0
+effect_NC32_raw_T100 = 0.0
+effect_NC32_raw_T20 = 0.0
+effect_NC32_raw_T40 = 0.0
+effect_NC32_raw_T5 = 0.0
+effect_NC32_v1_T10 = 2.932535547728321e-08
+effect_NC32_v1_T100 = 8.566313902669265e-08
+effect_NC32_v1_T20 = 6.981765787728023e-08
+effect_NC32_v1_T40 = 8.570537424201774e-08
+effect_NC32_v1_T5 = 1.2535685711689837e-08
+effect_NCB_out_T10 = 0.30664356104690893
+effect_NCB_out_T100 = 2.7090517957574587
+effect_NCB_out_T20 = 0.9611959629789821
+effect_NCB_out_T40 = 2.628208085949269
+effect_NCB_out_T5 = 0.07980365618307178
+effect_NCB_ramp_out_last = 4.951718775643098
+effect_NCB_ramp_v1_last = 0.9999
+effect_NCB_rampdn_out_last = -4.951718775643098
+effect_NCB_rampdn_v1_last = -0.9999
+effect_NCB_raw_T10 = 0.0
+effect_NCB_raw_T100 = 0.0
+effect_NCB_raw_T20 = 0.0
+effect_NCB_raw_T40 = 0.0
+effect_NCB_raw_T5 = 0.0
+effect_NCB_v1_T10 = 0.2684096306520025
+effect_NCB_v1_T100 = 0.3580834997704608
+effect_NCB_v1_T20 = 0.3388071849579276
+effect_NCB_v1_T40 = 0.35747686400439604
+effect_NCB_v1_T5 = 0.21246233008371807
+effect_NCC_out_T10 = 0.0
+effect_NCC_out_T100 = 2.307097509641541
+effect_NCC_out_T20 = 0.0
+effect_NCC_out_T40 = 2.1628206263189274
+effect_NCC_out_T5 = 0.0
+effect_NCC_ramp_out_last = 5.2933048247244905
+effect_NCC_ramp_v1_last = 0.99
+effect_NCC_rampdn_out_last = -5.2933048247244905
+effect_NCC_rampdn_v1_last = -0.99
+effect_NCC_raw_T10 = 0.0
+effect_NCC_raw_T100 = 0.0
+effect_NCC_raw_T20 = 0.0
+effect_NCC_raw_T40 = 0.0
+effect_NCC_raw_T5 = 0.0
+effect_NCC_v1_T10 = 0.0
+effect_NCC_v1_T100 = 0.009000000000000008
+effect_NCC_v1_T20 = 0.0
+effect_NCC_v1_T40 = 0.009000000000000008
+effect_NCC_v1_T5 = 0.0
+effect_NCK_out_T10 = 0.4717596993379304
+effect_NCK_out_T100 = 3.8002011671664833
+effect_NCK_out_T20 = 1.3070643362837313
+effect_NCK_out_T40 = 3.710631360866641
+effect_NCK_out_T5 = 0.17645353972519295
+effect_NCK_ramp_out_last = 3.8002011672502
+effect_NCK_ramp_v1_last = 0.999
+effect_NCK_rampdn_out_last = -3.8002011672502
+effect_NCK_rampdn_v1_last = -0.999
+effect_NCK_raw_T10 = 0.0
+effect_NCK_raw_T100 = 0.0
+effect_NCK_raw_T20 = 0.0
+effect_NCK_raw_T40 = 0.0
+effect_NCK_raw_T5 = 0.0
+effect_NCK_v1_T10 = 0.0
+effect_NCK_v1_T100 = 0.0
+effect_NCK_v1_T20 = 0.0
+effect_NCK_v1_T40 = 0.0
+effect_NCK_v1_T5 = 0.0
+effect_NCL_out_T10 = 5.1736392947532295e-14
+effect_NCL_out_T100 = 1.2104669944656683
+effect_NCL_out_T20 = 0.19595332061822424
+effect_NCL_out_T40 = 0.33034569276406645
+effect_NCL_out_T5 = 8.232303727595536e-14
+effect_NCL_ramp_out_last = 7.6004023345004
+effect_NCL_ramp_v1_last = 0.999
+effect_NCL_rampdn_out_last = -7.6004023345004
+effect_NCL_rampdn_v1_last = -0.999
+effect_NCL_raw_T10 = 9.348077867343818e-14
+effect_NCL_raw_T100 = 0.3890337572472752
+effect_NCL_raw_T20 = 0.32623792124941997
+effect_NCL_raw_T40 = 0.37749455066688276
+effect_NCL_raw_T5 = 2.1016521856154213e-13
+effect_NCL_v1_T10 = 3.086420008457935e-14
+effect_NCL_v1_T100 = 0.16634793984987084
+effect_NCL_v1_T20 = 0.13440593059259665
+effect_NCL_v1_T40 = 0.1594355788324593
+effect_NCL_v1_T5 = 6.70019595361282e-14
+effect_NCW_out_T10 = 0.0036205011312561153
+effect_NCW_out_T100 = 1.3044958329183087
+effect_NCW_out_T20 = 0.023259727382586526
+effect_NCW_out_T40 = 1.300182524627857
+effect_NCW_out_T5 = 0.0011471973860813223
+effect_NCW_ramp_out_last = 7.6004023345004
+effect_NCW_ramp_v1_last = 0.999
+effect_NCW_rampdn_out_last = -7.6004023345004
+effect_NCW_rampdn_v1_last = -0.999
+effect_NCW_raw_T10 = 0.0
+effect_NCW_raw_T100 = 0.0
+effect_NCW_raw_T20 = 0.0
+effect_NCW_raw_T40 = 0.0
+effect_NCW_raw_T5 = 0.0
+effect_NCW_v1_T10 = 0.0016940921154452449
+effect_NCW_v1_T100 = 0.010757689408614657
+effect_NCW_v1_T20 = 0.00273022295673242
+effect_NCW_v1_T40 = 0.010639301822030656
+effect_NCW_v1_T5 = 0.0009973903929576533
+flat_guard_rows_FR10 = 3000
+flat_guard_rows_FR20 = 3000
+flat_max_abs_FR10 = 0.0
+flat_max_abs_FR20 = 0.0
+gate_clamp_FR10_T10 = 0.4309496019031033
+gate_clamp_FR10_T100 = 0.0011989375189954687
+gate_clamp_FR10_T20 = 0.08902642427836405
+gate_clamp_FR10_T40 = 0.0016393018220295374
+gate_clamp_FR10_T5 = 0.6608611703239821
+gate_clamp_FR20_T10 = 0.4309496019031033
+gate_clamp_FR20_T100 = 0.0007121303005288571
+gate_clamp_FR20_T20 = 0.20473557299332135
+gate_clamp_FR20_T40 = 0.0017189627979685707
+gate_clamp_FR20_T5 = 0.6608611703239828
+gate_range_FR10_T10 = 1.902113032590269
+gate_range_FR10_T100 = 0.048943483704833035
+gate_range_FR10_T20 = 0.9999999999998677
+gate_range_FR10_T40 = 0.2928932188134059
+gate_range_FR10_T5 = 1.9021130325901803
+gate_range_FR20_T10 = 1.9021130325902913
+gate_range_FR20_T100 = 0.1909830056250339
+gate_range_FR20_T20 = 2.0000000000000018
+gate_range_FR20_T40 = 0.9999999999999343
+gate_range_FR20_T5 = 1.9021130325902247
+invariance_of_FR10 = 5.31930055558405e-12
+invariance_of_FR20 = 1.0578204978628492e-12
+invariance_sc_FR10 = 2.6565416533230746e-12
+invariance_sc_FR20 = 5.32018873400375e-13
+ln1999 = 7.6004023345004
+memory_fish_n = 39.86313713864835
+memory_v1_n = 68.99517830851426
+ncs_flat_first_row_gt_1e12 = 2
+ncs_flat_ge_W = 0.9895508087845547
+ncs_flat_lt_W = 1.0588693621200393
+ncs_flat_rows_gt_1e12 = 2998
+ncs_ramp_first_row_gt_1e12 = 1
+ncs_ramp_ge_W = 8.683135876268427
+ncs_ramp_lt_W = 8.683135876268429
+ncs_ramp_rows_gt_1e12 = 2999
+ncs_rampdn_first_row_gt_1e12 = 1
+ncs_rampdn_ge_W = 9.198226649480118
+ncs_rampdn_lt_W = 9.198226649480034
+ncs_rampdn_rows_gt_1e12 = 2999
+ncs_s100_first_row_gt_1e12 = 1
+ncs_s100_ge_W = 8.538772022406814
+ncs_s100_lt_W = 8.538772022406743
+ncs_s100_rows_gt_1e12 = 2999
+ncs_s10_first_row_gt_1e12 = 1
+ncs_s10_ge_W = 1.4771224089194899
+ncs_s10_lt_W = 1.4771224089194748
+ncs_s10_rows_gt_1e12 = 2999
+ncs_s20_first_row_gt_1e12 = 1
+ncs_s20_ge_W = 2.8955403669219155
+ncs_s20_lt_W = 2.895540366921861
+ncs_s20_rows_gt_1e12 = 2999
+ncs_s40_first_row_gt_1e12 = 1
+ncs_s40_ge_W = 7.662034945558685
+ncs_s40_lt_W = 7.6620349455586565
+ncs_s40_rows_gt_1e12 = 2999
+ncs_s5_first_row_gt_1e12 = 1
+ncs_s5_ge_W = 1.023689774565871
+ncs_s5_lt_W = 1.0236897745656806
+ncs_s5_rows_gt_1e12 = 2999
+nct_flat_first_row_gt_1e12 = 1
+nct_flat_ge_W = 0.988130059637926
+nct_flat_lt_W = 0.988130059637878
+nct_flat_rows_gt_1e12 = 2999
+nct_ramp_first_row_gt_1e12 = 1
+nct_ramp_ge_W = 8.687406624931727
+nct_ramp_lt_W = 8.687406624931725
+nct_ramp_rows_gt_1e12 = 2999
+nct_rampdn_first_row_gt_1e12 = 1
+nct_rampdn_ge_W = 9.200746131800337
+nct_rampdn_lt_W = 9.200746131800246
+nct_rampdn_rows_gt_1e12 = 2999
+nct_s100_first_row_gt_1e12 = 1
+nct_s100_ge_W = 8.541591986805996
+nct_s100_lt_W = 8.54159198680592
+nct_s100_rows_gt_1e12 = 2999
+nct_s10_first_row_gt_1e12 = 1
+nct_s10_ge_W = 1.5176665436270171
+nct_s10_lt_W = 1.5176665436269634
+nct_s10_rows_gt_1e12 = 2999
+nct_s20_first_row_gt_1e12 = 1
+nct_s20_ge_W = 2.952494091016382
+nct_s20_lt_W = 2.9524940910163178
+nct_s20_rows_gt_1e12 = 2999
+nct_s40_first_row_gt_1e12 = 1
+nct_s40_ge_W = 7.687570771831774
+nct_s40_lt_W = 7.687570771831747
+nct_s40_rows_gt_1e12 = 2999
+nct_s5_first_row_gt_1e12 = 1
+nct_s5_ge_W = 1.0508598105553533
+nct_s5_lt_W = 1.0508598105551628
+nct_s5_rows_gt_1e12 = 2999
+out_max_FR10_T10 = 0.943519398675857
+out_max_FR10_T100 = 7.6004023343329665
+out_max_FR10_T20 = 2.6141286725674626
+out_max_FR10_T40 = 7.421262721733282
+out_max_FR10_T5 = 0.3529070794503859
+out_max_FR20_T10 = 0.9435193986758574
+out_max_FR20_T100 = 7.60040233312112
+out_max_FR20_T20 = 1.8695383685669111
+out_max_FR20_T40 = 4.918061210153791
+out_max_FR20_T5 = 0.35290707945038013
+out_max_abs_T100_ge_W_FR10 = 7.6004023343329665
+out_max_abs_T100_ge_W_FR20 = 7.60040233312112
+out_max_abs_all_FR10 = 7.6004023345004
+out_max_abs_all_FR20 = 7.6004023345004
+out_max_abs_sines_ge_W_FR10 = 7.6004023343329665
+out_max_abs_sines_ge_W_FR20 = 7.60040233312112
+out_min_FR10_T10 = -0.9435193986758608
+out_min_FR10_T100 = -7.6004023343329665
+out_min_FR10_T20 = -2.6141286725674626
+out_min_FR10_T40 = -7.421262721733282
+out_min_FR10_T5 = -0.33395686827993487
+out_min_FR20_T10 = -0.9435193986758608
+out_min_FR20_T100 = -7.60040233312112
+out_min_FR20_T20 = -1.869538368566903
+out_min_FR20_T40 = -4.918061210153791
+out_min_FR20_T5 = -0.3339568682799877
+pre_clamp_max_analytic = 0.99933
+ramp_out_first_row_1e12_FR10 = 53
+ramp_out_first_row_1e12_FR20 = 53
+ramp_out_minus_ln1999_ge_W_FR10 = 0.0
+ramp_out_minus_ln1999_ge_W_FR20 = 0.0
+ramp_raw_first_row_exact_FR10 = 1
+ramp_raw_first_row_exact_FR20 = 1
+ramp_v1_first_row_exact_FR10 = 12
+ramp_v1_first_row_exact_FR20 = 12
+rampdn_out_first_row_1e12_FR10 = 53
+rampdn_out_first_row_1e12_FR20 = 53
+rampdn_out_minus_ln1999_ge_W_FR10 = 0.0
+rampdn_out_minus_ln1999_ge_W_FR20 = 0.0
+rampdn_raw_first_row_exact_FR10 = 1
+rampdn_raw_first_row_exact_FR20 = 1
+rampdn_v1_first_row_exact_FR10 = 12
+rampdn_v1_first_row_exact_FR20 = 12
+raw_max_all_FR10 = 1.0
+raw_max_all_FR20 = 1.0
+raw_min_all_FR10 = -1.0
+raw_min_all_FR20 = -1.0
+shared_L10_L20_T100_ge_200 = 2.695127347558828
+shared_L10_L20_T20_ge_200 = 0.7079827504847884
+shared_L10_L20_T40_ge_200 = 2.6925271244955216
+startup_efs_last_row_FR10_T10 = 80
+startup_efs_last_row_FR10_T100 = 60
+startup_efs_last_row_FR10_T20 = 80
+startup_efs_last_row_FR10_T40 = 61
+startup_efs_last_row_FR10_T5 = 66
+startup_efs_last_row_FR20_T10 = 89
+startup_efs_last_row_FR20_T100 = 75
+startup_efs_last_row_FR20_T20 = 90
+startup_efs_last_row_FR20_T40 = 97
+startup_efs_last_row_FR20_T5 = 80
+startup_efs_max_FR10_T10 = 1.2614929493509068
+startup_efs_max_FR10_T100 = 4.696398871716413
+startup_efs_max_FR10_T20 = 2.4513629288758105
+startup_efs_max_FR10_T40 = 3.52794572969759
+startup_efs_max_FR10_T5 = 0.4815059669119608
+startup_efs_max_FR20_T10 = 1.3720762200184575
+startup_efs_max_FR20_T100 = 7.577633744434643
+startup_efs_max_FR20_T20 = 2.6920114364757386
+startup_efs_max_FR20_T40 = 4.42896278894426
+startup_efs_max_FR20_T5 = 0.4815059669119608
+v1_max_all_FR10 = 0.999
+v1_max_all_FR20 = 0.999
+v1_min_all_FR10 = -0.999
+v1_min_all_FR20 = -0.999
+v1_rows_in_gap_FR10 = 0
+v1_rows_in_gap_FR20 = 0
+source = "(b) 2026-11-19, tests/fsh_support.numbers() (reference.simulate_fisher / simulate_fisher_shared, checker): the brief's findings 1-8 reproduced; differences are in docs/harness/FSH_STAGE1_REPORT.md. *_all_*: every row of every input incl. the copies. gate_range / gate_clamp: min range/amplitude and min |pre-clamp v1 -/+ .99| of the model, rows >= W. out_min / out_max / clamped_share: rows >= W. <ramp>_*_first_row_*: the first row from which the value is exact (raw, v1) or within 1e-12 of +-ln(1999) (out). invariance_*: model, five sines, rows >= W, ungated. memory_*: n with .67^n / .5^n < 1e-12. startup_efs_*: source A (zero start, window padded with x[0]) vs an EFS-style start (first L-1 bars not computed), max over rows < W and the last row > 1e-12 (INFO, F-5). effect_<c>_<output>_T<T>: control model vs the FR10 model, max |diff| over rows >= W; effect_<c>_<ramp>_*_last: the control model on the ramps, last row. ncs_* / nct_*: the shared-statics replay in the generator's actual call order vs the FR10 model, per input: max |diff| rows >= W / rows < W, rows with |diff| > 1e-12 and the first such row. shared_L10_L20_*: the planning chat's two-instance (L10, L20) check on one sine, rows >= 200."
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """Fisher Transform source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept (CLAUDE.md
+section 4.8), and its cause found before anything is changed:
+1. All 56 real checks PASS: 2 variants (FR10, FR20) x 28 checks = raw: 5 trace (one per sine) + 1 bound + 2 ramp_exact (ramp, rampdn) (8) + v1: 5 trace +
+   1 bound + 2 ramp_exact (8) + out: 5 trace + 2 invariance (sc, of) + 1 bound + 2 ramp_exact + 1 trigger (11) + 1 flat_zero (raw, v1, out on flat) (1),
+   against the model / known answers above at the tolerances above. No linear checks (F-7). INFO rows (flat / ramp / start-up of out, info-*) are written
+   with result INFO and are not counted.
+2. Each of the 7 negative controls (NCW, NCC, NCK, NCL, NC32, NCS, NCT) FAILS on every kind listed in [detect.required]. A control that passes = harness broken.
+3. No input guard fires (x[n] incl. rampdn and the copies vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant (a gate that removes every
+   row of a sine is an ERROR), no NaN / infinite value. The NCB rows (role info) are written as INFO, never PASS / FAIL, and are not counted in item 1.
+   The gated-row counts of every trace row are reported (expected 0 on FR10 / FR20).
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 2 real + 7 negative controls + 1 info (NCB) = 10 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 (10 variants), and both [imp].must_fail replays > 1e-9 (FR10 vs the NCW model; NCS vs the FR10 model; guard
+   seen to fire).
+7. Floor guard: for every real variant, max |Zorro - model| <= tolerance / 10 for trace (1e-10), invariance (1e-10), ramp_exact (1e-13), flat_zero (1e-13)
+   and trigger (0) (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected FisherTransform.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current FisherTransform.c blob (259954ed90f4674733f41c46b6694c5f1320cfd0 at bdc83da) is recorded and the corrected file differs from it only by
+        F-1, F-2, F-3, F-7, F-8 (F-4 kept); FisherTransform_Superseded.c is the current body with ONLY the input change (Price parameter) and ft_ -> fto_;
+   (iii) reference.py reproduces this file's floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 (relative 1e-9 for values > 1). Every number
+        is stored at full precision. Each inline control body is checked at run time, not by reading: IMP must_pass replays every variant with its own model
+        (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every required margin >= 10x; after stage 2 also the two includes resolve and the no-static
+        check passes);
+   (v) no-static lint: indicators/ehlers/FisherTransform.c contains no `static` token (comments excluded); the check is seen to fire on the superseded body
+        (2 hits: ft_Value1, ft_Fish). Recorded here and in the results header (INFO L_NO_STATIC line).
+   (vi) the callers of FisherTransform (F-2; strategies/tests/Test_Fisher_IFT_COG.c:51-52, strategies/tests/Test_S1_C2_Audit.c:32) are updated to the new
+        signature (stage 2); no other caller exists (grep, stage 1 report)."""
+
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance; per-control margin) in the results header."
+O_GATES = "(b) Gate margins of the model, rows >= W (finding gate_*): range/amplitude FR10 1.902 / 1.902 / 1.000 / 0.293 / 0.0489, FR20 1.902 / 1.902 / 2.000 / 1.000 / 0.191; clamp distance FR10 0.661 / 0.431 / 0.0890 / 0.00164 / 0.00120, FR20 0.661 / 0.431 / 0.205 / 0.00172 / 0.000712 (T = 5 / 10 / 20 / 40 / 100). Report the gated-row count of every trace row (expected 0)."
+O_SATURATION = "(b) Fisher saturates on long cycles: at T = 100 v1 is clamped on 68% (FR10) / 62% (FR20) of rows >= W and |out| reaches 7.6004 (the bound); at T = 40, FR10, 20% ([findings] clamped_share_*, out_min / out_max_*). The header's old '+-2.5' claim is exceeded at T >= 20 (L10)."
+O_WINDOW = "(b) Windowed: T <= L rows are identical for L = 10 and L = 20 (T = 5, 10; findings out_* and gate_*); only T = 20 / 40 / 100 tell window lengths apart (NCL). (c) MaxVal / MinVal semantics (the last Len values incl. [0], history padded with x[0]) are confirmed only by the trace rows of raw at T = 20 / 40 / 100."
+O_RAMP = "(b) Ramps: raw = +-1 exactly from row 1 (row 0: the guard, rng = 0), v1 = +-.999 exactly from row 12, out within 1e-12 of +-ln(1999) from row 53 and EXACTLY +-ln(1999) in float64 on rows >= W, for both Len (findings ramp_* / rampdn_*). The bound |out| <= ln(1999) is therefore attained in float64 (finding out_max_abs_all_*), approached only in the reals."
+O_FLAT = "(b) Flat: the guard fires on all 3000 rows (rng = 0 exactly), raw = v1 = out = 0 exactly (findings flat_*): an implementation known answer under F-4, PASS/FAIL as flat_zero."
+O_STARTUP = "(b) Start-up (F-5, INFO): the source defines none; source A with the window padded by x[0] vs an EFS-style start (first L-1 bars not computed) differs by up to 0.48 / 1.26 / 2.45 / 3.53 / 4.70 (FR10, T = 5 .. 100) with the last row > 1e-12 at <= 80 ([findings] startup_efs_*); W = 700. The info-startup row reports Zorro vs the model on rows < W (INFO, never PASS/FAIL)."
+O_NCS = "(b) NCS / NCT (the superseded file, two instances, 16 shared calls per bar in variant-major order): every (instance, input) differs from the FR10 model on rows >= W, by 0.98 (flat) to 9.2 (rampdn) ([findings] ncs_* / nct_*); flat out is not 0 (flat_zero fires). Not a start-up effect: the shared statics are the IIR state."
+O_NCB = "(b) NCB (source B, INFO): Fish differs from FR10 by 0.0798 / 0.307 / 0.961 / 2.63 / 2.71 (T = 5 .. 100, rows >= W; findings effect_NCB_out_*); its v1 reaches .9999, its ramp Fish 4.951718775643098 (= ln(19999)/2 to rounding). Choosing B for trading is a later slot decision on backtest evidence (review section 4)."
+O_NC32 = "(b) NC32 (float32 literals, F-3): out effect 1.396e-08 / 5.860e-08 / 5.316e-07 / 1.242e-05 / 1.288e-05 (T = 5 .. 100), v1 1.25e-08 .. 8.57e-08, raw 0; on the ramps v1 = float32(.999) = 0.9990000128746033 and out = 7.600415215627072 > ln(1999): ramp_exact and bound fire as well as trace."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant and the Zorro-vs-model residual per kind per real variant; the latter is the measured floor (expected at rounding level: no PI gap). IMP replays the exported %.15f x: expected <= ~5e-12 ([floor].imp_exported_x_*), larger than the Zorro-vs-model trace for the reason recorded in LRS Amendment 2 A2.3."
+O_STATICS_RESET = "(b) The generated script's own statics (fsh_n, fsh_done, fsh_hdr, fsh_rows) are reset at INITRUN. The superseded file's statics are not (it is called only after INITRUN returns): restart Zorro before a rerun ([run_notes])."
+
+# ----------------------------------------------------------------------------- run notes
+[run_notes]
+rerun = "(b)/(c) Restart Zorro before any rerun of the generated script: the superseded file's statics ft_Value1 / ft_Fish (fto_ after stage 2) persist across [Test] presses of a loaded script and the generated script returns at INITRUN before any indicator call, so the file's own INITRUN resets never run; a second press would start NCS / NCT from the first run's last state (as RFX A2.4 / LRS A1.3)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+# ============================================================================ Amendment 1
+# 2026-11-19, BEFORE the run (FSH stage 2). Pre-run records only. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings], the pass condition, the generator.
+[amendment_1]
+date = "2026-11-19"
+base_commit = "258b24a"
+before_run = true
+criterion_changed = false
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-v; item vi = the two caller updates, recorded here too), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed. The generator was not changed (five-column call path, series_len 21, per-output checks, trigger / flat_zero kinds and the no-static lint generate the FSH layout as is), so there is no A1.2.",
+  "A1.3 Run note (not a criterion): restart Zorro before any rerun of the generated script. The generated script returns at INITRUN before any indicator call, so FisherTransform_Superseded.c's own INITRUN resets (fto_Value1, fto_Fish) never run; a second [Test] press of a loaded script would start NCS / NCT from the previous run's statics (see [run_notes], as LRS A1.3 / RFX A2.4).",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_fsh_corrected_code.py (21 tests): indicators/ehlers/FisherTransform.c contains [corrected_code].lines inside `var FisherCore(vars Price, int Len, var* pRaw, var* pV1, var* pRng, var* pTrig)` and .wrapper_lines inside `var FisherTransform(vars Price, int Len)`, verbatim (whitespace-normalised, comments stripped). Guards seen to fire on temp copies, each reported not-ok: `var fi_hi` -> `static var fi_hi`; `var fi_a = 33;   fi_a = fi_a/100;` -> `var fi_a = 0.33;`; `vars fi_V = series(0, 2);` moved inside the `if(fi_rng > 0)`; the clamp set value `fi_c` -> `fi_t`; `*pTrig = fi_F[1];` -> `fi_F[0]`; the Fish feedback `fi_h*fi_F[1]` -> `fi_F[0]`; the wrapper `return FisherCore(...)` -> `return fi_w1;`; a global `var ft_Trigger = 0;` added (seen by the global-var and `ft_` scans); in the superseded file one `fto_` left as `ft_`. Wrong function name and lines-only-in-comments also not-ok. Both series() calls are unconditional and precede any other statement (asserted; none inside an if); no `static`, no `INITRUN`, no `Period` identifier, no `ft_` identifier, no global var / vars, no decimal literal at all (so no literal product, gotchas 9d.8; the product-of-literals scan is also seen to fire on `2*0.5*1`) in the corrected code. No caller in strategies/, indicators/ or analysis/ (roadmap docs excluded) reads ft_Trigger or calls FisherTransform( with one argument (scan seen to fire on the old interface). Post-review fix (planning chat, gotchas 1.3 flat namespace): FisherTransform.c header comments only (caller example `vars mid = series(...)`, plus the line that a caller uses its own prefix, never fi_, which is FisherCore's); a new test asserts that no file in the repo other than FisherTransform.c declares an identifier starting with fi_ (comments excluded), seen to fire on a temp copy of the old caller (declares fi_mid, fi_raw). The blob hash below is the one after this fix; FisherCore's code lines are untouched (test (i) still verbatim)."
+cond_ii = "PASS. Old blob 259954ed90f4674733f41c46b6694c5f1320cfd0 (FisherTransform.c at 258b24a, confirmed by git rev-parse) recorded. Token multiset difference old -> new (FisherCore + wrapper), asserted exactly (test_ii_old_to_new_token_difference_is_the_fixes_only; two single-token changes of the new file change it). REMOVED: the two `static` declarations with their INITRUN resets (static x2, if x2, is x2, INITRUN x2) and the global ft_Trigger (F-1); `series((priceHigh() + priceLow()) * 0.5)` (priceHigh, priceLow, +, ft_Mid -> Price; F-2); every decimal literal 0.33, 0.67, 0.99 x2, 0.999 x2, 0.5 x4, 1.0 x2 (F-3, now integer-built); `2.0` and one `-` (the raw line is now four steps, same arithmetic). ADDED: the Core signature with four out-parameters, the four out assignments (F-7), the wrapper fi_w1..fi_w4 with `&` (F-7), fi_V / fi_F as series(0, 2) (F-1), the integer-built constants (33/100, 67/100, 99/100, 999/1000, 1/2, fi_u = 1, fi_nt, fi_nc; F-3), `Period` -> `Len`, and the ft_ -> fi_ renames. Explicit other differences (none are F-items): the raw expression `2.0*((x - lo)/rng - .5)` is split into the four statements of [corrected_code] (pre-registered, notes (b)); `Period` is named `Len`; the guard now tests fi_rng (= MaxH - MinL) instead of repeating the difference (same value); the trigger is `fi_F[1]` through the out-parameter instead of a statics copy. MaxVal / MinVal / log and the guard and clamp conditions are unchanged. No other token differs. FisherTransform_Superseded.c is token-identical to the old blob after ft_ -> fto_, FisherTransform(int Period) -> FisherTransform_Superseded(vars Price, int Period) and the single input edit `vars fto_Mid = Price;` (the alias is kept, so every later use is unchanged; header comment only added); guards seen to fire: one `fto_` left as `ft_`, `0.33` -> `0.34`, `0.99` -> `0.98`, `vars fto_Mid = Price;` -> `series(Price[0])` (all not-ok)."
+cond_iii = "PASS. analysis/harness/tests/test_reference_fsh_spec.py, 5 tests OK. Largest deviation per section: findings 0.000e+00 (296 values), floor 0.000e+00 (4 values), effects 0.000e+00 (38 values), imp_fire_test 0.000e+00 (both fire values; own-model and discrimination values also reproduced). As for LRSI the spec was generated from this reference, so 0 is self-consistency."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/FSH_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; both includes (FisherTransform_Superseded.c, FisherTransform.c) resolve. INFO: D2 floors trace 1.064e-11, invariance 5.319e-12, ramp_exact 0, bound 0, trigger 0, flat_zero 0 (x10 each within tolerance: window ok). Control margins (all >= 10x): NCW trace 1.3e+09x; NCC trace 2.31e+09x, ramp_exact 2.31e+12x; NCK trace 3.8e+09x, ramp_exact 3.8e+12x; NCL trace 1.21e+09x; NC32 trace 1.29e+04x, ramp_exact 1.29e+07x, bound 1.29e+07x; NCS trace 8.54e+09x, ramp_exact 9.2e+12x, flat_zero 1.06e+12x; NCT trace 8.54e+09x, ramp_exact 9.2e+12x, flat_zero 9.88e+11x. Role info NCB: trace 2.71e+09x, ramp_exact 2.65e+12x, bound 9e+08x (reported, never PASS/FAIL). L_FLOAT32 exemption used by NC32 for 0.33, 0.67, 0.99, 0.999 (deliberate: the control). INFO L_NO_STATIC indicators/ehlers/FisherTransform.c: 0 static tokens (comments excluded): PASS."
+cond_v = "PASS. The no-static lint (generator.lint_no_static, comments excluded) finds 0 hits in the new indicators/ehlers/FisherTransform.c and 2 hits in the new indicators/ehlers/FisherTransform_Superseded.c: `fto_Value1` (line 40) and `fto_Fish` (line 51), asserted by test_fsh_corrected_code.py (seen to fire on the real superseded file, not only on the old blob; the test also shows it firing on a corrected-file copy with `static var fi_hi`)."
+cond_vi = "PASS (compile-unverified). strategies/tests/Test_Fisher_IFT_COG.c now builds `vars ift_mid = series((priceHigh() + priceLow())/2, 10);` and calls FisherCore(ift_mid, 10, &ift_raw, &ift_v1, &ift_rng, &f_trig) (outputs and column names unchanged; ft_Trigger no longer read; the caller locals were renamed from fi_* to ift_* after review because fi_raw / fi_rng collide with FisherCore's locals in the flat namespace, gotchas 1.3); strategies/tests/Test_S1_C2_Audit.c builds its own `vars fisherMid = series((priceHigh() + priceLow())/2, FISHER_PERIOD);` (its close series Price is not reused) and calls FisherTransform(fisherMid, FISHER_PERIOD). Neither script was run; their outputs change by design (F-1..F-3). The docs/roadmap snippets are history and unchanged."
+tests_before = 719
+tests_after = 740
+tests_added = 21
+suite = "bash analysis/harness/run_tests.sh: TOTAL 740  PASS 740  FAIL 0  ERROR 0  SKIP 0 (Claude Code shell, 2026-11-20, after the post-review fix; TOTAL 738 before it; baseline before this stage TOTAL 719 PASS 719; the commit-message count comes from the user's Git Bash run)"
+blob_FisherTransform_c_old = "259954ed90f4674733f41c46b6694c5f1320cfd0"
+blob_FisherTransform_c_new = "63a8c0f53255cffd63ec541ad4f1c057b5d8ae67"
+blob_FisherTransform_Superseded_c_new = "970c76b7ac142b03ed702c814dda312413465d51"
+blob_source = "(b) git rev-parse 258b24a:indicators/ehlers/FisherTransform.c (old); git hash-object indicators/ehlers/FisherTransform.c and FisherTransform_Superseded.c (new), 2026-11-19, Claude Code shell"
+script = "strategies/tests/GEN_FSH_FisherTransform.c"
+script_sha256 = "4429d87d9154778dac10aa160605a9b66e655d69b04462284f3cd9e119526f19"
+script_check = "(b) read-through 2026-11-19: includes FisherTransform_Superseded.c then FisherTransform.c with the relative paths of [zorro].include; the 18 inputs (flat, s5..s100, ramp, rampdn, sc5..sc100, of5..of100) built from integers (lvl = 11/10, amp = 1/100, slp = 1/10000, pi_x = 4*atan(1), ...) before the 18 unconditional `series(X[k], 21)` calls and any indicator call; no decimal literal in the harness part (the only decimal literals are NC32's n32_a / n32_b / n32_t / n32_c = 0.33 / 0.67 / 0.99 / 0.999, deliberate float32, and comments); the four generated statics (fsh_n, fsh_done, fsh_hdr, fsh_rows) reset at INITRUN; 100 unconditional calls per bar in fixed variant-major order, counted by regex: FisherCore 36 (FR10 / FR20 x 18 inputs), fsh_ncb / fsh_ncw / fsh_ncc / fsh_nck / fsh_ncl / fsh_nc32 8 each (the 8 base inputs), FisherTransform_Superseded 16 (NCS on flat, s5, s10, s20, s40, s100, ramp, rampdn = Y[420..427], then NCT on the same 8 = Y[428..435]); the six inline bodies defined once each with prefixes ncb_ / ncw_ / ncc_ / nck_ / ncl_ / n32_, no statics, each with its own two series(0, 2); out-parameters pass through the four local scalars fsh_o_raw / fsh_o_v1 / fsh_o_rng / fsh_o_trig, copied to Y[] right after each call and before the next; no bare `Period` identifier (only BarPeriod); raw file Data/GEN_FSH_raw.csv with 376 columns (counted from the header lines), deleted at INITRUN (the repo's convention for the raw file, as GEN_LRS; the exclusive-create guard belongs to the results file), the header and all rows written before quit() (gotchas 9d.4), with fsh_done latched first; C:/Zorro/Data/GEN_FSH_raw.csv does not exist yet."
+
+
+# ============================================================================ Amendment 2
+# 2026-11-20, AFTER run 1. Post-run record only. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings], [prerun], [amendment_1], [run_notes], the generated script.
+[amendment_2]
+date = "2026-11-20"
+base_commit = "cb93b65"
+before_run = false
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Run date 2026-11-20, after a Zorro restart (one [Test] click); script strategies/tests/GEN_FSH_FisherTransform.c sha256 4429d87d9154778dac10aa160605a9b66e655d69b04462284f3cd9e119526f19; Zorro window: Warning 047 only (harmless, gotchas 9d.7), no line starting with Error, 'FSH batch complete: 3000 rows written' (user report). Raw C:/Zorro/Data/GEN_FSH_raw.csv, 3001 lines, 376 columns; local copy GEN_FSH_raw_run1.csv sha256 8b8b61a0d1357da6277df9f18e8c01c0a1ce4870ec86cbd9b30d475f93f9857a (verified again before the checker, Claude Code shell, sha256sum). Results file analysis/harness/results/FSH_ArticleFidelity_20261120.csv, sha256 fb4c364af7867634a1bec97b74da97d1672356d95665c68f757b038fadf13b75. Pre-registration chain: review bdc83da, tooling c1c222e, spec 258b24a, corrected .c + FisherTransform_Superseded.c + callers + test 800c797, Amendment 1 + script cb93b65, prediction 6e79c16, results (this commit). Counts: variants_run=10 (2 real FR10 / FR20 + 7 controls NCW NCC NCK NCL NC32 NCS NCT + 1 info NCB). (1) 56 of 56 real checks PASS, 0 FAIL, 0 ERROR. (2) 7 of 7 controls detected on every [detect.required] kind at >= 10x; 66 FAIL rows: NCW 10, NCC 8, NCK 7, NCL 9, NC32 16, NCS 8, NCT 8 (identical to the prediction per control). (3) 0 gated rows; no input guard fired. (4) IMP must_pass 10 of 10 (largest 5.748e-12, NCW; FR10 5.234035427292838e-12, FR20 5.262457136723242e-12) and must_fail 2 of 2 fire: FR10 vs the NCW model 1.3044958329186862, NCS vs the FR10 model 9.198226649480118. (5) Floor guard 10 of 10 PASS. (6) Lint L_NO_STATIC on indicators/ehlers/FisherTransform.c: 0 static tokens, PASS. Zorro vs the source model, per-kind maxima (FR10 = FR20 unless two values): trace raw 4.996004e-16, v1 5.551115e-16, out 8.881784e-16; invariance 5.319e-12 (FR10) / 1.057e-12 (FR20); bound, ramp_exact, trigger, flat_zero all 0.",
+  "A2.2 Read twice (HARNESS_DESIGN section 4): the planning chat's back-check and prediction (docs/harness/FSH_RUN1_PREDICTION.md, code docs/harness/FSH_RUN1_BACKCHECK.py, 6e79c16, VERDICT PASS predicted) were committed before the checker ran. Second read (Claude Code, Sonnet), from the results file: verdict, pass items 1-7, per-kind maxima for both real variants, every control FAIL row counted by control, IMP must_pass and must_fail values at full precision (CSV actual column), floor rows, gated rows. Agreed: verdict, 56 / 0 / 0, every trace / bound / ramp_exact / trigger / flat_zero maximum, both invariance maxima (the prediction gives them per input class: FR10 2.656542e-12 scale10 / 5.319301e-12 offset, FR20 5.320189e-13 / 1.056932e-12; the checker maxima are the offset values), per-control detection and all 66 FAIL rows by control, nine of ten IMP must_pass values to the printed digits, and the NCS must_fail value (9.198226649480118, identical to 16 digits). Differences, all explained, none changes a result: (i) FR20 IMP must_pass: prediction 1.474376e-12, checker 5.262457136723242e-12 (maximum at input of100). The planning-chat back-check replayed IMP on the 8 base inputs only; over all 18 inputs it gives 5.262457e-12 at of100 and matches the checker (FR10 unchanged: 5.234035e-12 at s100, a base input). Prediction-side omission (planning-chat decision, 2026-11-20); the committed back-check script stays as is. (ii) must_fail FR10 vs the NCW model: prediction 1.304495832918544, checker 1.3044958329186862, a difference of 1.4e-13 absolute, larger than the ~1e-15 comparison limit; both fire by 9 orders of magnitude over 1e-9. Explained (b), planning chat 2026-11-20: same cause as (i). The back-check's must_fail loop also covered the 8 base inputs only (its value is the s100 maximum); over all 18 inputs FR10 vs the NCW model gives 1.3044958329186862 at of100, the checker's value to every digit (s100 1.304495832918544, sc100 1.30449583291829). Prediction-side omission; verdict and detections unaffected. (iii) NCT trace and ramp_exact margins print 8.542e9 / 9.201e12 against the prediction's rounded 8.54e9 / 9.2e12 (rounding in the prediction table only).",
+  "A2.3 Checker run twice on the same raw file (Claude Code shell, 2026-11-20): the checker names its output by date, so the second run wrote FSH_ArticleFidelity_20261120_run2.csv. Both files had sha256 fb4c364af7867634a1bec97b74da97d1672356d95665c68f757b038fadf13b75 (identical, confirmed with sha256sum before deleting). The duplicate was untracked and was deleted (planning-chat decision, 2026-11-20); FSH_ArticleFidelity_20261120.csv is the one results file. There was one Zorro run.",
+  "A2.4 Floor (b): the checker's floor INFO line (D2 floor trace 1.064e-11) shows the stage 1 ESTIMATE (x perturbed by one ulp), not a measurement. The measured Zorro-vs-model floor is 8.9e-16 (trace out 8.881784e-16), so the estimate was conservative by about 4 orders of magnitude: Zorro's sin and log agree with Python's here. x10 of either is far inside the tolerance 1e-9. The IMP residual 5.234e-12 equals the stage 1 pre-run estimate: it is the %.15f rounding of x divided by the range (as LRS A2.3); the Zorro-vs-model trace, with inputs rebuilt from integers, is about 4 orders smaller.",
+  "A2.5 Findings (b). (1) Zorro equals the source model to rounding (<= 8.9e-16) on every exported stage; no PI gap (no trig, no PI, no decimal literal in the corrected code). (2) Start-up matches the model to rounding (INFO rows, <= 8.9e-16): in a run this confirms that series() pads the window with the first value for a caller-built input series read by MaxVal / MinVal (gotchas 9d.6) and that series(0, 2) starts Value1 and Fish at 0. Still INFO: the source defines no start-up (F-5). (3) NC32 was detected on trace (1.29e4 x), bound (1.69e6 x) and ramp_exact (1.29e7 x), the last two being required kinds. (4) On both ramps |out| = ln(1999) exactly in float64 (bound excess 0, ramp_exact diff 0 against the model). The review's wording 'approached, not attained' holds mathematically (the clamped v1 stays below 1) but not in float64. FISHER_SOURCE_REVIEW.md is a committed record and is not edited; this is the correction. (5) NCB (the book variant, role info, never PASS/FAIL): v1 reaches 0.9999 (excess 9.0e-4 over 0.999; checker bound effect 9e+08 x) and max |out| = 4.951718775643098 (read from the results file, rows FSH-NCB-bound-v1 / -bound-out), i.e. outside the FR10 bounds and known answers, as expected. (6) NCL (window 11 vs 10) is detected at T = 20 / 40 / 100 only; a window error is invisible at T <= L. (7) NCS and NCT (the superseded file as two instances) are both detected on trace, ramp_exact and flat_zero: the shared statics are the IIR state itself, so NCT is a real control here, unlike LRS.",
+  "A2.6 Variants tested: 10 (2 real + 7 controls + 1 info), as counted in the results file. Restart Zorro before any rerun of the generated script (A1.3 / [run_notes]): the superseded file's statics persist across [Test] presses and the generated script returns at INITRUN before any indicator call.",
+]
