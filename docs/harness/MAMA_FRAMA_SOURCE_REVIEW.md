@@ -271,3 +271,31 @@ x +- h) are a spec decision.
   alpha factor .5 -> .6; Period bound .67 -> .68; FRAMA exponent 4.6 -> 4.7; FRAMA window N vs N + 2 (needs T > N); FRAMA price-seed
   start-up (FR-4 old); MAMA price-seed start-up (MA-1 old); MA-2 series-default hold (needs a flat stretch to show).
 - Floor: `PI` gap (MAMA, <= 4.8e-9 on checked inputs) plus IMP residual; FRAMA has no trig.
+
+---
+
+## Correction and spec-level decisions — 2026-11-20 (after `b7bdd69`, before any spec)
+
+**C-1 (correction, b).** §3 states the MAMA ramp is well conditioned (6.7e-14 per ulp) and lists the flat value at rows >= 1000 only.
+Both came from ONE perturbation draw. With five draws (`MAMA_FRAMA_STAGE1_NUMBERS.py`, seed 20261120, all rows) the ramp is
+**ill-conditioned**: one ulp moves alpha by 0.45, Period by 9.2, Phase by 30.6 degrees, FAMA by 2.8e-4 (exact pi: FAMA 3.1e-4, alpha 0.45).
+Flat: FAMA 3.2e-2, alpha 0.45 (zero-start transient). s5: FAMA 1.7e-2. s10-s100: every column <= 1.5e-10 (Phase, degrees), <= 2.3e-11
+(alpha), <= 6.7e-13 (FAMA). Under D7 rule 3 the MAMA checked inputs are **s10, s20, s40, s100**; flat, ramp and s5 are INFO. §6 rule 6's
+"flat -> level" for MAMA is therefore INFO as well. FRAMA: output well conditioned on every input (<= 5.8e-15); Dimen and alpha are
+ill-conditioned on point-bar **flat** only (Dimen 2.0, alpha 0.99: rounding noise decides whether N3 > 0), INFO there.
+**C-2 (b).** MAMA equivariance holds only after the start-up: the zero start does not map under x -> kx + c (last row off > 1e-9: <= 516 on
+s20 / s40, both variants); from row 1000 the residual is <= 5.3e-11 (Phase) / 1.6e-14 (FAMA). FRAMA equivariance holds from row 1 (<= 8e-15).
+**C-3 (b).** FRAMA Dimen can exceed 2 by rounding (2.0000000000000018 on band sines), so alpha can fall one ulp below exp(-4.6): bound
+checks need the D6 relative allowance.
+
+**Spec-level decisions (user, 2026-11-20: all as recommended):**
+- **S1 — exact pi in MAMA (D3 exception, under D3's own rule).** With Zorro `PI` the floor on the checked sines is Phase 7.26e-5 deg,
+  Period 4.33e-5, alpha 3.27e-6, larger than the float32-literal effect (Phase 8.8e-6, Period 5.9e-6), so MA-4 could never be seen by a run.
+  Corrected MAMA builds pi at run time (`4*atan(1)`, D3's prescribed form); the old `PI` becomes control NCP. Output change <= 4.6e-8.
+- **S2 — tolerances.** MAMA trace 1e-9 (MAMA, FAMA, alpha, Period), 1e-8 (Phase, degrees); FRAMA trace 1e-10 (out, Dimen, alpha).
+  Rule-3 conditioning bound = tolerance / 10 per column.
+- **S3 — MAMA variants** (FL, SL) = (.5, .05) (slot) and (.3, .1).
+- **S4 — recorded, not invented:** the Period-bound control (.67 -> .68) has zero effect on every checked input (binds on the ramp only):
+  INFO. MA-2 (hold on exact zeros) fires only on flat (INFO): verified by code review only, stated in the spec.
+- **S5 — FRAMA bars:** point bars (H = L = x) AND band bars (H = x + h, L = x - h, h = 0.002, built from integers). Band ramp is a new known
+  answer: D = log2(4 r1 / r3) constant, alpha constant, lag (1 - alpha)/alpha = 34.05274879969143 (N = 16) / 17.27287888639891 (N = 32).

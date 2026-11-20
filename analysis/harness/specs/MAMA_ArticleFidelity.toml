@@ -1,0 +1,1546 @@
+# MAMA_ArticleFidelity.toml -- MESA Adaptive Moving Average MAMA and its FAMA (Ehlers, TASC V.19:9 2001, Sidebar Fig. 1), SOURCE FIDELITY +
+# IMPLEMENTATION (HARNESS_DESIGN section 1, both questions), the FIRST spec of the ADAPTIVE-SMOOTHER family (HARNESS_DESIGN D7).
+# Pre-registration: this file, committed BEFORE the corrected MAMA.c / MAMA_Superseded.c are written and BEFORE the generated script is run
+# (CLAUDE.md section 4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of MAF stage 1 (planning chat 2026-11-20; review docs/harness/MAMA_FRAMA_SOURCE_REVIEW.md (b7bdd69) incl. its appendix C-1..C-3 and
+# S1..S5, D7, accepted by the user; brief docs/harness/MAF_STAGE1_PROMPT.md). Tooling: the D7 path of generator.py / checker.py
+# ([checks].adaptive = true) and the reference models mama_article / mama_superseded (reference.py).
+# Labels: (a) source states, (b) measured / computed here, (c) inference. Ids must not contain '-'. Rows are numbered n = 0, 1, ... (0-based):
+# "row 1" of the brief / D7 = n 0; "CurrentBar 6" = n 5.
+#
+# What D7 changes against the oscillator specs (D6):
+#   * The output is a price level: scale / offset copies are checked for EQUIVARIANCE (mama, fama: copy = k out + c; alpha, period, phase:
+#     copy = out), rows n >= 1000 (C-2: the zero start does not map under x -> kx + c; the residual falls below 1e-9 by n <= 516).
+#   * No warm-up cut: every column is traced against the source model from row 1 (n >= 0), start-up included (the source defines it: every
+#     var 0, the body from CurrentBar 6). No gate: instead each (input, column) pair is classified BEFORE the run (D7 rule 3, [conditioning]):
+#     checked if 5 one-ulp perturbations of the input move that column of the model by <= trace tolerance / 10 over ALL rows, else INFO.
+#   * Five exported columns (MA-7): MAMACore(Price, FastLimit, SlowLimit, &fama, &period, &alpha, &phase) returns mama.
+#   * Exact pi (S1): the corrected code builds pi at run time (4*atan(1)); Zorro's PI (float32 3.14159) is the control NCP.
+#   * NCB (Period bound .67 -> .68) is a control: S4 called it zero-effect, but on the checked pair s5 period it moves by 3.6e-2 (stage 1).
+#   * NCS / NCS2 are the REAL superseded file (MAMA_Superseded.c, stage 2) called as two instances (both .5 / .05) on every base input; they
+#     share only the file static barCount (MA-3). (The brief names one control NCS "called as TWO instances"; the second instance is the
+#     variant NCS2 here, as FSH's NCT; the id NCT is not used in this spec.)
+
+[batch]
+name = "MAMA_ArticleFidelity"
+id_prefix = "MAM"
+indicator = "MAMACore"                   # Light-C function called by the `param` variants (corrected MAMA.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/MAMA_ArticleFidelity.toml (this file)"
+script_name = "GEN_MAM_MAMA"            # generated Light-C file; the generator never overwrites
+real_params = true                       # FastLimit / SlowLimit are real values built from integers at run time (LRS pattern)
+
+[source]
+article = "Ehlers, J. F., 'MESA Adaptive Moving Averages', Technical Analysis of Stocks & Commodities V.19:9 (2001), pp. 30-35; Sidebar Figure 1 'TradeStation code for MAMA and FAMA', PDF p. 5 (project knowledge `MESA Adaptive Moving Averages.pdf`). (b) Cybernetic Analysis (2004) does not contain MAMA."
+formula = """
+(a) Inputs: Price((H+L)/2), FastLimit(.5), SlowLimit(.05); every var starts at 0; the body runs only If CurrentBar > 5:
+    Smooth = (4*Price + 3*Price[1] + 2*Price[2] + Price[3]) / 10;
+    Detrender = (.0962*Smooth + .5769*Smooth[2] - .5769*Smooth[4] - .0962*Smooth[6])*(.075*Period[1] + .54);
+    Q1 = (... Detrender ...)*(.075*Period[1] + .54);  I1 = Detrender[3];  jI = (... I1 ...)*(...);  jQ = (... Q1 ...)*(...);
+    I2 = I1 - jQ;  Q2 = Q1 + jI;  I2 = .2*I2 + .8*I2[1];  Q2 = .2*Q2 + .8*Q2[1];
+    Re = I2*I2[1] + Q2*Q2[1];  Im = I2*Q2[1] - Q2*I2[1];  Re = .2*Re + .8*Re[1];  Im = .2*Im + .8*Im[1];
+    If Im <> 0 and Re <> 0 then Period = 360/ArcTangent(Im/Re);
+    If Period > 1.5*Period[1] then Period = 1.5*Period[1];  If Period < .67*Period[1] then Period = .67*Period[1];
+    If Period < 6 then Period = 6;  If Period > 50 then Period = 50;  Period = .2*Period + .8*Period[1];
+    SmoothPeriod = .33*Period + .67*SmoothPeriod[1];                (computed, unused: MA-6)
+    If I1 <> 0 then Phase = ArcTangent(Q1/I1);  DeltaPhase = Phase[1] - Phase;  If DeltaPhase < 1 then DeltaPhase = 1;
+    alpha = FastLimit/DeltaPhase;  If alpha < SlowLimit then alpha = SlowLimit;  If alpha > FastLimit then alpha = FastLimit;
+    MAMA = alpha*Price + (1 - alpha)*MAMA[1];  FAMA = .5*alpha*MAMA + (1 - .5*alpha)*FAMA[1];
+(a) ArcTangent returns DEGREES (EasyLanguage). A var not assigned on a bar keeps its value (EasyLanguage); that is the MA-2 hold.
+(b) Exported here: mama, fama, period (after the .2 / .8 blend), alpha (after the clamps), phase (degrees). Exact bounds: alpha in [SL, FL] on
+    every computed row (n >= 5); period <= 50 on every row (period >= 6 only asymptotically from the zero start: review section 3).
+"""
+reference = "analysis/harness/reference.py mama_article(FL, SL, w1, w2, ka, kb, a2, a8, up, dn, c33, c67, fama_k, pi, literals) (simulate_mama: per-instance state, every var 0, body from the 6th call, hold rule, the corrected code's operation order: deg = 180/pi, atan(.)*deg, 360/P), mama_superseded(params, index) (simulate_mama_shared: the old MAMA.c, its static barCount shared by every superseded call in the generator's ACTUAL call order, float32 literals, Zorro PI)"
+d1 = "(b) D1 rule 2: every literal of Fig. 1 (.0962, .5769, .075, .54, .2, .8, 1.5, .67, .33, 6, 50, 360, .5) is taken at its decimal value, built from integers at run time; none equals a named constant to every printed digit, so there is no rule-1 / rule-4 replacement and no 'as printed' INFO variant. The degree conversion uses exact pi built at run time (S1, a D3 exception under D3's own rule: with Zorro PI the floor exceeds the float32-literal effect, so MA-4 could never be seen)."
+review_only = "(b) Checked by CODE REVIEW only (S4), not by a run: MA-2 (Period / Phase keep their value when Im or Re = 0 / I1 = 0) acts only on exact zeros, i.e. on flat, whose trace is INFO (rule 3). Stage 2's pre-run item (i) asserts the hold lines verbatim. (b) S4 also recorded the .67 -> .68 Period bound as having zero effect on every checked input; that is superseded by a stage 1 finding (planning-chat review, 2026-11-20): s5 period is a CHECKED pair (rule 3) and the bound moves it by 3.626e-02, so NCB is a run-checked control (detected by trace on s5 period, 3.63e7x)."
+other_forms = "(a) SmoothPeriod is computed and unused (MA-6, kept for fidelity, not exported). (c) The MAMA / FAMA crossover is the source's suggested signal; whether the NNFX baseline uses price vs FAMA or the cross is a template decision (step 4)."
+
+# Pre-registered corrected indicators/ehlers/MAMA.c (MA-1..MA-4, MA-7; the brief's code block, verbatim). Written in stage 2 AFTER this file
+# is committed; a test then asserts it contains these lines verbatim (whitespace-normalised, comments stripped). reference.mama_article
+# implements exactly these lines (same operations in the same order; IMP must pass).
+[corrected_code]
+file = "indicators/ehlers/MAMA.c"
+function = "var MAMACore(vars Price, var FastLimit, var SlowLimit, var* pFama, var* pPeriod, var* pAlpha, var* pPhase)"
+lines = """
+    vars ma_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars ma_S  = series(0, 7);
+    vars ma_De = series(0, 7);
+    vars ma_I1 = series(0, 7);
+    vars ma_Q1 = series(0, 7);
+    vars ma_jI = series(0, 2);
+    vars ma_jQ = series(0, 2);
+    vars ma_I2 = series(0, 2);
+    vars ma_Q2 = series(0, 2);
+    vars ma_Re = series(0, 2);
+    vars ma_Im = series(0, 2);
+    vars ma_P  = series(0, 2);
+    vars ma_SP = series(0, 2);
+    vars ma_Ph = series(0, 2);
+    vars ma_A  = series(0, 2);
+    vars ma_M  = series(0, 2);
+    vars ma_F  = series(0, 2);
+    ma_n[0] = ma_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    ma_S[0] = ma_S[1];   ma_De[0] = ma_De[1]; ma_I1[0] = ma_I1[1]; ma_Q1[0] = ma_Q1[1];
+    ma_jI[0] = ma_jI[1]; ma_jQ[0] = ma_jQ[1]; ma_I2[0] = ma_I2[1]; ma_Q2[0] = ma_Q2[1];
+    ma_Re[0] = ma_Re[1]; ma_Im[0] = ma_Im[1]; ma_P[0] = ma_P[1];   ma_SP[0] = ma_SP[1];
+    ma_Ph[0] = ma_Ph[1]; ma_A[0] = ma_A[1];   ma_M[0] = ma_M[1];   ma_F[0] = ma_F[1];
+    var ma_w1 = 962;  ma_w1 = ma_w1/10000;
+    var ma_w2 = 5769; ma_w2 = ma_w2/10000;
+    var ma_ka = 75;   ma_ka = ma_ka/1000;
+    var ma_kb = 54;   ma_kb = ma_kb/100;
+    var ma_a2 = 2;    ma_a2 = ma_a2/10;
+    var ma_a8 = 8;    ma_a8 = ma_a8/10;
+    var ma_c33 = 33;  ma_c33 = ma_c33/100;
+    var ma_c67 = 67;  ma_c67 = ma_c67/100;
+    var ma_up = 15;   ma_up = ma_up/10;
+    var ma_dn = 67;   ma_dn = ma_dn/100;
+    var ma_pi = 4;    ma_pi = ma_pi*atan(1);       // S1: exact pi at run time (D3)
+    var ma_deg = 180; ma_deg = ma_deg/ma_pi;
+    var ma_h = 1;     ma_h = ma_h/2;
+    var ma_u = 1;
+    var ma_pf = 0;
+    var ma_p1 = 0;
+    var ma_dp = 0;
+    var ma_ah = 0;
+    if(ma_n[0] > 5) {
+        ma_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        ma_S[0] = ma_S[0]/10;
+        ma_pf = ma_ka*ma_P[1] + ma_kb;
+        ma_De[0] = (ma_w1*ma_S[0] + ma_w2*ma_S[2] - ma_w2*ma_S[4] - ma_w1*ma_S[6])*ma_pf;
+        ma_Q1[0] = (ma_w1*ma_De[0] + ma_w2*ma_De[2] - ma_w2*ma_De[4] - ma_w1*ma_De[6])*ma_pf;
+        ma_I1[0] = ma_De[3];
+        ma_jI[0] = (ma_w1*ma_I1[0] + ma_w2*ma_I1[2] - ma_w2*ma_I1[4] - ma_w1*ma_I1[6])*ma_pf;
+        ma_jQ[0] = (ma_w1*ma_Q1[0] + ma_w2*ma_Q1[2] - ma_w2*ma_Q1[4] - ma_w1*ma_Q1[6])*ma_pf;
+        ma_I2[0] = ma_I1[0] - ma_jQ[0];
+        ma_Q2[0] = ma_Q1[0] + ma_jI[0];
+        ma_I2[0] = ma_a2*ma_I2[0] + ma_a8*ma_I2[1];
+        ma_Q2[0] = ma_a2*ma_Q2[0] + ma_a8*ma_Q2[1];
+        ma_Re[0] = ma_I2[0]*ma_I2[1] + ma_Q2[0]*ma_Q2[1];
+        ma_Im[0] = ma_I2[0]*ma_Q2[1] - ma_Q2[0]*ma_I2[1];
+        ma_Re[0] = ma_a2*ma_Re[0] + ma_a8*ma_Re[1];
+        ma_Im[0] = ma_a2*ma_Im[0] + ma_a8*ma_Im[1];
+        if(ma_Im[0] != 0 && ma_Re[0] != 0) {
+            ma_P[0] = atan(ma_Im[0]/ma_Re[0]);
+            ma_P[0] = ma_P[0]*ma_deg;
+            ma_P[0] = 360/ma_P[0];
+        }
+        ma_p1 = ma_P[1];
+        if(ma_P[0] > ma_up*ma_p1) ma_P[0] = ma_up*ma_p1;
+        if(ma_P[0] < ma_dn*ma_p1) ma_P[0] = ma_dn*ma_p1;
+        if(ma_P[0] < 6)  ma_P[0] = 6;
+        if(ma_P[0] > 50) ma_P[0] = 50;
+        ma_P[0] = ma_a2*ma_P[0] + ma_a8*ma_p1;
+        ma_SP[0] = ma_c33*ma_P[0] + ma_c67*ma_SP[1];
+        if(ma_I1[0] != 0) {
+            ma_Ph[0] = atan(ma_Q1[0]/ma_I1[0]);
+            ma_Ph[0] = ma_Ph[0]*ma_deg;
+        }
+        ma_dp = ma_Ph[1] - ma_Ph[0];
+        if(ma_dp < 1) ma_dp = 1;
+        ma_A[0] = FastLimit/ma_dp;
+        if(ma_A[0] < SlowLimit) ma_A[0] = SlowLimit;
+        if(ma_A[0] > FastLimit) ma_A[0] = FastLimit;
+        ma_M[0] = ma_A[0]*Price[0] + (ma_u - ma_A[0])*ma_M[1];
+        ma_ah = ma_h*ma_A[0];
+        ma_F[0] = ma_ah*ma_M[0] + (ma_u - ma_ah)*ma_F[1];
+    }
+    *pFama   = ma_F[0];
+    *pPeriod = ma_P[0];
+    *pAlpha  = ma_A[0];
+    *pPhase  = ma_Ph[0];
+    return ma_M[0];"""
+wrapper_function = "var MAMA(vars Price, var FastLimit, var SlowLimit, var* outFAMA)"
+wrapper_lines = """
+    var maw_1;
+    var maw_2;
+    var maw_3;
+    return MAMACore(Price, FastLimit, SlowLimit, outFAMA, &maw_1, &maw_2, &maw_3);"""
+notes = """(b) Changed vs the current .c (blob bab4cbbb5961be5720bce82fc6e487e283f7f00e, last commit 2a5eca5; recorded again at pre-run (ii), stage 2):
+MA-1 zero start (every series(0, n): the source's var initial values) and the body only from the 6th call of THIS instance (ma_n, a per-instance
+counter series(0, 2), gotchas 9d.9) in place of the price seeds, the Period 20 init and the `return Price[0]` for 5 calls; MA-2 every state
+starts the bar at its previous value (the EasyLanguage hold); MA-3 the static barCount removed; MA-4 every constant built from integers at run
+time; S1 exact pi (4*atan(1)) and deg = 180/pi; MA-7 the columns exported through MAMACore(Price, FastLimit, SlowLimit, &fama, &period, &alpha,
+&phase), MAMA(Price, FastLimit, SlowLimit, &fama) a thin wrapper (callers unchanged); MA-8 header with source and page, formula, deviations fixed,
+the review path and labelled claims (written with the .c). MA-5 (the #ifndef PI fallback) disappears with S1. MA-6 SmoothPeriod kept, unused.
+(b) Every series() call is unconditional and first (gotchas 3.1); every expression starts with a variable or a single integer literal times a
+variable (gotchas 9d.8: `4*Price[0] + ...`, `360/ma_P[0]`); no decimal literal (asserted by test_generator_maf). The model's operation order is
+the code's (deg = 180/pi, atan(.)*deg, 360/P); the planning chat's script used atan(.)*180/pi: differences <= 8.3e-14 (finding xcheck_*).
+(c) If any line cannot compile in Light-C (declarations after statements, `&&`, unary minus on a variable), stage 2 stops and reports. (b) Each
+construct has compiled in a harness run already: `&&` (LaguerreRSI_Superseded.c:25, LRS run 1), declarations after statements (FisherCore,
+FSH run 1), unary minus on a variable inside an expression (Reflex.c:60 `exp(-rx_k*PI/rx_half)`, RFX run 1).
+(c) MAMACore reads Price[0..3]: the caller's series must hold >= 4 values ([zorro].series_len = 34).
+Superseded file (stage 2): the CURRENT MAMA.c body as indicators/ehlers/MAMA_Superseded.c, `MAMA_Superseded(vars Price, var FastLimit, var
+SlowLimit, var* outFAMA)`, every local / static prefixed mao_, NO behavioural edit. It is the shared-state control NCS / NCS2."""
+
+[zorro]
+include = ["../../indicators/ehlers/MAMA_Superseded.c", "../../indicators/ehlers/MAMA.c"]   # resolved from strategies/tests/; MAMA_Superseded.c is written in stage 2 (lint reports it missing until then); the current MAMA.c exists but has no MAMACore and still has its static
+raw_file = "Data/GEN_MAM_raw.csv"
+marker_file = "Data/GEN_MAM_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 34           # (c) brief: >= 33 for FRAMA (FR32 + NCN); MAMACore reads Price[0..3] only; the same value in both D7 specs
+
+[inputs]
+n_bars = 3000
+warmup = 0                # D7 rule 2: no W cut; every check reads rows n >= 0 (trace from row 1)
+level = [11, 10]          # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]            # 0.01
+slope = [1, 10000]        # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+
+[inputs.equivariance]     # D7 rule 5: affine copies of s40 only (C-2; brief): sc = 10 x - 9.9 (amplitude 0.1), of = x + 1.1 (level 2.2)
+inputs = ["s40"]
+transforms = [{ id = "sc", scale = [10, 1], offset = [-99, 10] }, { id = "of", scale = [1, 1], offset = [11, 10] }]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                  # HARNESS_DESIGN D7 (rules 1-8) as mapped here
+adaptive = true
+columns = ["mama", "fama", "period", "alpha", "phase"]
+level_columns = ["mama", "fama"]                     # equivariance: copy = k out + c; alpha / period / phase: copy = out
+equivariance_from_n = 1000                           # W_eq (C-2)
+flat_info = { columns = ["mama", "fama"], from_n = 1000 }    # D7 rule 6 for MAMA: flat -> level is INFO (C-1)
+source = """(a)/(b) D7 mapped to MAMA: rule 1 the five columns exported (MA-7); rule 2 trace of every column from row 1 (n >= 0) against
+mama_article, start-up included; rule 3 per (input, column) classification below ([conditioning], each expected table's conditioning list):
+INFO pairs are written as info-trace rows, never PASS/FAIL; rule 4 bounds from the expected tables (alpha in [SL, FL] from n = 5, the first
+computed row; period <= 50 every row), every input incl. the copies, relative allowance [tolerances.bound]; rule 5 equivariance on s40, copies
+sc and of, rows n >= 1000; rule 6 flat -> level only as INFO (info-flat, n >= 1000; the flat trace is INFO, C-1), the ramp is a trace and here
+INFO too (C-1: ill-conditioned); rule 7 NCS / NCS2; rule 8 no linear checks."""
+
+[conditioning]            # D7 rule 3, the pre-run classifier (checker.conditioning_table), deterministic
+seed = 20261120
+draws = 5
+skip_draws = 0
+order = ["flat", "ramp", "s5", "s10", "s20", "s40", "s100"]
+bound = { mama = 1e-10, fama = 1e-10, period = 1e-10, alpha = 1e-10, phase = 1e-09 }
+source = """(b) S2: bound = trace tolerance / 10 per column. One numpy default_rng(20261120); per real expected table (MA05, then MA03), per
+input in `order`, then per table the copies (sc40, of40): 5 perturbations x(1 + 2^-52 u), u = rng.integers(-1, 2, 3000), and the max over ALL
+rows of |column(perturbed) - column(x)| of the MODEL (reference.mama_article). The base order and seed are the planning chat's
+(docs/harness/MAMA_FRAMA_STAGE1_NUMBERS.py section 1), so the base values reproduce its table 1 up to the operation-order difference. A pair
+above its bound is INFO. A recomputed classification that differs from the lists below is a pre-run STOP (pass condition, pre-run (vii))."""
+
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X, exported input vs recomputed x[n]). Covers the copies."
+[tolerances.trace]
+value = 1e-09
+columns = { phase = 1e-08 }
+source = "(c) S2 (user, 2026-11-20): MAMA trace 1e-9 (mama, fama, alpha, period), 1e-8 (phase, degrees). Every checked (input, column) pair, every row n >= 0. Window: [floor] x10 <= tolerance (checked below, D2 rule 3); NC32 / NCP (the smallest controls) >= 10x."
+[tolerances.bound]
+value = 1e-12
+source = "(c) D6 default: RELATIVE allowance |bound| x 1e-12 on alpha in [SL, FL] (both sides, rows n >= 5) and period <= 50 (every row), every input of the variant incl. the copies."
+[tolerances.equivariance]
+value = 1e-09
+columns = { phase = 1e-08 }
+source = "(c) Brief: as the trace (1e-9; phase 1e-8), rows n >= 1000 (W_eq, C-2). Zorro-internal, no model. (b) Model floor [floor].equivariance*."
+[tolerances.imp]
+value = 1e-09
+columns = { phase = 1e-08 }
+source = "(c) As every earlier spec (1e-9); phase in degrees 1e-8 (brief). On the CHECKED (input, column) pairs only; INFO pairs are reported (rule 3). (b) Expected residual: [floor] imp estimate (the %.15f rounding of the exported x through the model)."
+
+[lint]
+no_static = ["indicators/ehlers/MAMA.c"]
+source = "(b) As LRSI / FSH: the corrected MAMA.c must contain no `static` token (comments and strings excluded): the structural check for MA-3. generator.lint_no_static; seen to fire on the current body (1 hit, barCount: test_generator_maf). Until stage 2 the current file has the static: lint reports it, as it reports the missing MAMA_Superseded.c include."
+
+# D2 floor per quantity (see source).
+[floor]
+trace = 2.3175628083293986e-11
+trace_phase = 1.5377921158687968e-10
+equivariance = 6.23856521997368e-12
+equivariance_phase = 5.2733428734796917e-11
+imp_estimate = 1.7374324201568925e-11
+imp_estimate_phase = 1.1239009722885385e-10
+source = """(b) 2026-11-20, tests/maf_support.numbers(). trace / trace_phase = the largest of two estimates over the real variants and the CHECKED (input, column) pairs: the conditioning values (5 one-ulp perturbations, [expected.*.conditioning]; phase: MA03 s100 1.5378e-10, the rest MA05 s100 alpha 2.3176e-11) and the IMP estimate (the model on x printed with %.15f vs the exact x: imp_estimate / imp_estimate_phase). No PI gap (S1: exact pi in code and model). x10: 2.3e-10 <= 1e-9 and 1.5e-9 <= 1e-8: the window holds (brief STOP rule not met). equivariance / equivariance_phase = the model's own residual on s40, rows n >= 1000 (brief item 3: period 6.2e-12, phase 5.3e-11). (c) Zorro vs the model is expected at rounding level on the checked pairs (the model mirrors the code's operation order; Zorro's atan / sin may differ from numpy's by an ulp, which the conditioning values bound); pass item 7 guards the run value."""
+
+
+# Expected values: the trace model per variant (no tables), the bounds, and the pre-registered conditioning classification. Never from the .c file.
+[expected.MA05]
+article = "mama_article(1/2,1/20)"
+bounds = { alpha = { lo = 0.05, hi = 0.5, from_n = 5 }, period = { hi = 50.0 } }
+source = "(b) reference.mama_article((1, 2), (1, 20)): Sidebar Fig. 1, FastLimit .5, SlowLimit .05 (the slot, S3), literals as integer ratios, exact pi, zero start, body from n = 5, hold rule. (a) Bounds: alpha clamped to [SlowLimit, FastLimit] on every computed row (n >= 5; n < 5 alpha = 0, the initial value); period clamped to <= 50 before the .2 / .8 blend with a value <= 50."
+
+[expected.MA05.conditioning]
+info = { flat = ["mama", "fama", "period", "alpha", "phase"], ramp = ["mama", "fama", "period", "alpha", "phase"], s5 = ["mama", "fama", "alpha", "phase"] }
+values = { flat = { mama = 0.0005709100204471795, fama = 0.03244054625777926, period = 43.33694253243574, alpha = 0.45, phase = 95.10587565974755 }, ramp = { mama = 0.00029964192260556466, fama = 0.00027876357428602283, period = 9.211677676513197, alpha = 0.4499561000845082, phase = 30.640949146924406 }, s5 = { mama = 0.004968645490677215, fama = 0.01686431576582259, period = 4.156675004196586e-13, alpha = 0.45, phase = 179.99999999999986 }, s10 = { mama = 6.661338147750939e-16, fama = 4.440892098500626e-16, period = 9.947598300641403e-14, alpha = 0.0, phase = 4.579447931973846e-12 }, s20 = { mama = 1.1102230246251565e-15, fama = 8.104628079763643e-15, period = 3.268496584496461e-13, alpha = 9.034439862887211e-14, phase = 1.2168044349891716e-11 }, s40 = { mama = 4.884981308350689e-15, fama = 2.6201263381153694e-14, period = 4.554578936222242e-12, alpha = 5.568046024251316e-13, phase = 3.948841253986757e-11 }, s100 = { mama = 4.6407322429331543e-14, fama = 2.3514523661560816e-13, period = 1.8118839761882555e-12, alpha = 2.3175628083293986e-11, phase = 1.453059894629405e-10 }, sc40 = { mama = 5.551115123125783e-15, fama = 2.220446049250313e-15, period = 4.334310688136611e-13, alpha = 7.813194535799539e-14, phase = 3.2721880760533395e-12 }, of40 = { mama = 7.105427357601002e-15, fama = 1.1257661469699087e-13, period = 8.419931418757187e-12, alpha = 9.887368701555488e-13, phase = 6.519940143334679e-11 } }
+
+[expected.MA03]
+article = "mama_article(3/10,1/10)"
+bounds = { alpha = { lo = 0.1, hi = 0.3, from_n = 5 }, period = { hi = 50.0 } }
+source = "(b) reference.mama_article((3, 10), (1, 10)): as MA05 with FastLimit .3, SlowLimit .1 (S3: the old header's sensitivity claim, measured, not trusted)."
+
+[expected.MA03.conditioning]
+info = { flat = ["mama", "fama", "period", "alpha", "phase"], ramp = ["mama", "fama", "period", "alpha", "phase"], s5 = ["mama", "fama", "alpha", "phase"] }
+values = { flat = { mama = 0.013313646495071607, fama = 0.08339937062095959, period = 43.13960103856038, alpha = 0.19999999999999998, phase = 179.99999999999932 }, ramp = { mama = 0.00025207069989341413, fama = 0.00028956255472500914, period = 11.56032815860928, alpha = 0.19999999999999998, phase = 30.64360615177287 }, s5 = { mama = 0.006301771545829338, fama = 0.03477418344079641, period = 5.755396159656812e-13, alpha = 0.19999999999999998, phase = 179.99999999999986 }, s10 = { mama = 6.661338147750939e-16, fama = 6.661338147750939e-16, period = 2.2737367544323206e-13, alpha = 0.0, phase = 6.0880189778345084e-12 }, s20 = { mama = 6.661338147750939e-16, fama = 8.881784197001252e-16, period = 2.7355895326763857e-13, alpha = 0.0, phase = 1.1326051208015997e-11 }, s40 = { mama = 7.105427357601002e-15, fama = 4.0523140398818214e-14, period = 4.369837824924616e-12, alpha = 3.042011087472929e-13, phase = 4.1811887285803095e-11 }, s100 = { mama = 6.017408793468348e-14, fama = 6.677991493120317e-13, period = 1.7124079931818414e-12, alpha = 1.6240481182094868e-11, phase = 1.5377921158687968e-10 }, sc40 = { mama = 1.7763568394002505e-15, fama = 2.55351295663786e-15, period = 3.979039320256561e-13, alpha = 3.277933480205775e-14, phase = 3.4781066915456904e-12 }, of40 = { mama = 4.085620730620576e-14, fama = 1.9517720772910252e-13, period = 8.44124770082999e-12, alpha = 5.84823856009109e-13, phase = 8.223424718956096e-11 } }
+
+
+# ----------------------------------------------------------------------------- variants
+[[variants]]
+id = "MA05"
+role = "real"
+label = "FastLimit=1/2 SlowLimit=1/20 (the slot, source default)"
+kind = "param"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+equivariance = true
+
+[[variants]]
+id = "MA03"
+role = "real"
+label = "FastLimit=3/10 SlowLimit=1/10"
+kind = "param"
+params = [[3, 10], [1, 10]]
+expected = "MA03"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+equivariance = true
+
+[[variants]]
+id = "NCB"
+role = "neg_control"
+label = "NCB: Period bound .67 -> .68 (68/100) vs MA05"
+kind = "inline"
+function = "mam_ncb"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+comment = "NCB: [corrected_code] with dn = 68/100 (the .67 x Period[1] lower bound). (b) Zero effect on s10, s20, s40, s100 (S4) but 3.626e-02 on s5 period, a CHECKED pair under rule 3: a control since the stage 1 review (2026-11-20; it was an INFO variant in the brief), detected by trace on s5 period (3.63e7x)."
+body = '''
+var mam_ncb(vars Price, var FastLimit, var SlowLimit,
+             var* pFama, var* pPeriod, var* pAlpha, var* pPhase)
+{
+    vars mxb_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars mxb_S  = series(0, 7);
+    vars mxb_De = series(0, 7);
+    vars mxb_I1 = series(0, 7);
+    vars mxb_Q1 = series(0, 7);
+    vars mxb_jI = series(0, 2);
+    vars mxb_jQ = series(0, 2);
+    vars mxb_I2 = series(0, 2);
+    vars mxb_Q2 = series(0, 2);
+    vars mxb_Re = series(0, 2);
+    vars mxb_Im = series(0, 2);
+    vars mxb_P  = series(0, 2);
+    vars mxb_SP = series(0, 2);
+    vars mxb_Ph = series(0, 2);
+    vars mxb_A  = series(0, 2);
+    vars mxb_M  = series(0, 2);
+    vars mxb_F  = series(0, 2);
+    mxb_n[0] = mxb_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    mxb_S[0] = mxb_S[1];   mxb_De[0] = mxb_De[1]; mxb_I1[0] = mxb_I1[1]; mxb_Q1[0] = mxb_Q1[1];
+    mxb_jI[0] = mxb_jI[1]; mxb_jQ[0] = mxb_jQ[1]; mxb_I2[0] = mxb_I2[1]; mxb_Q2[0] = mxb_Q2[1];
+    mxb_Re[0] = mxb_Re[1]; mxb_Im[0] = mxb_Im[1]; mxb_P[0] = mxb_P[1];   mxb_SP[0] = mxb_SP[1];
+    mxb_Ph[0] = mxb_Ph[1]; mxb_A[0] = mxb_A[1];   mxb_M[0] = mxb_M[1];   mxb_F[0] = mxb_F[1];
+    var mxb_w1 = 962;  mxb_w1 = mxb_w1/10000;
+    var mxb_w2 = 5769; mxb_w2 = mxb_w2/10000;
+    var mxb_ka = 75;   mxb_ka = mxb_ka/1000;
+    var mxb_kb = 54;   mxb_kb = mxb_kb/100;
+    var mxb_a2 = 2;    mxb_a2 = mxb_a2/10;
+    var mxb_a8 = 8;    mxb_a8 = mxb_a8/10;
+    var mxb_c33 = 33;  mxb_c33 = mxb_c33/100;
+    var mxb_c67 = 67;  mxb_c67 = mxb_c67/100;
+    var mxb_up = 15;   mxb_up = mxb_up/10;
+    var mxb_dn = 68;   mxb_dn = mxb_dn/100;
+    var mxb_pi = 4;    mxb_pi = mxb_pi*atan(1);       // S1: exact pi at run time (D3)
+    var mxb_deg = 180; mxb_deg = mxb_deg/mxb_pi;
+    var mxb_h = 1;     mxb_h = mxb_h/2;
+    var mxb_u = 1;
+    var mxb_pf = 0;
+    var mxb_p1 = 0;
+    var mxb_dp = 0;
+    var mxb_ah = 0;
+    if(mxb_n[0] > 5) {
+        mxb_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        mxb_S[0] = mxb_S[0]/10;
+        mxb_pf = mxb_ka*mxb_P[1] + mxb_kb;
+        mxb_De[0] = (mxb_w1*mxb_S[0] + mxb_w2*mxb_S[2] - mxb_w2*mxb_S[4] - mxb_w1*mxb_S[6])*mxb_pf;
+        mxb_Q1[0] = (mxb_w1*mxb_De[0] + mxb_w2*mxb_De[2] - mxb_w2*mxb_De[4] - mxb_w1*mxb_De[6])*mxb_pf;
+        mxb_I1[0] = mxb_De[3];
+        mxb_jI[0] = (mxb_w1*mxb_I1[0] + mxb_w2*mxb_I1[2] - mxb_w2*mxb_I1[4] - mxb_w1*mxb_I1[6])*mxb_pf;
+        mxb_jQ[0] = (mxb_w1*mxb_Q1[0] + mxb_w2*mxb_Q1[2] - mxb_w2*mxb_Q1[4] - mxb_w1*mxb_Q1[6])*mxb_pf;
+        mxb_I2[0] = mxb_I1[0] - mxb_jQ[0];
+        mxb_Q2[0] = mxb_Q1[0] + mxb_jI[0];
+        mxb_I2[0] = mxb_a2*mxb_I2[0] + mxb_a8*mxb_I2[1];
+        mxb_Q2[0] = mxb_a2*mxb_Q2[0] + mxb_a8*mxb_Q2[1];
+        mxb_Re[0] = mxb_I2[0]*mxb_I2[1] + mxb_Q2[0]*mxb_Q2[1];
+        mxb_Im[0] = mxb_I2[0]*mxb_Q2[1] - mxb_Q2[0]*mxb_I2[1];
+        mxb_Re[0] = mxb_a2*mxb_Re[0] + mxb_a8*mxb_Re[1];
+        mxb_Im[0] = mxb_a2*mxb_Im[0] + mxb_a8*mxb_Im[1];
+        if(mxb_Im[0] != 0 && mxb_Re[0] != 0) {
+            mxb_P[0] = atan(mxb_Im[0]/mxb_Re[0]);
+            mxb_P[0] = mxb_P[0]*mxb_deg;
+            mxb_P[0] = 360/mxb_P[0];
+        }
+        mxb_p1 = mxb_P[1];
+        if(mxb_P[0] > mxb_up*mxb_p1) mxb_P[0] = mxb_up*mxb_p1;
+        if(mxb_P[0] < mxb_dn*mxb_p1) mxb_P[0] = mxb_dn*mxb_p1;
+        if(mxb_P[0] < 6)  mxb_P[0] = 6;
+        if(mxb_P[0] > 50) mxb_P[0] = 50;
+        mxb_P[0] = mxb_a2*mxb_P[0] + mxb_a8*mxb_p1;
+        mxb_SP[0] = mxb_c33*mxb_P[0] + mxb_c67*mxb_SP[1];
+        if(mxb_I1[0] != 0) {
+            mxb_Ph[0] = atan(mxb_Q1[0]/mxb_I1[0]);
+            mxb_Ph[0] = mxb_Ph[0]*mxb_deg;
+        }
+        mxb_dp = mxb_Ph[1] - mxb_Ph[0];
+        if(mxb_dp < 1) mxb_dp = 1;
+        mxb_A[0] = FastLimit/mxb_dp;
+        if(mxb_A[0] < SlowLimit) mxb_A[0] = SlowLimit;
+        if(mxb_A[0] > FastLimit) mxb_A[0] = FastLimit;
+        mxb_M[0] = mxb_A[0]*Price[0] + (mxb_u - mxb_A[0])*mxb_M[1];
+        mxb_ah = mxb_h*mxb_A[0];
+        mxb_F[0] = mxb_ah*mxb_M[0] + (mxb_u - mxb_ah)*mxb_F[1];
+    }
+    *pFama   = mxb_F[0];
+    *pPeriod = mxb_P[0];
+    *pAlpha  = mxb_A[0];
+    *pPhase  = mxb_Ph[0];
+    return mxb_M[0];
+}'''
+[variants.effect]
+trace = 0.03625827129010162
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCH"
+role = "neg_control"
+label = "NCH: HT weight .0962 -> .0963 (every occurrence) vs MA05"
+kind = "inline"
+function = "mam_nch"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+comment = "NCH: realistic copying error (D2 rule 4: one coefficient in its third digit): [corrected_code] with w1 = 963/10000 (all four HT stages use it)."
+body = '''
+var mam_nch(vars Price, var FastLimit, var SlowLimit,
+             var* pFama, var* pPeriod, var* pAlpha, var* pPhase)
+{
+    vars mxh_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars mxh_S  = series(0, 7);
+    vars mxh_De = series(0, 7);
+    vars mxh_I1 = series(0, 7);
+    vars mxh_Q1 = series(0, 7);
+    vars mxh_jI = series(0, 2);
+    vars mxh_jQ = series(0, 2);
+    vars mxh_I2 = series(0, 2);
+    vars mxh_Q2 = series(0, 2);
+    vars mxh_Re = series(0, 2);
+    vars mxh_Im = series(0, 2);
+    vars mxh_P  = series(0, 2);
+    vars mxh_SP = series(0, 2);
+    vars mxh_Ph = series(0, 2);
+    vars mxh_A  = series(0, 2);
+    vars mxh_M  = series(0, 2);
+    vars mxh_F  = series(0, 2);
+    mxh_n[0] = mxh_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    mxh_S[0] = mxh_S[1];   mxh_De[0] = mxh_De[1]; mxh_I1[0] = mxh_I1[1]; mxh_Q1[0] = mxh_Q1[1];
+    mxh_jI[0] = mxh_jI[1]; mxh_jQ[0] = mxh_jQ[1]; mxh_I2[0] = mxh_I2[1]; mxh_Q2[0] = mxh_Q2[1];
+    mxh_Re[0] = mxh_Re[1]; mxh_Im[0] = mxh_Im[1]; mxh_P[0] = mxh_P[1];   mxh_SP[0] = mxh_SP[1];
+    mxh_Ph[0] = mxh_Ph[1]; mxh_A[0] = mxh_A[1];   mxh_M[0] = mxh_M[1];   mxh_F[0] = mxh_F[1];
+    var mxh_w1 = 963;  mxh_w1 = mxh_w1/10000;
+    var mxh_w2 = 5769; mxh_w2 = mxh_w2/10000;
+    var mxh_ka = 75;   mxh_ka = mxh_ka/1000;
+    var mxh_kb = 54;   mxh_kb = mxh_kb/100;
+    var mxh_a2 = 2;    mxh_a2 = mxh_a2/10;
+    var mxh_a8 = 8;    mxh_a8 = mxh_a8/10;
+    var mxh_c33 = 33;  mxh_c33 = mxh_c33/100;
+    var mxh_c67 = 67;  mxh_c67 = mxh_c67/100;
+    var mxh_up = 15;   mxh_up = mxh_up/10;
+    var mxh_dn = 67;   mxh_dn = mxh_dn/100;
+    var mxh_pi = 4;    mxh_pi = mxh_pi*atan(1);       // S1: exact pi at run time (D3)
+    var mxh_deg = 180; mxh_deg = mxh_deg/mxh_pi;
+    var mxh_h = 1;     mxh_h = mxh_h/2;
+    var mxh_u = 1;
+    var mxh_pf = 0;
+    var mxh_p1 = 0;
+    var mxh_dp = 0;
+    var mxh_ah = 0;
+    if(mxh_n[0] > 5) {
+        mxh_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        mxh_S[0] = mxh_S[0]/10;
+        mxh_pf = mxh_ka*mxh_P[1] + mxh_kb;
+        mxh_De[0] = (mxh_w1*mxh_S[0] + mxh_w2*mxh_S[2] - mxh_w2*mxh_S[4] - mxh_w1*mxh_S[6])*mxh_pf;
+        mxh_Q1[0] = (mxh_w1*mxh_De[0] + mxh_w2*mxh_De[2] - mxh_w2*mxh_De[4] - mxh_w1*mxh_De[6])*mxh_pf;
+        mxh_I1[0] = mxh_De[3];
+        mxh_jI[0] = (mxh_w1*mxh_I1[0] + mxh_w2*mxh_I1[2] - mxh_w2*mxh_I1[4] - mxh_w1*mxh_I1[6])*mxh_pf;
+        mxh_jQ[0] = (mxh_w1*mxh_Q1[0] + mxh_w2*mxh_Q1[2] - mxh_w2*mxh_Q1[4] - mxh_w1*mxh_Q1[6])*mxh_pf;
+        mxh_I2[0] = mxh_I1[0] - mxh_jQ[0];
+        mxh_Q2[0] = mxh_Q1[0] + mxh_jI[0];
+        mxh_I2[0] = mxh_a2*mxh_I2[0] + mxh_a8*mxh_I2[1];
+        mxh_Q2[0] = mxh_a2*mxh_Q2[0] + mxh_a8*mxh_Q2[1];
+        mxh_Re[0] = mxh_I2[0]*mxh_I2[1] + mxh_Q2[0]*mxh_Q2[1];
+        mxh_Im[0] = mxh_I2[0]*mxh_Q2[1] - mxh_Q2[0]*mxh_I2[1];
+        mxh_Re[0] = mxh_a2*mxh_Re[0] + mxh_a8*mxh_Re[1];
+        mxh_Im[0] = mxh_a2*mxh_Im[0] + mxh_a8*mxh_Im[1];
+        if(mxh_Im[0] != 0 && mxh_Re[0] != 0) {
+            mxh_P[0] = atan(mxh_Im[0]/mxh_Re[0]);
+            mxh_P[0] = mxh_P[0]*mxh_deg;
+            mxh_P[0] = 360/mxh_P[0];
+        }
+        mxh_p1 = mxh_P[1];
+        if(mxh_P[0] > mxh_up*mxh_p1) mxh_P[0] = mxh_up*mxh_p1;
+        if(mxh_P[0] < mxh_dn*mxh_p1) mxh_P[0] = mxh_dn*mxh_p1;
+        if(mxh_P[0] < 6)  mxh_P[0] = 6;
+        if(mxh_P[0] > 50) mxh_P[0] = 50;
+        mxh_P[0] = mxh_a2*mxh_P[0] + mxh_a8*mxh_p1;
+        mxh_SP[0] = mxh_c33*mxh_P[0] + mxh_c67*mxh_SP[1];
+        if(mxh_I1[0] != 0) {
+            mxh_Ph[0] = atan(mxh_Q1[0]/mxh_I1[0]);
+            mxh_Ph[0] = mxh_Ph[0]*mxh_deg;
+        }
+        mxh_dp = mxh_Ph[1] - mxh_Ph[0];
+        if(mxh_dp < 1) mxh_dp = 1;
+        mxh_A[0] = FastLimit/mxh_dp;
+        if(mxh_A[0] < SlowLimit) mxh_A[0] = SlowLimit;
+        if(mxh_A[0] > FastLimit) mxh_A[0] = FastLimit;
+        mxh_M[0] = mxh_A[0]*Price[0] + (mxh_u - mxh_A[0])*mxh_M[1];
+        mxh_ah = mxh_h*mxh_A[0];
+        mxh_F[0] = mxh_ah*mxh_M[0] + (mxh_u - mxh_ah)*mxh_F[1];
+    }
+    *pFama   = mxh_F[0];
+    *pPeriod = mxh_P[0];
+    *pAlpha  = mxh_A[0];
+    *pPhase  = mxh_Ph[0];
+    return mxh_M[0];
+}'''
+[variants.effect]
+trace = 0.012619404444176042
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCF"
+role = "neg_control"
+label = "NCF: FAMA alpha factor .5 -> .51 vs MA05"
+kind = "inline"
+function = "mam_ncf"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+comment = "NCF: [corrected_code] with ma_h = 51/100 (FAMA = .51 alpha MAMA + (1 - .51 alpha) FAMA[1]); only fama moves."
+body = '''
+var mam_ncf(vars Price, var FastLimit, var SlowLimit,
+             var* pFama, var* pPeriod, var* pAlpha, var* pPhase)
+{
+    vars mxf_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars mxf_S  = series(0, 7);
+    vars mxf_De = series(0, 7);
+    vars mxf_I1 = series(0, 7);
+    vars mxf_Q1 = series(0, 7);
+    vars mxf_jI = series(0, 2);
+    vars mxf_jQ = series(0, 2);
+    vars mxf_I2 = series(0, 2);
+    vars mxf_Q2 = series(0, 2);
+    vars mxf_Re = series(0, 2);
+    vars mxf_Im = series(0, 2);
+    vars mxf_P  = series(0, 2);
+    vars mxf_SP = series(0, 2);
+    vars mxf_Ph = series(0, 2);
+    vars mxf_A  = series(0, 2);
+    vars mxf_M  = series(0, 2);
+    vars mxf_F  = series(0, 2);
+    mxf_n[0] = mxf_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    mxf_S[0] = mxf_S[1];   mxf_De[0] = mxf_De[1]; mxf_I1[0] = mxf_I1[1]; mxf_Q1[0] = mxf_Q1[1];
+    mxf_jI[0] = mxf_jI[1]; mxf_jQ[0] = mxf_jQ[1]; mxf_I2[0] = mxf_I2[1]; mxf_Q2[0] = mxf_Q2[1];
+    mxf_Re[0] = mxf_Re[1]; mxf_Im[0] = mxf_Im[1]; mxf_P[0] = mxf_P[1];   mxf_SP[0] = mxf_SP[1];
+    mxf_Ph[0] = mxf_Ph[1]; mxf_A[0] = mxf_A[1];   mxf_M[0] = mxf_M[1];   mxf_F[0] = mxf_F[1];
+    var mxf_w1 = 962;  mxf_w1 = mxf_w1/10000;
+    var mxf_w2 = 5769; mxf_w2 = mxf_w2/10000;
+    var mxf_ka = 75;   mxf_ka = mxf_ka/1000;
+    var mxf_kb = 54;   mxf_kb = mxf_kb/100;
+    var mxf_a2 = 2;    mxf_a2 = mxf_a2/10;
+    var mxf_a8 = 8;    mxf_a8 = mxf_a8/10;
+    var mxf_c33 = 33;  mxf_c33 = mxf_c33/100;
+    var mxf_c67 = 67;  mxf_c67 = mxf_c67/100;
+    var mxf_up = 15;   mxf_up = mxf_up/10;
+    var mxf_dn = 67;   mxf_dn = mxf_dn/100;
+    var mxf_pi = 4;    mxf_pi = mxf_pi*atan(1);       // S1: exact pi at run time (D3)
+    var mxf_deg = 180; mxf_deg = mxf_deg/mxf_pi;
+    var mxf_h = 51;    mxf_h = mxf_h/100;
+    var mxf_u = 1;
+    var mxf_pf = 0;
+    var mxf_p1 = 0;
+    var mxf_dp = 0;
+    var mxf_ah = 0;
+    if(mxf_n[0] > 5) {
+        mxf_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        mxf_S[0] = mxf_S[0]/10;
+        mxf_pf = mxf_ka*mxf_P[1] + mxf_kb;
+        mxf_De[0] = (mxf_w1*mxf_S[0] + mxf_w2*mxf_S[2] - mxf_w2*mxf_S[4] - mxf_w1*mxf_S[6])*mxf_pf;
+        mxf_Q1[0] = (mxf_w1*mxf_De[0] + mxf_w2*mxf_De[2] - mxf_w2*mxf_De[4] - mxf_w1*mxf_De[6])*mxf_pf;
+        mxf_I1[0] = mxf_De[3];
+        mxf_jI[0] = (mxf_w1*mxf_I1[0] + mxf_w2*mxf_I1[2] - mxf_w2*mxf_I1[4] - mxf_w1*mxf_I1[6])*mxf_pf;
+        mxf_jQ[0] = (mxf_w1*mxf_Q1[0] + mxf_w2*mxf_Q1[2] - mxf_w2*mxf_Q1[4] - mxf_w1*mxf_Q1[6])*mxf_pf;
+        mxf_I2[0] = mxf_I1[0] - mxf_jQ[0];
+        mxf_Q2[0] = mxf_Q1[0] + mxf_jI[0];
+        mxf_I2[0] = mxf_a2*mxf_I2[0] + mxf_a8*mxf_I2[1];
+        mxf_Q2[0] = mxf_a2*mxf_Q2[0] + mxf_a8*mxf_Q2[1];
+        mxf_Re[0] = mxf_I2[0]*mxf_I2[1] + mxf_Q2[0]*mxf_Q2[1];
+        mxf_Im[0] = mxf_I2[0]*mxf_Q2[1] - mxf_Q2[0]*mxf_I2[1];
+        mxf_Re[0] = mxf_a2*mxf_Re[0] + mxf_a8*mxf_Re[1];
+        mxf_Im[0] = mxf_a2*mxf_Im[0] + mxf_a8*mxf_Im[1];
+        if(mxf_Im[0] != 0 && mxf_Re[0] != 0) {
+            mxf_P[0] = atan(mxf_Im[0]/mxf_Re[0]);
+            mxf_P[0] = mxf_P[0]*mxf_deg;
+            mxf_P[0] = 360/mxf_P[0];
+        }
+        mxf_p1 = mxf_P[1];
+        if(mxf_P[0] > mxf_up*mxf_p1) mxf_P[0] = mxf_up*mxf_p1;
+        if(mxf_P[0] < mxf_dn*mxf_p1) mxf_P[0] = mxf_dn*mxf_p1;
+        if(mxf_P[0] < 6)  mxf_P[0] = 6;
+        if(mxf_P[0] > 50) mxf_P[0] = 50;
+        mxf_P[0] = mxf_a2*mxf_P[0] + mxf_a8*mxf_p1;
+        mxf_SP[0] = mxf_c33*mxf_P[0] + mxf_c67*mxf_SP[1];
+        if(mxf_I1[0] != 0) {
+            mxf_Ph[0] = atan(mxf_Q1[0]/mxf_I1[0]);
+            mxf_Ph[0] = mxf_Ph[0]*mxf_deg;
+        }
+        mxf_dp = mxf_Ph[1] - mxf_Ph[0];
+        if(mxf_dp < 1) mxf_dp = 1;
+        mxf_A[0] = FastLimit/mxf_dp;
+        if(mxf_A[0] < SlowLimit) mxf_A[0] = SlowLimit;
+        if(mxf_A[0] > FastLimit) mxf_A[0] = FastLimit;
+        mxf_M[0] = mxf_A[0]*Price[0] + (mxf_u - mxf_A[0])*mxf_M[1];
+        mxf_ah = mxf_h*mxf_A[0];
+        mxf_F[0] = mxf_ah*mxf_M[0] + (mxf_u - mxf_ah)*mxf_F[1];
+    }
+    *pFama   = mxf_F[0];
+    *pPeriod = mxf_P[0];
+    *pAlpha  = mxf_A[0];
+    *pPhase  = mxf_Ph[0];
+    return mxf_M[0];
+}'''
+[variants.effect]
+trace = 0.008499629904412886
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NC32"
+role = "neg_control"
+label = "NC32: the current file's float32 literals .0962 .5769 .075 .54 .2 .8 .33 .67, exact pi, per-instance vs MA05"
+kind = "inline"
+function = "mam_nc32"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+lint_allow_float32 = ["0.0962", "0.5769", "0.075", "0.54", "0.2", "0.8", "0.33", "0.67"]
+lint_allow_reason = "NC32 reproduces the CURRENT MAMA.c literals, which are float32 by gotchas 9d.1 (MA-4): the float32 values are the point of this control"
+comment = "NC32: MA-4 alone. [corrected_code] with the nine constants written as decimal literals (float32 in this Zorro build, gotchas 9d.1; the lint exemption is scoped to this body); 1.5 and .5 stay integer-built (float32-exact anyway). This control is what makes MA-4 a checked fix (S1)."
+body = '''
+var mam_nc32(vars Price, var FastLimit, var SlowLimit,
+             var* pFama, var* pPeriod, var* pAlpha, var* pPhase)
+{
+    vars mx32_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars mx32_S  = series(0, 7);
+    vars mx32_De = series(0, 7);
+    vars mx32_I1 = series(0, 7);
+    vars mx32_Q1 = series(0, 7);
+    vars mx32_jI = series(0, 2);
+    vars mx32_jQ = series(0, 2);
+    vars mx32_I2 = series(0, 2);
+    vars mx32_Q2 = series(0, 2);
+    vars mx32_Re = series(0, 2);
+    vars mx32_Im = series(0, 2);
+    vars mx32_P  = series(0, 2);
+    vars mx32_SP = series(0, 2);
+    vars mx32_Ph = series(0, 2);
+    vars mx32_A  = series(0, 2);
+    vars mx32_M  = series(0, 2);
+    vars mx32_F  = series(0, 2);
+    mx32_n[0] = mx32_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    mx32_S[0] = mx32_S[1];   mx32_De[0] = mx32_De[1]; mx32_I1[0] = mx32_I1[1]; mx32_Q1[0] = mx32_Q1[1];
+    mx32_jI[0] = mx32_jI[1]; mx32_jQ[0] = mx32_jQ[1]; mx32_I2[0] = mx32_I2[1]; mx32_Q2[0] = mx32_Q2[1];
+    mx32_Re[0] = mx32_Re[1]; mx32_Im[0] = mx32_Im[1]; mx32_P[0] = mx32_P[1];   mx32_SP[0] = mx32_SP[1];
+    mx32_Ph[0] = mx32_Ph[1]; mx32_A[0] = mx32_A[1];   mx32_M[0] = mx32_M[1];   mx32_F[0] = mx32_F[1];
+    var mx32_w1 = 0.0962;
+    var mx32_w2 = 0.5769;
+    var mx32_ka = 0.075;
+    var mx32_kb = 0.54;
+    var mx32_a2 = 0.2;
+    var mx32_a8 = 0.8;
+    var mx32_c33 = 0.33;
+    var mx32_c67 = 0.67;
+    var mx32_up = 15;   mx32_up = mx32_up/10;
+    var mx32_dn = 0.67;
+    var mx32_pi = 4;    mx32_pi = mx32_pi*atan(1);       // S1: exact pi at run time (D3)
+    var mx32_deg = 180; mx32_deg = mx32_deg/mx32_pi;
+    var mx32_h = 1;     mx32_h = mx32_h/2;
+    var mx32_u = 1;
+    var mx32_pf = 0;
+    var mx32_p1 = 0;
+    var mx32_dp = 0;
+    var mx32_ah = 0;
+    if(mx32_n[0] > 5) {
+        mx32_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        mx32_S[0] = mx32_S[0]/10;
+        mx32_pf = mx32_ka*mx32_P[1] + mx32_kb;
+        mx32_De[0] = (mx32_w1*mx32_S[0] + mx32_w2*mx32_S[2] - mx32_w2*mx32_S[4] - mx32_w1*mx32_S[6])*mx32_pf;
+        mx32_Q1[0] = (mx32_w1*mx32_De[0] + mx32_w2*mx32_De[2] - mx32_w2*mx32_De[4] - mx32_w1*mx32_De[6])*mx32_pf;
+        mx32_I1[0] = mx32_De[3];
+        mx32_jI[0] = (mx32_w1*mx32_I1[0] + mx32_w2*mx32_I1[2] - mx32_w2*mx32_I1[4] - mx32_w1*mx32_I1[6])*mx32_pf;
+        mx32_jQ[0] = (mx32_w1*mx32_Q1[0] + mx32_w2*mx32_Q1[2] - mx32_w2*mx32_Q1[4] - mx32_w1*mx32_Q1[6])*mx32_pf;
+        mx32_I2[0] = mx32_I1[0] - mx32_jQ[0];
+        mx32_Q2[0] = mx32_Q1[0] + mx32_jI[0];
+        mx32_I2[0] = mx32_a2*mx32_I2[0] + mx32_a8*mx32_I2[1];
+        mx32_Q2[0] = mx32_a2*mx32_Q2[0] + mx32_a8*mx32_Q2[1];
+        mx32_Re[0] = mx32_I2[0]*mx32_I2[1] + mx32_Q2[0]*mx32_Q2[1];
+        mx32_Im[0] = mx32_I2[0]*mx32_Q2[1] - mx32_Q2[0]*mx32_I2[1];
+        mx32_Re[0] = mx32_a2*mx32_Re[0] + mx32_a8*mx32_Re[1];
+        mx32_Im[0] = mx32_a2*mx32_Im[0] + mx32_a8*mx32_Im[1];
+        if(mx32_Im[0] != 0 && mx32_Re[0] != 0) {
+            mx32_P[0] = atan(mx32_Im[0]/mx32_Re[0]);
+            mx32_P[0] = mx32_P[0]*mx32_deg;
+            mx32_P[0] = 360/mx32_P[0];
+        }
+        mx32_p1 = mx32_P[1];
+        if(mx32_P[0] > mx32_up*mx32_p1) mx32_P[0] = mx32_up*mx32_p1;
+        if(mx32_P[0] < mx32_dn*mx32_p1) mx32_P[0] = mx32_dn*mx32_p1;
+        if(mx32_P[0] < 6)  mx32_P[0] = 6;
+        if(mx32_P[0] > 50) mx32_P[0] = 50;
+        mx32_P[0] = mx32_a2*mx32_P[0] + mx32_a8*mx32_p1;
+        mx32_SP[0] = mx32_c33*mx32_P[0] + mx32_c67*mx32_SP[1];
+        if(mx32_I1[0] != 0) {
+            mx32_Ph[0] = atan(mx32_Q1[0]/mx32_I1[0]);
+            mx32_Ph[0] = mx32_Ph[0]*mx32_deg;
+        }
+        mx32_dp = mx32_Ph[1] - mx32_Ph[0];
+        if(mx32_dp < 1) mx32_dp = 1;
+        mx32_A[0] = FastLimit/mx32_dp;
+        if(mx32_A[0] < SlowLimit) mx32_A[0] = SlowLimit;
+        if(mx32_A[0] > FastLimit) mx32_A[0] = FastLimit;
+        mx32_M[0] = mx32_A[0]*Price[0] + (mx32_u - mx32_A[0])*mx32_M[1];
+        mx32_ah = mx32_h*mx32_A[0];
+        mx32_F[0] = mx32_ah*mx32_M[0] + (mx32_u - mx32_ah)*mx32_F[1];
+    }
+    *pFama   = mx32_F[0];
+    *pPeriod = mx32_P[0];
+    *pAlpha  = mx32_A[0];
+    *pPhase  = mx32_Ph[0];
+    return mx32_M[0];
+}'''
+[variants.effect]
+trace = 5.943742714009659e-06
+bound = 7.450581009038615e-08
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCP"
+role = "neg_control"
+label = "NCP: Zorro PI (float32 3.14159) in place of exact pi vs MA05"
+kind = "inline"
+function = "mam_ncp"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "period", "alpha", "phase", "mama"]
+comment = "NCP: [corrected_code] with ma_pi = PI (the macro, float32(3.14159), gotchas 9d.2; assigned to a variable, so deg = 180/pi stays a run-time division, gotchas 9d.8). This control is what makes S1 a checked change."
+body = '''
+var mam_ncp(vars Price, var FastLimit, var SlowLimit,
+             var* pFama, var* pPeriod, var* pAlpha, var* pPhase)
+{
+    vars mxp_n  = series(0, 2);     // per-instance CurrentBar (9d.9)
+    vars mxp_S  = series(0, 7);
+    vars mxp_De = series(0, 7);
+    vars mxp_I1 = series(0, 7);
+    vars mxp_Q1 = series(0, 7);
+    vars mxp_jI = series(0, 2);
+    vars mxp_jQ = series(0, 2);
+    vars mxp_I2 = series(0, 2);
+    vars mxp_Q2 = series(0, 2);
+    vars mxp_Re = series(0, 2);
+    vars mxp_Im = series(0, 2);
+    vars mxp_P  = series(0, 2);
+    vars mxp_SP = series(0, 2);
+    vars mxp_Ph = series(0, 2);
+    vars mxp_A  = series(0, 2);
+    vars mxp_M  = series(0, 2);
+    vars mxp_F  = series(0, 2);
+    mxp_n[0] = mxp_n[1] + 1;
+    // EasyLanguage: a var keeps its value on a bar where it is not assigned (MA-2)
+    mxp_S[0] = mxp_S[1];   mxp_De[0] = mxp_De[1]; mxp_I1[0] = mxp_I1[1]; mxp_Q1[0] = mxp_Q1[1];
+    mxp_jI[0] = mxp_jI[1]; mxp_jQ[0] = mxp_jQ[1]; mxp_I2[0] = mxp_I2[1]; mxp_Q2[0] = mxp_Q2[1];
+    mxp_Re[0] = mxp_Re[1]; mxp_Im[0] = mxp_Im[1]; mxp_P[0] = mxp_P[1];   mxp_SP[0] = mxp_SP[1];
+    mxp_Ph[0] = mxp_Ph[1]; mxp_A[0] = mxp_A[1];   mxp_M[0] = mxp_M[1];   mxp_F[0] = mxp_F[1];
+    var mxp_w1 = 962;  mxp_w1 = mxp_w1/10000;
+    var mxp_w2 = 5769; mxp_w2 = mxp_w2/10000;
+    var mxp_ka = 75;   mxp_ka = mxp_ka/1000;
+    var mxp_kb = 54;   mxp_kb = mxp_kb/100;
+    var mxp_a2 = 2;    mxp_a2 = mxp_a2/10;
+    var mxp_a8 = 8;    mxp_a8 = mxp_a8/10;
+    var mxp_c33 = 33;  mxp_c33 = mxp_c33/100;
+    var mxp_c67 = 67;  mxp_c67 = mxp_c67/100;
+    var mxp_up = 15;   mxp_up = mxp_up/10;
+    var mxp_dn = 67;   mxp_dn = mxp_dn/100;
+    var mxp_pi = PI;                                  // NCP: Zorro's PI macro (float32 3.14159)
+    var mxp_deg = 180; mxp_deg = mxp_deg/mxp_pi;
+    var mxp_h = 1;     mxp_h = mxp_h/2;
+    var mxp_u = 1;
+    var mxp_pf = 0;
+    var mxp_p1 = 0;
+    var mxp_dp = 0;
+    var mxp_ah = 0;
+    if(mxp_n[0] > 5) {
+        mxp_S[0] = 4*Price[0] + 3*Price[1] + 2*Price[2] + Price[3];
+        mxp_S[0] = mxp_S[0]/10;
+        mxp_pf = mxp_ka*mxp_P[1] + mxp_kb;
+        mxp_De[0] = (mxp_w1*mxp_S[0] + mxp_w2*mxp_S[2] - mxp_w2*mxp_S[4] - mxp_w1*mxp_S[6])*mxp_pf;
+        mxp_Q1[0] = (mxp_w1*mxp_De[0] + mxp_w2*mxp_De[2] - mxp_w2*mxp_De[4] - mxp_w1*mxp_De[6])*mxp_pf;
+        mxp_I1[0] = mxp_De[3];
+        mxp_jI[0] = (mxp_w1*mxp_I1[0] + mxp_w2*mxp_I1[2] - mxp_w2*mxp_I1[4] - mxp_w1*mxp_I1[6])*mxp_pf;
+        mxp_jQ[0] = (mxp_w1*mxp_Q1[0] + mxp_w2*mxp_Q1[2] - mxp_w2*mxp_Q1[4] - mxp_w1*mxp_Q1[6])*mxp_pf;
+        mxp_I2[0] = mxp_I1[0] - mxp_jQ[0];
+        mxp_Q2[0] = mxp_Q1[0] + mxp_jI[0];
+        mxp_I2[0] = mxp_a2*mxp_I2[0] + mxp_a8*mxp_I2[1];
+        mxp_Q2[0] = mxp_a2*mxp_Q2[0] + mxp_a8*mxp_Q2[1];
+        mxp_Re[0] = mxp_I2[0]*mxp_I2[1] + mxp_Q2[0]*mxp_Q2[1];
+        mxp_Im[0] = mxp_I2[0]*mxp_Q2[1] - mxp_Q2[0]*mxp_I2[1];
+        mxp_Re[0] = mxp_a2*mxp_Re[0] + mxp_a8*mxp_Re[1];
+        mxp_Im[0] = mxp_a2*mxp_Im[0] + mxp_a8*mxp_Im[1];
+        if(mxp_Im[0] != 0 && mxp_Re[0] != 0) {
+            mxp_P[0] = atan(mxp_Im[0]/mxp_Re[0]);
+            mxp_P[0] = mxp_P[0]*mxp_deg;
+            mxp_P[0] = 360/mxp_P[0];
+        }
+        mxp_p1 = mxp_P[1];
+        if(mxp_P[0] > mxp_up*mxp_p1) mxp_P[0] = mxp_up*mxp_p1;
+        if(mxp_P[0] < mxp_dn*mxp_p1) mxp_P[0] = mxp_dn*mxp_p1;
+        if(mxp_P[0] < 6)  mxp_P[0] = 6;
+        if(mxp_P[0] > 50) mxp_P[0] = 50;
+        mxp_P[0] = mxp_a2*mxp_P[0] + mxp_a8*mxp_p1;
+        mxp_SP[0] = mxp_c33*mxp_P[0] + mxp_c67*mxp_SP[1];
+        if(mxp_I1[0] != 0) {
+            mxp_Ph[0] = atan(mxp_Q1[0]/mxp_I1[0]);
+            mxp_Ph[0] = mxp_Ph[0]*mxp_deg;
+        }
+        mxp_dp = mxp_Ph[1] - mxp_Ph[0];
+        if(mxp_dp < 1) mxp_dp = 1;
+        mxp_A[0] = FastLimit/mxp_dp;
+        if(mxp_A[0] < SlowLimit) mxp_A[0] = SlowLimit;
+        if(mxp_A[0] > FastLimit) mxp_A[0] = FastLimit;
+        mxp_M[0] = mxp_A[0]*Price[0] + (mxp_u - mxp_A[0])*mxp_M[1];
+        mxp_ah = mxp_h*mxp_A[0];
+        mxp_F[0] = mxp_ah*mxp_M[0] + (mxp_u - mxp_ah)*mxp_F[1];
+    }
+    *pFama   = mxp_F[0];
+    *pPeriod = mxp_P[0];
+    *pAlpha  = mxp_A[0];
+    *pPhase  = mxp_Ph[0];
+    return mxp_M[0];
+}'''
+[variants.effect]
+trace = 4.327885254440389e-05
+bound = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded MAMA.c, instance 1 (.5 / .05, shared static barCount) vs MA05"
+kind = "param"
+function = "MAMA_Superseded"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "mama"]
+comment = "NCS: the REAL superseded MAMA.c (stage 2: MAMA_Superseded.c, the current body, mao_ prefix, no behavioural edit) called as two instances per bar, NCS then NCS2, each on every base input in the generator's variant-major order. Shared: the static barCount (MA-3), so only the first 5 calls of the RUN return Price; per instance: price seeds, Period 20, float32 literals, Zorro PI (MA-1, MA-2, MA-4, MA-5). Exports mama and fama only (D7 rule 7)."
+[variants.effect]
+trace = 1.1078676554375795
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCS2"
+role = "neg_control"
+label = "NCS2: superseded MAMA.c, instance 2 (.5 / .05, shared static barCount) vs MA05"
+kind = "param"
+function = "MAMA_Superseded"
+params = [[1, 2], [1, 20]]
+expected = "MA05"
+outputs = ["fama", "mama"]
+comment = "NCS2: the second instance of the superseded file (D7 rule 7). With 14 superseded calls per bar, barCount exceeds 5 on every call of NCS2 (and of NCS from s100 on): it computes from its first call."
+[variants.effect]
+trace = 1.1067204844850844
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the MA05 (mama_article(1/2,1/20)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+
+[detect]
+source = "(b) Each listed kind has a detection ratio (max abs_diff / row tolerance on the own-model raw file) >= 10. Ratios: NCB trace 3.63e+07x; NCH trace 1.26e+07x; NCF trace 8.5e+06x; NC32 trace 5.94e+03x, bound 7.45e+04x; NCP trace 4.33e+04x; NCS trace 1.11e+09x; NCS2 trace 1.11e+09x. Non-zero kinds below 10x, not required: none. NCB is a control since the stage 1 review (2026-11-20): its trace effect is on s5 period only (a checked pair)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (trace-* | bound-* | hull | equiv-* | exact-* | ramp-lag-* | flat-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCB = ["trace"]
+NCH = ["trace"]
+NCF = ["trace"]
+NC32 = ["trace", "bound"]
+NCP = ["trace"]
+NCS = ["trace"]
+NCS2 = ["trace"]
+
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x columns EXPORTED by Zorro
+(reference.IMP_MODELS); residual per (input, column) = max |Zorro - replay| over every row n >= 0, on every input the variant is called on
+(base inputs flat, s5, s10, s20, s40, s100, ramp; MA05 / MA03 also the copies sc40, of40). The pairs its expected table classifies as INFO
+(rule 3: flat, ramp, s5 except s5 period) are reported separately (trailer line IMP_INFO; expected large) and never decide PASS/FAIL; on the
+checked pairs the ratio residual / column tolerance decides (imp 1e-9, phase 1e-8). NCS / NCS2 are replayed with mama_superseded: the old
+file over ALL superseded calls in the generator's ACTUAL call order (checker.adaptive_shared_slots: NCS on flat .. ramp, then NCS2)."""
+tolerance = "[tolerances.imp] 1e-9 (phase 1e-8)"
+must_pass = { MA05 = "mama_article(1/2,1/20)", MA03 = "mama_article(3/10,1/10)", NCB = "mama_article(1/2,1/20,dn=68/100)", NCH = "mama_article(1/2,1/20,w1=963/10000)", NCF = "mama_article(1/2,1/20,fama_k=51/100)", NC32 = "mama_article(1/2,1/20,literals=float32)", NCP = "mama_article(1/2,1/20,pi=zorro)", NCS = "mama_superseded(1/2,1/20;1/2,1/20)[0]", NCS2 = "mama_superseded(1/2,1/20;1/2,1/20)[1]" }
+must_fail = { MA05 = "mama_article(1/2,1/20,w1=963/10000)", NCS = "mama_article(1/2,1/20)" }
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs the source). IMP FAIL on
+any real variant: Zorro / implementation problem; the fidelity result is not interpretable. MA05 must_fail = the NCH model is absent from the run
+output; NCS must_fail = the superseded calls do not behave as the source."""
+
+[imp.fire_test]
+ma05_vs_nch_model = 0.1261940444417604
+ncs_vs_ma05_model = 1.1078676554375795
+source = "(b) 2026-11-20: checker.imp_rows on the synthetic own-model raw file of this spec (tests/maf_support.synth_raw; exact x, so these are model-vs-model discriminations, not run values), worst checked (input:column) pair; ratio = residual / column tolerance"
+[imp.fire_test.must_fail_ratio]
+ma05_vs_nch_model = 12619404.44417604
+ncs_vs_ma05_model = 1107867655.4375794
+[imp.fire_test.must_pass_own_model]
+MA05 = 0.0
+MA03 = 0.0
+NCB = 0.0
+NCH = 0.0
+NCF = 0.0
+NC32 = 0.0
+NCP = 0.0
+NCS = 0.0
+NCS2 = 0.0
+[imp.fire_test.discrimination]   # variant own-model output replayed with the MA05 model: worst residual (pair in the comment)
+MA05 = 0.0   # s5:period, ratio 0.000e+00
+MA03 = 0.6545969539900534   # of40:fama, ratio 6.546e+08
+NCB = 0.03625827129010162   # s5:period, ratio 3.626e+07
+NCH = 0.1261940444417604   # s10:phase, ratio 1.262e+07
+NCF = 0.008499629904412886   # s40:fama, ratio 8.500e+06
+NC32 = 5.943742714009659e-06   # s5:period, ratio 5.944e+03
+NCP = 4.327885254440389e-05   # s100:period, ratio 4.328e+04
+NCS = 1.1078676554375795   # s10:mama, ratio 1.108e+09
+NCS2 = 1.1067204844850844   # s20:mama, ratio 1.107e+09
+[imp.fire_test.exported_x_15f]   # (b) the expected IMP must_pass residual of a perfect run: the own-model raw file with every x / High / Low printed with %.15f (as Zorro exports them), worst checked pair (comment: pair, ratio)
+MA05 = 1.7374324201568925e-11   # s100:alpha, ratio 1.737e-02
+MA03 = 1.1239009722885385e-10   # s100:phase, ratio 1.124e-02
+NCB = 1.7374324201568925e-11   # s100:alpha, ratio 1.737e-02
+NCH = 2.1086465906705598e-11   # s100:alpha, ratio 2.109e-02
+NCF = 1.7374324201568925e-11   # s100:alpha, ratio 1.737e-02
+NC32 = 1.983402331262596e-11   # s100:alpha, ratio 1.983e-02
+NCP = 1.737449073502262e-11   # s100:alpha, ratio 1.737e-02
+NCS = 4.574118861455645e-14   # s100:fama, ratio 4.574e-05
+NCS2 = 4.574118861455645e-14   # s100:fama, ratio 4.574e-05
+[imp.fire_test.exported_x_15f_info_max]   # (b) the same, max over the INFO pairs (rule 3; reported, never PASS/FAIL)
+MA05 = 179.99999999999963
+MA03 = 179.99999999999963
+NCB = 179.99999999999963
+NCH = 179.99999999999903
+NCF = 179.99999999999963
+NC32 = 179.99999999999903
+NCP = 180.00014525532225
+NCS = 0.005007844143912754
+NCS2 = 0.005007844143912754
+
+# ----------------------------------------------------------------------------- findings (reproduced with reference.py, MAF stage 1)
+[findings]
+alpha_max_ge5_MA03_s10 = 0.3
+alpha_max_ge5_MA03_s100 = 0.3
+alpha_max_ge5_MA03_s20 = 0.3
+alpha_max_ge5_MA03_s40 = 0.3
+alpha_max_ge5_MA05_s10 = 0.5
+alpha_max_ge5_MA05_s100 = 0.5
+alpha_max_ge5_MA05_s20 = 0.5
+alpha_max_ge5_MA05_s40 = 0.5
+alpha_min_ge5_MA03_s10 = 0.1
+alpha_min_ge5_MA03_s100 = 0.1
+alpha_min_ge5_MA03_s20 = 0.1
+alpha_min_ge5_MA03_s40 = 0.1
+alpha_min_ge5_MA05_s10 = 0.05
+alpha_min_ge5_MA05_s100 = 0.05
+alpha_min_ge5_MA05_s20 = 0.05
+alpha_min_ge5_MA05_s40 = 0.05
+alpha_rows_lt5_max_MA03 = 0.0
+alpha_rows_lt5_max_MA05 = 0.0
+effect_NC32_alpha_flat = 0.45
+effect_NC32_alpha_ramp = 1.1392405850907394e-06
+effect_NC32_alpha_s10 = 0.0
+effect_NC32_alpha_s100 = 5.140390004487738e-07
+effect_NC32_alpha_s20 = 5.859257329321466e-09
+effect_NC32_alpha_s40 = 6.192774701374582e-08
+effect_NC32_alpha_s5 = 0.45
+effect_NC32_fama_flat = 0.05827332220745096
+effect_NC32_fama_ramp = 1.7772197047349891e-09
+effect_NC32_fama_s10 = 0.0
+effect_NC32_fama_s100 = 1.9991079902581532e-09
+effect_NC32_fama_s20 = 5.379625633850083e-10
+effect_NC32_fama_s40 = 3.694466954584641e-09
+effect_NC32_fama_s5 = 0.031938437395496844
+effect_NC32_mama_flat = 0.006631259765625286
+effect_NC32_mama_ramp = 2.280953204092384e-10
+effect_NC32_mama_s10 = 0.0
+effect_NC32_mama_s100 = 5.903222355385651e-10
+effect_NC32_mama_s20 = 2.067301885233519e-11
+effect_NC32_mama_s40 = 7.727454232053788e-10
+effect_NC32_mama_s5 = 0.0046159811719099775
+effect_NC32_period_flat = 9.686722433993666
+effect_NC32_period_ramp = 5.943742714009659e-06
+effect_NC32_period_s10 = 5.943742714009659e-06
+effect_NC32_period_s100 = 5.943742714009659e-06
+effect_NC32_period_s20 = 5.943742714009659e-06
+effect_NC32_period_s40 = 5.943742714009659e-06
+effect_NC32_period_s5 = 5.943742714009659e-06
+effect_NC32_phase_flat = 180.0
+effect_NC32_phase_ramp = 8.750786106404007e-06
+effect_NC32_phase_s10 = 7.297707810494103e-06
+effect_NC32_phase_s100 = 5.6791935847400055e-06
+effect_NC32_phase_s20 = 7.54331323093993e-06
+effect_NC32_phase_s40 = 8.784561421393278e-06
+effect_NC32_phase_s5 = 179.99999999999966
+effect_NCB_alpha_flat = 0.0
+effect_NCB_alpha_ramp = 0.44967746480820975
+effect_NCB_alpha_s10 = 0.0
+effect_NCB_alpha_s100 = 0.0
+effect_NCB_alpha_s20 = 0.0
+effect_NCB_alpha_s40 = 0.0
+effect_NCB_alpha_s5 = 0.0
+effect_NCB_fama_flat = 0.0
+effect_NCB_fama_ramp = 0.00036835912777544166
+effect_NCB_fama_s10 = 0.0
+effect_NCB_fama_s100 = 0.0
+effect_NCB_fama_s20 = 0.0
+effect_NCB_fama_s40 = 0.0
+effect_NCB_fama_s5 = 0.0
+effect_NCB_mama_flat = 0.0
+effect_NCB_mama_ramp = 0.00032758068790816885
+effect_NCB_mama_s10 = 0.0
+effect_NCB_mama_s100 = 0.0
+effect_NCB_mama_s20 = 0.0
+effect_NCB_mama_s40 = 0.0
+effect_NCB_mama_s5 = 0.0
+effect_NCB_period_flat = 0.0
+effect_NCB_period_ramp = 11.450483374075283
+effect_NCB_period_s10 = 0.0
+effect_NCB_period_s100 = 0.0
+effect_NCB_period_s20 = 0.0
+effect_NCB_period_s40 = 0.0
+effect_NCB_period_s5 = 0.03625827129010162
+effect_NCB_phase_flat = 0.0
+effect_NCB_phase_ramp = 30.97155819826238
+effect_NCB_phase_s10 = 0.0
+effect_NCB_phase_s100 = 0.0
+effect_NCB_phase_s20 = 0.0
+effect_NCB_phase_s40 = 0.0
+effect_NCB_phase_s5 = 0.0330854843658166
+effect_NCF_alpha_flat = 0.0
+effect_NCF_alpha_ramp = 0.0
+effect_NCF_alpha_s10 = 0.0
+effect_NCF_alpha_s100 = 0.0
+effect_NCF_alpha_s20 = 0.0
+effect_NCF_alpha_s40 = 0.0
+effect_NCF_alpha_s5 = 0.0
+effect_NCF_fama_flat = 0.008428396197031285
+effect_NCF_fama_ramp = 0.00843439637680543
+effect_NCF_fama_s10 = 0.008368999950433387
+effect_NCF_fama_s100 = 0.008464515354296709
+effect_NCF_fama_s20 = 0.008473840252896436
+effect_NCF_fama_s40 = 0.008499629904412886
+effect_NCF_fama_s5 = 0.008407909835200345
+effect_NCF_mama_flat = 0.0
+effect_NCF_mama_ramp = 0.0
+effect_NCF_mama_s10 = 0.0
+effect_NCF_mama_s100 = 0.0
+effect_NCF_mama_s20 = 0.0
+effect_NCF_mama_s40 = 0.0
+effect_NCF_mama_s5 = 0.0
+effect_NCF_period_flat = 0.0
+effect_NCF_period_ramp = 0.0
+effect_NCF_period_s10 = 0.0
+effect_NCF_period_s100 = 0.0
+effect_NCF_period_s20 = 0.0
+effect_NCF_period_s40 = 0.0
+effect_NCF_period_s5 = 0.0
+effect_NCF_phase_flat = 0.0
+effect_NCF_phase_ramp = 0.0
+effect_NCF_phase_s10 = 0.0
+effect_NCF_phase_s100 = 0.0
+effect_NCF_phase_s20 = 0.0
+effect_NCF_phase_s40 = 0.0
+effect_NCF_phase_s5 = 0.0
+effect_NCH_alpha_flat = 0.45
+effect_NCH_alpha_ramp = 0.44996321186771404
+effect_NCH_alpha_s10 = 0.0
+effect_NCH_alpha_s100 = 0.00016143429807397025
+effect_NCH_alpha_s20 = 0.00024706033009838646
+effect_NCH_alpha_s40 = 0.0003361790929570785
+effect_NCH_alpha_s5 = 0.45
+effect_NCH_fama_flat = 0.05827332220745096
+effect_NCH_fama_ramp = 0.00025080016299749985
+effect_NCH_fama_s10 = 0.0
+effect_NCH_fama_s100 = 6.721418073896146e-06
+effect_NCH_fama_s20 = 2.2683734963835356e-05
+effect_NCH_fama_s40 = 3.229289178996453e-05
+effect_NCH_fama_s5 = 0.031938437395496844
+effect_NCH_mama_flat = 0.006631259765625286
+effect_NCH_mama_ramp = 0.0002609425374326957
+effect_NCH_mama_s10 = 0.0
+effect_NCH_mama_s100 = 8.297196225637293e-07
+effect_NCH_mama_s20 = 8.716924451146468e-07
+effect_NCH_mama_s40 = 1.622923926802855e-06
+effect_NCH_mama_s5 = 0.004536924292483979
+effect_NCH_period_flat = 6.474401337411123
+effect_NCH_period_ramp = 9.712076500770472
+effect_NCH_period_s10 = 0.0022811635719506285
+effect_NCH_period_s100 = 0.000963141574722215
+effect_NCH_period_s20 = 0.00041960153716047444
+effect_NCH_period_s40 = 0.002857444784886809
+effect_NCH_period_s5 = 0.005312817357548738
+effect_NCH_phase_flat = 179.99999999999997
+effect_NCH_phase_ramp = 27.927050399222672
+effect_NCH_phase_s10 = 0.1261940444417604
+effect_NCH_phase_s100 = 0.01753819451764116
+effect_NCH_phase_s20 = 0.03312005748134084
+effect_NCH_phase_s40 = 0.017531283523581465
+effect_NCH_phase_s5 = 179.99999999999972
+effect_NCP_alpha_flat = 3.3467441675760767e-06
+effect_NCP_alpha_ramp = 2.779304775213376e-06
+effect_NCP_alpha_s10 = 0.0
+effect_NCP_alpha_s100 = 3.273145740723127e-06
+effect_NCP_alpha_s20 = 1.2292052095630446e-07
+effect_NCP_alpha_s40 = 2.000635458548894e-07
+effect_NCP_alpha_s5 = 0.0
+effect_NCP_fama_flat = 3.5231408901381656e-09
+effect_NCP_fama_ramp = 4.3357255563591934e-09
+effect_NCP_fama_s10 = 0.0
+effect_NCP_fama_s100 = 1.5847403833646467e-08
+effect_NCP_fama_s20 = 1.1285839596197889e-08
+effect_NCP_fama_s40 = 4.5500228029737855e-08
+effect_NCP_fama_s5 = 0.0
+effect_NCP_mama_flat = 5.639932965095795e-13
+effect_NCP_mama_ramp = 1.2542531457881978e-09
+effect_NCP_mama_s10 = 0.0
+effect_NCP_mama_s100 = 3.761644995492475e-09
+effect_NCP_mama_s20 = 4.336953018935219e-10
+effect_NCP_mama_s40 = 4.9844790517283855e-09
+effect_NCP_mama_s5 = 0.0
+effect_NCP_period_flat = 4.766740450179441e-05
+effect_NCP_period_ramp = 4.378646796965313e-05
+effect_NCP_period_s10 = 2.0420733331860674e-05
+effect_NCP_period_s100 = 4.327885254440389e-05
+effect_NCP_period_s20 = 2.3139167190322496e-05
+effect_NCP_period_s40 = 3.8056975476763455e-05
+effect_NCP_period_s5 = 2.4293412849374363e-05
+effect_NCP_phase_flat = 7.262766132498655e-05
+effect_NCP_phase_ramp = 7.256033688918251e-05
+effect_NCP_phase_s10 = 7.182130299554501e-05
+effect_NCP_phase_s100 = 7.262519491746389e-05
+effect_NCP_phase_s20 = 7.24458530640959e-05
+effect_NCP_phase_s40 = 7.259360560851746e-05
+effect_NCP_phase_s5 = 7.262766132498655e-05
+effect_NCS2_fama_flat = 1.1
+effect_NCS2_fama_ramp = 1.10009893359375
+effect_NCS2_fama_s10 = 1.1031940712571908
+effect_NCS2_fama_s100 = 1.1006176520481699
+effect_NCS2_fama_s20 = 1.1026441647078562
+effect_NCS2_fama_s40 = 1.1014929699472582
+effect_NCS2_fama_s5 = 1.102284159601486
+effect_NCS2_mama_flat = 1.1
+effect_NCS2_mama_ramp = 1.100266875
+effect_NCS2_mama_s10 = 1.1063890366847444
+effect_NCS2_mama_s100 = 1.1016625249361272
+effect_NCS2_mama_s20 = 1.1067204844850844
+effect_NCS2_mama_s40 = 1.103972105175273
+effect_NCS2_mama_s5 = 1.1053165675522005
+effect_NCS_fama_flat = 1.1
+effect_NCS_fama_ramp = 1.10009893359375
+effect_NCS_fama_s10 = 1.1043786936345272
+effect_NCS_fama_s100 = 1.1006176520481699
+effect_NCS_fama_s20 = 1.1037177101640916
+effect_NCS_fama_s40 = 1.1021013872641796
+effect_NCS_fama_s5 = 1.102220757372077
+effect_NCS_mama_flat = 1.1
+effect_NCS_mama_ramp = 1.100266875
+effect_NCS_mama_s10 = 1.1078676554375795
+effect_NCS_mama_s100 = 1.1016625249361272
+effect_NCS_mama_s20 = 1.107705692254263
+effect_NCS_mama_s40 = 1.10455794529443
+effect_NCS_mama_s5 = 1.1053165675522005
+equiv_ge1000_MA03_s20_of_alpha = 0.0
+equiv_ge1000_MA03_s20_of_fama = 8.881784197001252e-16
+equiv_ge1000_MA03_s20_of_mama = 8.881784197001252e-16
+equiv_ge1000_MA03_s20_of_period = 3.943512183468556e-13
+equiv_ge1000_MA03_s20_of_phase = 1.5301038214232676e-11
+equiv_ge1000_MA03_s20_sc_alpha = 0.0
+equiv_ge1000_MA03_s20_sc_fama = 1.2878587085651816e-14
+equiv_ge1000_MA03_s20_sc_mama = 6.439293542825908e-15
+equiv_ge1000_MA03_s20_sc_period = 1.4566126083082054e-13
+equiv_ge1000_MA03_s20_sc_phase = 7.503941912290202e-12
+equiv_ge1000_MA03_s40_of_alpha = 0.0
+equiv_ge1000_MA03_s40_of_fama = 1.3322676295501878e-15
+equiv_ge1000_MA03_s40_of_mama = 8.881784197001252e-16
+equiv_ge1000_MA03_s40_of_period = 6.23856521997368e-12
+equiv_ge1000_MA03_s40_of_phase = 5.2733428734796917e-11
+equiv_ge1000_MA03_s40_sc_alpha = 0.0
+equiv_ge1000_MA03_s40_sc_fama = 6.439293542825908e-15
+equiv_ge1000_MA03_s40_sc_mama = 5.995204332975845e-15
+equiv_ge1000_MA03_s40_sc_period = 2.7711166694643907e-12
+equiv_ge1000_MA03_s40_sc_phase = 2.0014212509522622e-11
+equiv_ge1000_MA05_s20_of_alpha = 0.0
+equiv_ge1000_MA05_s20_of_fama = 1.7763568394002505e-15
+equiv_ge1000_MA05_s20_of_mama = 1.3322676295501878e-15
+equiv_ge1000_MA05_s20_of_period = 3.943512183468556e-13
+equiv_ge1000_MA05_s20_of_phase = 1.5301038214232676e-11
+equiv_ge1000_MA05_s20_sc_alpha = 0.0
+equiv_ge1000_MA05_s20_sc_fama = 1.5765166949677223e-14
+equiv_ge1000_MA05_s20_sc_mama = 9.103828801926284e-15
+equiv_ge1000_MA05_s20_sc_period = 1.4566126083082054e-13
+equiv_ge1000_MA05_s20_sc_phase = 7.503941912290202e-12
+equiv_ge1000_MA05_s40_of_alpha = 3.7163327970546334e-13
+equiv_ge1000_MA05_s40_of_fama = 3.1086244689504383e-15
+equiv_ge1000_MA05_s40_of_mama = 4.440892098500626e-15
+equiv_ge1000_MA05_s40_of_period = 6.23856521997368e-12
+equiv_ge1000_MA05_s40_of_phase = 5.2733428734796917e-11
+equiv_ge1000_MA05_s40_sc_alpha = 1.89979976195076e-13
+equiv_ge1000_MA05_s40_sc_fama = 1.3988810110276972e-14
+equiv_ge1000_MA05_s40_sc_mama = 1.887379141862766e-14
+equiv_ge1000_MA05_s40_sc_period = 2.7711166694643907e-12
+equiv_ge1000_MA05_s40_sc_phase = 2.0014212509522622e-11
+equiv_last_row_off_MA03_s20_of = 334
+equiv_last_row_off_MA03_s20_sc = 371
+equiv_last_row_off_MA03_s40_of = 387
+equiv_last_row_off_MA03_s40_sc = 404
+equiv_last_row_off_MA05_s20_of = 381
+equiv_last_row_off_MA05_s20_sc = 429
+equiv_last_row_off_MA05_s40_of = 456
+equiv_last_row_off_MA05_s40_sc = 516
+equiv_model_MA03_of_alpha = 0.0
+equiv_model_MA03_of_fama = 1.3322676295501878e-15
+equiv_model_MA03_of_mama = 8.881784197001252e-16
+equiv_model_MA03_of_period = 6.23856521997368e-12
+equiv_model_MA03_of_phase = 5.2733428734796917e-11
+equiv_model_MA03_sc_alpha = 0.0
+equiv_model_MA03_sc_fama = 6.439293542825908e-15
+equiv_model_MA03_sc_mama = 5.995204332975845e-15
+equiv_model_MA03_sc_period = 2.7711166694643907e-12
+equiv_model_MA03_sc_phase = 2.0014212509522622e-11
+equiv_model_MA05_of_alpha = 3.7163327970546334e-13
+equiv_model_MA05_of_fama = 3.1086244689504383e-15
+equiv_model_MA05_of_mama = 4.440892098500626e-15
+equiv_model_MA05_of_period = 6.23856521997368e-12
+equiv_model_MA05_of_phase = 5.2733428734796917e-11
+equiv_model_MA05_sc_alpha = 1.89979976195076e-13
+equiv_model_MA05_sc_fama = 1.3988810110276972e-14
+equiv_model_MA05_sc_mama = 1.887379141862766e-14
+equiv_model_MA05_sc_period = 2.7711166694643907e-12
+equiv_model_MA05_sc_phase = 2.0014212509522622e-11
+fama_max_ge1000_MA03_s10 = 1.1002068446794486
+fama_max_ge1000_MA03_s100 = 1.1066264358719038
+fama_max_ge1000_MA03_s20 = 1.1006833770121132
+fama_max_ge1000_MA03_s40 = 1.1019644733713068
+fama_max_ge1000_MA05_s10 = 1.1000986239002633
+fama_max_ge1000_MA05_s100 = 1.107934150833549
+fama_max_ge1000_MA05_s20 = 1.1005536589105402
+fama_max_ge1000_MA05_s40 = 1.1011219802484378
+fama_min_ge1000_MA03_s10 = 1.0997931553205507
+fama_min_ge1000_MA03_s100 = 1.093373564128097
+fama_min_ge1000_MA03_s20 = 1.099316622987885
+fama_min_ge1000_MA03_s40 = 1.0980355266286932
+fama_min_ge1000_MA05_s10 = 1.0999013760997354
+fama_min_ge1000_MA05_s100 = 1.0920658491664512
+fama_min_ge1000_MA05_s20 = 1.099446341089458
+fama_min_ge1000_MA05_s40 = 1.098878019751562
+imp_est_MA03_of40_alpha = 5.819789095085071e-13
+imp_est_MA03_of40_fama = 1.9872992140790302e-13
+imp_est_MA03_of40_mama = 3.774758283725532e-14
+imp_est_MA03_of40_period = 8.448353128187591e-12
+imp_est_MA03_of40_phase = 7.469092011547218e-11
+imp_est_MA03_s100_alpha = 1.0424605623171601e-11
+imp_est_MA03_s100_fama = 6.67021993194794e-13
+imp_est_MA03_s100_mama = 6.94999613415348e-14
+imp_est_MA03_s100_period = 1.3713474800169934e-12
+imp_est_MA03_s100_phase = 1.1239009722885385e-10
+imp_est_MA03_s10_alpha = 0.0
+imp_est_MA03_s10_fama = 4.440892098500626e-16
+imp_est_MA03_s10_mama = 6.661338147750939e-16
+imp_est_MA03_s10_period = 1.9539925233402755e-13
+imp_est_MA03_s10_phase = 6.771916361003605e-12
+imp_est_MA03_s20_alpha = 0.0
+imp_est_MA03_s20_fama = 4.440892098500626e-16
+imp_est_MA03_s20_mama = 6.661338147750939e-16
+imp_est_MA03_s20_period = 3.446132268436486e-13
+imp_est_MA03_s20_phase = 1.1486589457376795e-11
+imp_est_MA03_s40_alpha = 9.059419880941277e-14
+imp_est_MA03_s40_fama = 1.865174681370263e-14
+imp_est_MA03_s40_mama = 5.329070518200751e-15
+imp_est_MA03_s40_period = 6.366462912410498e-12
+imp_est_MA03_s40_phase = 4.2803094402188435e-11
+imp_est_MA03_s5_period = 1.4566126083082054e-13
+imp_est_MA03_sc40_alpha = 2.3078761124395442e-14
+imp_est_MA03_sc40_fama = 1.2212453270876722e-15
+imp_est_MA03_sc40_mama = 1.1102230246251565e-15
+imp_est_MA03_sc40_period = 5.329070518200751e-13
+imp_est_MA03_sc40_phase = 3.47455397786689e-12
+imp_est_MA05_of40_alpha = 9.758860386455126e-13
+imp_est_MA05_of40_fama = 1.0635936575909e-13
+imp_est_MA05_of40_mama = 6.217248937900877e-15
+imp_est_MA05_of40_period = 8.448353128187591e-12
+imp_est_MA05_of40_phase = 7.469092011547218e-11
+imp_est_MA05_s100_alpha = 1.7374324201568925e-11
+imp_est_MA05_s100_fama = 2.595701431573616e-13
+imp_est_MA05_s100_mama = 4.5075054799781356e-14
+imp_est_MA05_s100_period = 1.3713474800169934e-12
+imp_est_MA05_s100_phase = 1.1239009722885385e-10
+imp_est_MA05_s10_alpha = 0.0
+imp_est_MA05_s10_fama = 4.440892098500626e-16
+imp_est_MA05_s10_mama = 4.440892098500626e-16
+imp_est_MA05_s10_period = 1.9539925233402755e-13
+imp_est_MA05_s10_phase = 6.771916361003605e-12
+imp_est_MA05_s20_alpha = 2.9004576518332215e-14
+imp_est_MA05_s20_fama = 2.886579864025407e-15
+imp_est_MA05_s20_mama = 8.881784197001252e-16
+imp_est_MA05_s20_period = 3.446132268436486e-13
+imp_est_MA05_s20_phase = 1.1486589457376795e-11
+imp_est_MA05_s40_alpha = 3.9199893331343105e-13
+imp_est_MA05_s40_fama = 1.454392162258955e-14
+imp_est_MA05_s40_mama = 3.1086244689504383e-15
+imp_est_MA05_s40_period = 6.366462912410498e-12
+imp_est_MA05_s40_phase = 4.2803094402188435e-11
+imp_est_MA05_s5_period = 1.4566126083082054e-13
+imp_est_MA05_sc40_alpha = 3.8469227803261674e-14
+imp_est_MA05_sc40_fama = 1.7763568394002505e-15
+imp_est_MA05_sc40_mama = 3.3306690738754696e-15
+imp_est_MA05_sc40_period = 5.329070518200751e-13
+imp_est_MA05_sc40_phase = 3.47455397786689e-12
+imp_est_info_MA03_flat_alpha = 0.0
+imp_est_info_MA03_flat_fama = 0.0
+imp_est_info_MA03_flat_mama = 0.0
+imp_est_info_MA03_flat_period = 0.0
+imp_est_info_MA03_flat_phase = 0.0
+imp_est_info_MA03_ramp_alpha = 0.19999999999999998
+imp_est_info_MA03_ramp_fama = 0.00013356996478686156
+imp_est_info_MA03_ramp_mama = 0.00015378604128057916
+imp_est_info_MA03_ramp_period = 6.311530138349561
+imp_est_info_MA03_ramp_phase = 31.130149879753418
+imp_est_info_MA03_s5_alpha = 0.19999999999999998
+imp_est_info_MA03_s5_fama = 0.0004641711754360678
+imp_est_info_MA03_s5_mama = 0.001969207041564447
+imp_est_info_MA03_s5_phase = 179.99999999999963
+imp_est_info_MA05_flat_alpha = 0.0
+imp_est_info_MA05_flat_fama = 0.0
+imp_est_info_MA05_flat_mama = 0.0
+imp_est_info_MA05_flat_period = 0.0
+imp_est_info_MA05_flat_phase = 0.0
+imp_est_info_MA05_ramp_alpha = 0.44995610008636955
+imp_est_info_MA05_ramp_fama = 0.0001760832429942294
+imp_est_info_MA05_ramp_mama = 0.0002557623874392956
+imp_est_info_MA05_ramp_period = 6.311530138349561
+imp_est_info_MA05_ramp_phase = 31.130149879753418
+imp_est_info_MA05_s5_alpha = 0.45
+imp_est_info_MA05_s5_fama = 0.0011773444516949283
+imp_est_info_MA05_s5_mama = 0.0048415146463436365
+imp_est_info_MA05_s5_phase = 179.99999999999963
+ncs2_fama_flat_last_row_gt_1e12 = 107
+ncs2_fama_flat_max = 1.1
+ncs2_fama_flat_max_ge_1000 = 4.440892098500626e-16
+ncs2_fama_flat_rows_gt_1e12 = 108
+ncs2_fama_ramp_last_row_gt_1e12 = 2999
+ncs2_fama_ramp_max = 1.10009893359375
+ncs2_fama_ramp_max_ge_1000 = 0.00034610815449021004
+ncs2_fama_ramp_rows_gt_1e12 = 2966
+ncs2_fama_s100_last_row_gt_1e12 = 2999
+ncs2_fama_s100_max = 1.1006176520481699
+ncs2_fama_s100_max_ge_1000 = 5.403222091970861e-09
+ncs2_fama_s100_rows_gt_1e12 = 3000
+ncs2_fama_s10_last_row_gt_1e12 = 344
+ncs2_fama_s10_max = 1.1031940712571908
+ncs2_fama_s10_max_ge_1000 = 0.0
+ncs2_fama_s10_rows_gt_1e12 = 345
+ncs2_fama_s20_last_row_gt_1e12 = 521
+ncs2_fama_s20_max = 1.1026441647078562
+ncs2_fama_s20_max_ge_1000 = 0.0
+ncs2_fama_s20_rows_gt_1e12 = 522
+ncs2_fama_s40_last_row_gt_1e12 = 2999
+ncs2_fama_s40_max = 1.1014929699472582
+ncs2_fama_s40_max_ge_1000 = 9.183893645570151e-10
+ncs2_fama_s40_rows_gt_1e12 = 3000
+ncs2_fama_s5_last_row_gt_1e12 = 2999
+ncs2_fama_s5_max = 1.102284159601486
+ncs2_fama_s5_max_ge_1000 = 0.0014793481896402394
+ncs2_fama_s5_rows_gt_1e12 = 2249
+ncs2_mama_flat_last_row_gt_1e12 = 50
+ncs2_mama_flat_max = 1.1
+ncs2_mama_flat_max_ge_1000 = 0.0
+ncs2_mama_flat_rows_gt_1e12 = 51
+ncs2_mama_ramp_last_row_gt_1e12 = 2999
+ncs2_mama_ramp_max = 1.100266875
+ncs2_mama_ramp_max_ge_1000 = 0.00030773181565080243
+ncs2_mama_ramp_rows_gt_1e12 = 2917
+ncs2_mama_s100_last_row_gt_1e12 = 2999
+ncs2_mama_s100_max = 1.1016625249361272
+ncs2_mama_s100_max_ge_1000 = 2.505883722747626e-09
+ncs2_mama_s100_rows_gt_1e12 = 3000
+ncs2_mama_s10_last_row_gt_1e12 = 144
+ncs2_mama_s10_max = 1.1063890366847444
+ncs2_mama_s10_max_ge_1000 = 0.0
+ncs2_mama_s10_rows_gt_1e12 = 145
+ncs2_mama_s20_last_row_gt_1e12 = 216
+ncs2_mama_s20_max = 1.1067204844850844
+ncs2_mama_s20_max_ge_1000 = 0.0
+ncs2_mama_s20_rows_gt_1e12 = 217
+ncs2_mama_s40_last_row_gt_1e12 = 2999
+ncs2_mama_s40_max = 1.103972105175273
+ncs2_mama_s40_max_ge_1000 = 2.22066276478472e-09
+ncs2_mama_s40_rows_gt_1e12 = 3000
+ncs2_mama_s5_last_row_gt_1e12 = 2999
+ncs2_mama_s5_max = 1.1053165675522005
+ncs2_mama_s5_max_ge_1000 = 0.0046159811719099775
+ncs2_mama_s5_rows_gt_1e12 = 1780
+ncs_fama_flat_last_row_gt_1e12 = 107
+ncs_fama_flat_max = 1.1
+ncs_fama_flat_max_ge_1000 = 4.440892098500626e-16
+ncs_fama_flat_rows_gt_1e12 = 108
+ncs_fama_ramp_last_row_gt_1e12 = 2999
+ncs_fama_ramp_max = 1.10009893359375
+ncs_fama_ramp_max_ge_1000 = 0.00034610815449021004
+ncs_fama_ramp_rows_gt_1e12 = 2966
+ncs_fama_s100_last_row_gt_1e12 = 2999
+ncs_fama_s100_max = 1.1006176520481699
+ncs_fama_s100_max_ge_1000 = 5.403222091970861e-09
+ncs_fama_s100_rows_gt_1e12 = 3000
+ncs_fama_s10_last_row_gt_1e12 = 344
+ncs_fama_s10_max = 1.1043786936345272
+ncs_fama_s10_max_ge_1000 = 0.0
+ncs_fama_s10_rows_gt_1e12 = 345
+ncs_fama_s20_last_row_gt_1e12 = 521
+ncs_fama_s20_max = 1.1037177101640916
+ncs_fama_s20_max_ge_1000 = 0.0
+ncs_fama_s20_rows_gt_1e12 = 522
+ncs_fama_s40_last_row_gt_1e12 = 2999
+ncs_fama_s40_max = 1.1021013872641796
+ncs_fama_s40_max_ge_1000 = 9.183893645570151e-10
+ncs_fama_s40_rows_gt_1e12 = 3000
+ncs_fama_s5_last_row_gt_1e12 = 2999
+ncs_fama_s5_max = 1.102220757372077
+ncs_fama_s5_max_ge_1000 = 0.0014793481896402394
+ncs_fama_s5_rows_gt_1e12 = 2249
+ncs_mama_flat_last_row_gt_1e12 = 50
+ncs_mama_flat_max = 1.1
+ncs_mama_flat_max_ge_1000 = 0.0
+ncs_mama_flat_rows_gt_1e12 = 51
+ncs_mama_ramp_last_row_gt_1e12 = 2999
+ncs_mama_ramp_max = 1.100266875
+ncs_mama_ramp_max_ge_1000 = 0.00030773181565080243
+ncs_mama_ramp_rows_gt_1e12 = 2917
+ncs_mama_s100_last_row_gt_1e12 = 2999
+ncs_mama_s100_max = 1.1016625249361272
+ncs_mama_s100_max_ge_1000 = 2.505883722747626e-09
+ncs_mama_s100_rows_gt_1e12 = 3000
+ncs_mama_s10_last_row_gt_1e12 = 144
+ncs_mama_s10_max = 1.1078676554375795
+ncs_mama_s10_max_ge_1000 = 0.0
+ncs_mama_s10_rows_gt_1e12 = 145
+ncs_mama_s20_last_row_gt_1e12 = 217
+ncs_mama_s20_max = 1.107705692254263
+ncs_mama_s20_max_ge_1000 = 0.0
+ncs_mama_s20_rows_gt_1e12 = 218
+ncs_mama_s40_last_row_gt_1e12 = 2999
+ncs_mama_s40_max = 1.10455794529443
+ncs_mama_s40_max_ge_1000 = 2.22066276478472e-09
+ncs_mama_s40_rows_gt_1e12 = 3000
+ncs_mama_s5_last_row_gt_1e12 = 2999
+ncs_mama_s5_max = 1.1053165675522005
+ncs_mama_s5_max_ge_1000 = 0.0046159811719099775
+ncs_mama_s5_rows_gt_1e12 = 1780
+period_max_all_MA03_s10 = 28.022376581005684
+period_max_all_MA03_s100 = 50.0
+period_max_all_MA03_s20 = 28.767924446440233
+period_max_all_MA03_s40 = 40.29101121237347
+period_max_all_MA05_s10 = 28.022376581005684
+period_max_all_MA05_s100 = 50.0
+period_max_all_MA05_s20 = 28.767924446440233
+period_max_all_MA05_s40 = 40.29101121237347
+period_max_every_input_MA03 = 50.0
+period_max_every_input_MA05 = 50.0
+period_max_ge1000_MA03_s10 = 10.138692660663775
+period_max_ge1000_MA03_s100 = 50.0
+period_max_ge1000_MA03_s20 = 20.051537545020736
+period_max_ge1000_MA03_s40 = 40.18200281308779
+period_max_ge1000_MA05_s10 = 10.138692660663775
+period_max_ge1000_MA05_s100 = 50.0
+period_max_ge1000_MA05_s20 = 20.051537545020736
+period_max_ge1000_MA05_s40 = 40.18200281308779
+period_min_ge1000_MA03_s10 = 10.046866000871653
+period_min_ge1000_MA03_s100 = 50.0
+period_min_ge1000_MA03_s20 = 19.955554535888748
+period_min_ge1000_MA03_s40 = 39.807136333604554
+period_min_ge1000_MA05_s10 = 10.046866000871653
+period_min_ge1000_MA05_s100 = 50.0
+period_min_ge1000_MA05_s20 = 19.955554535888748
+period_min_ge1000_MA05_s40 = 39.807136333604554
+source = """(b) 2026-11-20, tests/maf_support.numbers() (reference.py models, checker): the brief's items 1-4 reproduced; differences are in docs/harness/MAF_STAGE1_REPORT.md. alpha_* / period_* / fama_*: the real models on the checked sines (rows n >= 5 for alpha; ge1000 = rows n >= 1000). alpha_rows_lt5_max: alpha on rows n < 5 (the initial 0). equiv_ge1000_<v>_<input>_<copy>_<column>: |copy - (k base + c)| (mama, fama) or |copy - base| over rows n >= 1000, model, inputs s20 and s40 (copies computed in Python); equiv_last_row_off_*: the last row with any column off by > 1e-9 (phase > 1e-8); equiv_model_*: the same on s40 for the spec's copies (the equivariance floor). imp_est_<v>_<input>_<column>: the model on x printed with %.15f vs the exact x, all rows (the IMP residual of a perfect run; CHECKED pairs); imp_est_info_*: the same on the INFO pairs. effect_<control>_<column>_<input>: the control's own-model output vs the MA05 model, max over all rows. ncs_* / ncs2_*: the shared-barCount replay (14 superseded calls per bar in the generator's call order) vs the MA05 model per (instance, column, input): max over all rows, over rows n >= 1000, the number of rows and the last row with |diff| > 1e-12."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """MAMA / FAMA source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept
+(CLAUDE.md section 4.8), and its cause found before anything is changed:
+1. All 66 real checks PASS: 2 variants (MA05, MA03) x 33 checks = trace 21 (every CHECKED (input, column) pair of the variant's
+   [expected.*.conditioning], from row 1 = n >= 0: s10, s20, s40, s100 x mama / fama / period / alpha / phase = 20, plus s5 period = 1) + bound 2
+   (alpha in [SL, FL] on rows n >= 5; period <= 50 on every row; every input incl. the copies; relative allowance) + equivariance 10 (s40, copies
+   sc and of, x 5 columns, rows n >= 1000). The brief expected 32 per variant / 64: the one extra trace check per variant is s5 period, which the
+   per-(input, column) classification of D7 rule 3 makes CHECKED (conditioning 4.157e-13 MA05 / 5.755e-13 MA03 <= 1e-10; the planning chat's
+   table 1 has the same values, 4.086e-13 / 5.755e-13). INFO rows (info-trace on the 14 INFO pairs per real variant: flat x 5, ramp x 5, s5 x 4;
+   info-flat) are written with result INFO and are not counted.
+2. Each of the 7 negative controls (NCB, NCH, NCF, NC32, NCP, NCS, NCS2) FAILS on every kind listed in [detect.required]. A control that passes =
+   harness broken.
+3. No input guard fires (x[n] incl. the copies sc40 / of40 vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant, no NaN /
+   infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 2 real + 7 negative controls = 9 variants (NCB a control since the stage 1 review).
+6. IMP: every [imp].must_pass replay <= its column tolerance (1e-9; phase 1e-8) on every CHECKED pair of every input the variant is called on
+   (9 variants), and both [imp].must_fail replays exceed it (MA05 vs the NCH model; NCS vs the MA05 model; guard seen to fire). The INFO pairs'
+   IMP residuals are reported (trailer IMP_INFO; expected large where the conditioning fails), never PASS / FAIL.
+7. Floor guard: for every real variant, max |Zorro - model| <= tolerance / 10 for trace (1e-10; phase 1e-9) and equivariance (1e-10; phase 1e-9)
+   (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected MAMA.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current MAMA.c blob (bab4cbbb5961be5720bce82fc6e487e283f7f00e, last commit 2a5eca5) is recorded and the corrected file differs from it
+        only by MA-1, MA-2, MA-3, MA-4, S1, MA-7, MA-8 (MA-5 removed with S1, MA-6 kept); MAMA_Superseded.c is the current body with ONLY the
+        mao_ prefix and the function name;
+   (iii) reference.py reproduces this file's conditioning values, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 relative (an
+        absolute 1e-15 for values below 1e-6). Every number is stored at full precision. Each inline control body is checked at run time, not by
+        reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every required margin >= 10x; after stage 2 also the two includes resolve and the
+        no-static check passes);
+   (v) no-static lint: indicators/ehlers/MAMA.c contains no `static` token (comments excluded); the check is seen to fire on the superseded body
+        (1 hit: barCount). Recorded here and in the results header (INFO L_NO_STATIC line);
+   (vi) the callers of MAMA (strategies/tests/Test_FRAMA_vs_MAMA.c:38, strategies/tests/Test_MAMA.c:32; grep, stage 1 report) build .5 / .05 from
+        integers (stage 2); no other caller exists;
+   (vii) the conditioning classification recomputed by the tooling (checker.conditioning_table: same seed, draw order and bound) equals the INFO
+        lists of [expected.MA05.conditioning] and [expected.MA03.conditioning] (checker.conditioning_mismatches = []); a mismatch is a STOP."""
+
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance per kind and per column override; per-control margin) in the results header."
+O_CONDITIONING = "(b) Rule 3 classification ([expected.*.conditioning], both variants identical): INFO flat (all 5 columns), ramp (all 5), s5 (mama, fama, alpha, phase); CHECKED s10, s20, s40, s100 (all 5), s5 period, and the copies sc40 / of40 (all 5; used by equivariance and IMP only). Largest checked: MA05 s100 phase 1.453e-10, alpha 2.318e-11, fama 2.351e-13; MA03 s100 phase 1.538e-10, alpha 1.624e-11, fama 6.678e-13 (brief item 1, reproduced). INFO examples: MA05 ramp alpha 0.45, fama 2.788e-04; flat fama 3.244e-02; s5 fama 1.686e-02."
+O_S5_PERIOD = "(b) s5 sits on the Period floor 6 (T = 5 < 6): the phase wraps flip alpha (s5 is INFO for alpha / phase / mama / fama), but Period comes from Re / Im, not from the phase, and stays on its floor: s5 period is well conditioned (4.157e-13) and is a CHECKED trace pair. This is the one difference from the brief's count (pass item 1)."
+O_NCB = "(b) NCB (dn .67 -> .68, control): zero effect on s10, s20, s40, s100 (all columns, S4 reproduced) but 3.626e-02 on s5 period (the .67 / .68 bound acts during s5's climb to the 6 floor; findings effect_NCB_period_s5). S4's 'zero effect on every checked input' was stated for the four checked sines; s5 period, checked here, is the exception. Planning-chat review 2026-11-20: NCB is a control, [detect.required] NCB = [trace] (3.63e7x); its IMP model is unchanged."
+O_NC32 = "(b) NC32 (MA-4): trace 5.944e-06 on period (= 5943x, every checked sine), and the bound: with float32 .2 and .8 (sum 1 + 1.49e-8) the blend P = .2 x 50 + .8 x P[1] converges to 50 x 1.0000000745 = 50.0000037 > 50, so period breaks its exact bound by 3.7e-6 (74500x the relative allowance). MA-4 is therefore seen by two kinds."
+O_NCP = "(b) NCP (Zorro PI): period 2.042e-05 .. 4.328e-05, phase 7.18e-05 .. 7.26e-05 degrees (s10 .. s100): 4.3e4x the trace tolerance; S1 is a checked change."
+O_NCS = "(b) NCS / NCS2 (the superseded file, two instances, 14 superseded calls per bar, variant-major): only barCount is shared, so the shared state shifts the start-up only (NCS's calls on flat .. s40 at bar 0 are the run's first 5 and return Price; every later call computes). Every (instance, input) differs from MA05 by about the level at start-up (1.10 .. 1.108, price seed vs zero start); at rows n >= 1000 the difference is 0 on s10 / s20, 2.2e-9 .. 5.4e-9 on s40 / s100 (float32 literals, Zorro PI), 3.1e-4 / 3.5e-4 on ramp and 4.6e-3 / 1.5e-3 on s5 (long memory / wraps) ([findings] ncs_* / ncs2_*). Not only flat, not only a constant: the trace catches it at 1.1e9x."
+O_EQUIV = "(b) C-2 reproduced: the zero start does not map under x -> kx + c; the model's last row with a column off > 1e-9 (phase > 1e-8) is n = 516 (MA05, s40, sc) at most over s20 / s40 and both variants; rows n >= 1000: mama 1.89e-14, fama 1.58e-14, alpha 3.72e-13, period 6.24e-12, phase 5.27e-11 ([findings] equiv_*). W_eq = 1000."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant (checked pairs) and, separately, the INFO-pair residuals, and the Zorro-vs-model residual per kind and column group per real variant (the measured floor; expected at rounding level). (b) A perfect run printed with %.15f: MA05 1.737e-11 (s100 alpha, ratio 0.017), MA03 1.124e-10 (s100 phase, ratio 0.011); INFO pairs up to 180 degrees (phase on flat / ramp / s5) ([imp.fire_test.exported_x_15f])."
+O_STATICS_RESET = "(b) The generated script's own statics (mam_n, mam_done, mam_hdr, mam_rows) are reset at INITRUN. The superseded file's static barCount is not (it is called only after INITRUN returns): restart Zorro before a rerun ([run_notes])."
+
+# ----------------------------------------------------------------------------- run notes
+[run_notes]
+rerun = "(b)/(c) Restart Zorro before any rerun of the generated script: the superseded file's static barCount (mao_barCount after stage 2) persists across [Test] presses of a loaded script and the generated script returns at INITRUN before any indicator call, so the file's own INITRUN reset never runs; a second press would start NCS / NCS2 with barCount = 42000, i.e. without the 5 Price-returning calls (as RFX A2.4 / LRS A1.3 / FSH A1.3)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+

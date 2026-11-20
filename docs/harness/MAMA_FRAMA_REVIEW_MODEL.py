@@ -33,7 +33,7 @@ def get(a, i, k, pad):
     return a[j] if j >= 0 else pad
 
 
-def mama_src(x, FL=0.5, SL=0.05, lit=None, pi=math.pi, period0=0.0):
+def mama_src(x, FL=0.5, SL=0.05, lit=None, pi=math.pi, period0=0.0, fama_k=0.5):
     c = lit or {}
     L = lambda s: c.get(s, float(s))
     w1, w2, kA, kB = L(".0962"), L(".5769"), L(".075"), L(".54")
@@ -83,7 +83,7 @@ def mama_src(x, FL=0.5, SL=0.05, lit=None, pi=math.pi, period0=0.0):
         if al > FL: al = FL
         AL[i] = al
         M[i] = al * x[i] + (1 - al) * g(M, 1)
-        F[i] = 0.5 * al * M[i] + (1 - 0.5 * al) * g(F, 1)
+        F[i] = fama_k * al * M[i] + (1 - fama_k * al) * g(F, 1)
     return dict(mama=M, fama=F, period=P, alpha=AL, phase=Ph)
 
 
