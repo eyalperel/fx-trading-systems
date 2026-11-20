@@ -47,9 +47,14 @@ void run() {
     // =========================================================================
 
     // --- Fisher Transform (Period=10) ---
-    // Returns current bar Fisher value; ft_Trigger = previous bar (signal line)
-    var fisher = FisherTransform(10);
-    var f_trig = ft_Trigger;
+    // Returns current bar Fisher value; f_trig = previous bar (signal line, FisherCore out-parameter)
+    // Input is the source's (H+L)/2 series (F-2); the series holds >= Len values, unconditional, before the call.
+    vars ift_mid = series((priceHigh() + priceLow())/2, 10);
+    var ift_raw = 0;
+    var ift_v1 = 0;
+    var ift_rng = 0;
+    var f_trig = 0;
+    var fisher = FisherCore(ift_mid, 10, &ift_raw, &ift_v1, &ift_rng, &f_trig);
 
     // --- Elegant Oscillator (BandEdge=20) ---
     // IFT Redux pipeline: derivative → RMS normalize → soft-limit → SuperSmoother
