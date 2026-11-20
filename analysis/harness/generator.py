@@ -29,6 +29,16 @@ LRSI stage 1 (Laguerre RSI), all opt-in, older specs regenerate byte-identical s
     [checks].startup_output = true (start-up rows < W of the normalised output vs the model, PASS/FAIL);
   * variant key `skip_inputs = [...]` (base inputs other than the sines): no call, no raw column, no check for those pairs;
   * [lint].no_static = [files]: the pre-run structural check that a file has no `static` token (comments excluded).
+FSH stage 1 (Fisher Transform), all opt-in, older specs regenerate byte-identical scripts:
+  * output names raw / v1 / rng / trig (five columns per call: FisherCore(S, Len, &raw, &v1, &rng, &trig) returns out);
+  * [checks].linear_stage = false: the indicator has NO linear stage (F-7): no linear_output, no flat / gain / lag / phase tolerances
+    or table keys (refused if present); expected tables carry only `article` and `source`;
+  * [checks].trace_outputs = { <output> = ["range"] | ["range", "clamp"] }: trace replay on several outputs, per-output gates evaluated
+    on the MODEL (range / amplitude >= trace_gate; min |pre-clamp v1 -/+ thr| >= [checks].clamp_gate); check ids trace-<output>-T<t>;
+  * [checks].bounds = { <output> = [lo, hi] (absolute) | b (one-sided |y| <= b, relative allowance) }: one bound row per output;
+  * [checks].ramp_exact_outputs = { <output> = { ramp = <number> | "model", rampdn = ... } }: ids exact-<output>-<input>;
+  * [checks].trigger = true: new kind `trigger`, trig[n] == out[n-1] exactly for n >= 1 on every base input (Zorro-internal);
+  * [checks].flat_zero = [outputs]: new kind `flat_zero`, every flat row of those outputs must be 0 (implementation known answer).
 
 Usage: python analysis/harness/generator.py SPEC.toml [--out-dir DIR] [--lint-only]
 Labels: (a) source states, (b) verified here, (c) inference.
@@ -51,8 +61,12 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
 DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance",
-                "ramp_exact")                # checker._kind values (D4 adds three, D6 three, LRSI one)
-OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out", "l0", "l3", "den")   # variant outputs (RFX, MST, LRSI: l0 / l3 / den / out)
+                "ramp_exact", "trigger", "flat_zero")   # checker._kind values (D4 adds three, D6 three, LRSI one, FSH two)
+OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out", "l0", "l3", "den",
+                "raw", "v1", "rng", "trig")  # variant outputs (RFX, MST, LRSI: l0 / l3 / den / out; FSH: raw / v1 / rng / trig / out)
+TRACE_GATES = ("range", "clamp")             # FSH: per-output trace gates (range / amplitude; clamp distance of the pre-clamp v1)
+LINEAR_ONLY_TOLS = ("flat", "gain", "lag", "phase", "resid")      # tolerances of the v1 checks (refused with linear_stage = false)
+LINEAR_ONLY_KEYS = ("flat", "gains", "lag", "phases", "resid", "gain_alt", "phase_alt")   # expected-table keys of the v1 checks
 RETURN_NAMES = ("r", "out")                  # the last output listed is the function's return value, one of these
 LINEAR_NAMES = ("sum", "ms", "roof", "l0", "l3")   # outputs the v1 checks may read
 SKIPPABLE = ("flat", "alt", "ramp", "rampdn")      # base inputs a variant may skip (never a sine: trace / start-up need them)
@@ -98,6 +112,76 @@ def osc_of(spec):
     """True when [checks].trace_gate is present: the oscillator check set (trace / bound / invariance) is on."""
     chk = spec.get("checks", {})
     return isinstance(chk, dict) and chk.get("trace_gate") is not None
+
+
+def nolin_of(spec):
+    """True when the oscillator spec declares NO linear stage ([checks].linear_stage = false, FSH stage 1, F-7)."""
+    chk = spec.get("checks", {})
+    return osc_of(spec) and isinstance(chk, dict) and chk.get("linear_stage") is False
+
+
+FISHER_CHECK_KEYS = ("linear_stage", "trace_outputs", "clamp_gate", "bounds", "ramp_exact_outputs", "trigger", "flat_zero")
+
+
+def fisher_checked_outputs(chk):
+    """Outputs a real variant must export under the FSH keys: trace_outputs, bounds, ramp_exact_outputs, flat_zero, and trig (+ out)
+    for the trigger check. [] for every older spec."""
+    out = []
+    for k in ("trace_outputs", "bounds", "ramp_exact_outputs"):
+        if isinstance(chk.get(k), dict):
+            out += [o for o in chk[k] if o not in out]
+    if isinstance(chk.get("flat_zero"), list):
+        out += [o for o in chk["flat_zero"] if isinstance(o, str) and o not in out]
+    if chk.get("trigger") is True:
+        out += [o for o in ("trig", "out") if o not in out]
+    return out
+
+
+def _fisher_check_errors(spec, chk):
+    """Validation of the FSH stage 1 [checks] keys (all optional). Returns [(code, message)]."""
+    err = []
+    to = chk.get("trace_outputs")
+    if to is not None:
+        if (not isinstance(to, dict) or not to or any(o not in OUTPUT_NAMES for o in to)
+                or any(not isinstance(g, list) or not g or len(set(g)) != len(g) or any(x not in TRACE_GATES for x in g)
+                       or "range" not in g for g in to.values())):
+            err.append(("TRACE_OUTPUTS_BAD", "[checks].trace_outputs %r must map output names from %s to a gate list containing "
+                        "'range' (and optionally 'clamp')" % (to, "/".join(OUTPUT_NAMES))))
+    uses_clamp = isinstance(to, dict) and any(isinstance(g, list) and "clamp" in g for g in to.values())
+    cg = chk.get("clamp_gate")
+    if uses_clamp and (not _is_num(cg) or cg <= 0):
+        err.append(("TRACE_OUTPUTS_BAD", "[checks].clamp_gate %r must be a positive number (a trace output uses the clamp gate)" % (cg,)))
+    elif cg is not None and not uses_clamp:
+        err.append(("TRACE_OUTPUTS_BAD", "[checks].clamp_gate given but no trace output uses the 'clamp' gate"))
+    bs = chk.get("bounds")
+    if bs is not None:
+        ok = isinstance(bs, dict) and bool(bs)
+        for o, b_ in (bs.items() if isinstance(bs, dict) else []):
+            pair = isinstance(b_, list) and len(b_) == 2 and all(_is_num(i) for i in b_) and b_[0] < b_[1]
+            if o not in OUTPUT_NAMES or not (pair or (_is_num(b_) and b_ > 0)):
+                ok = False
+        if not ok:
+            err.append(("BOUNDS_BAD", "[checks].bounds %r must map output names to [lo, hi] (lo < hi, absolute) or a positive "
+                        "number b (|y| <= b, relative allowance)" % (bs,)))
+    reo = chk.get("ramp_exact_outputs")
+    if reo is not None:
+        want = ["ramp"] + (["rampdn"] if ramp_down_of(spec) else [])
+        ok = isinstance(reo, dict) and bool(reo)
+        for o, tab in (reo.items() if isinstance(reo, dict) else []):
+            if (o not in OUTPUT_NAMES or not isinstance(tab, dict) or not tab or any(i not in want for i in tab)
+                    or not all(_is_num(e) or e == "model" for e in tab.values())):
+                ok = False
+        if not ok:
+            err.append(("RAMP_EXACT_BAD", "[checks].ramp_exact_outputs %r must map output names to {input from %s: number or "
+                        "\"model\"}" % (reo, want)))
+        if "ramp_exact" in chk:
+            err.append(("RAMP_EXACT_BAD", "[checks].ramp_exact and ramp_exact_outputs are exclusive"))
+    if "trigger" in chk and not isinstance(chk["trigger"], bool):
+        err.append(("TRIGGER_BAD", "[checks].trigger %r must be true or false" % (chk["trigger"],)))
+    fz = chk.get("flat_zero")
+    if fz is not None and (not isinstance(fz, list) or not fz or len(set(fz)) != len(fz) or any(o not in OUTPUT_NAMES for o in fz)):
+        err.append(("FLAT_ZERO_BAD", "[checks].flat_zero %r must be a non-empty list of distinct output names" % (fz,)))
+    return err
 
 
 def ramp_down_of(spec):
@@ -290,11 +374,18 @@ def validate_spec(spec):
                                                                             and i > 0 for i in pr)):
                         err.append(("INVARIANCE_BAD", "transform %s: %s %r must be [numerator, denominator], positive integers"
                                     % (tid, k, pr)))
+    nolin = nolin_of(spec)
     if osc:
         tg, bd, lo = chk.get("trace_gate"), chk.get("bound"), chk.get("linear_output")
         if not _is_num(tg) or tg <= 0:
             err.append(("OSC_BAD", "[checks].trace_gate %r must be a positive number" % (tg,)))
-        if isinstance(bd, list):                         # MST: two-sided absolute bound [lo, hi]
+        if "linear_stage" in chk and not isinstance(chk["linear_stage"], bool):
+            err.append(("LINEAR_STAGE_BAD", "[checks].linear_stage %r must be true or false" % (chk["linear_stage"],)))
+        err.extend(_fisher_check_errors(spec, chk))     # FSH stage 1 keys (trace_outputs, bounds, ramp_exact_outputs, ...)
+        if "bounds" in chk:                              # FSH: one bound per output (validated above); `bound` must be absent
+            if "bound" in chk or "bound_output" in chk:
+                err.append(("OSC_BAD", "[checks].bounds and [checks].bound / bound_output are exclusive"))
+        elif isinstance(bd, list):                       # MST: two-sided absolute bound [lo, hi]
             if len(bd) != 2 or not all(_is_num(b_) for b_ in bd) or not bd[0] < bd[1]:
                 err.append(("OSC_BAD", "[checks].bound %r must be a positive number or a pair [lo, hi] with lo < hi" % (bd,)))
             if chk.get("bound_output") not in OUTPUT_NAMES or chk.get("bound_output") in LINEAR_NAMES:
@@ -304,7 +395,10 @@ def validate_spec(spec):
             err.append(("OSC_BAD", "[checks].bound %r must be a positive number or a pair [lo, hi]" % (bd,)))
         elif "bound_output" in chk:
             err.append(("OSC_BAD", "[checks].bound_output is only valid with a two-sided bound [lo, hi]"))
-        if isinstance(lo, list):                         # LRSI: several linear outputs, each with its own table
+        if nolin:                                        # FSH (F-7): no linear stage, so no linear output and no v1 checks
+            if "linear_output" in chk:
+                err.append(("OSC_BAD", "[checks].linear_output given with [checks].linear_stage = false"))
+        elif isinstance(lo, list):                       # LRSI: several linear outputs, each with its own table
             if not lo or len(set(lo)) != len(lo) or any(o not in LINEAR_NAMES for o in lo):
                 err.append(("OSC_BAD", "[checks].linear_output %r must be a non-empty list of distinct names from %s"
                             % (lo, "/".join(LINEAR_NAMES))))
@@ -324,13 +418,23 @@ def validate_spec(spec):
           or "startup_output" in chk):
         err.append(("OSC_BAD", "[checks].bound / linear_output / bound_output / ramp_exact / startup_output without "
                                "[checks].trace_gate"))
+    elif any(k in chk for k in FISHER_CHECK_KEYS):
+        err.append(("OSC_BAD", "[checks].%s without [checks].trace_gate" % "/".join(k for k in FISHER_CHECK_KEYS if k in chk)))
     osu = osc and chk.get("startup_output") is True               # start-up of the normalised output, PASS/FAIL
-    orex = osc and isinstance(chk.get("ramp_exact"), dict) and bool(chk.get("ramp_exact"))
+    orex = osc and ((isinstance(chk.get("ramp_exact"), dict) and bool(chk.get("ramp_exact")))
+                    or (isinstance(chk.get("ramp_exact_outputs"), dict) and bool(chk.get("ramp_exact_outputs"))))
+    otrig = osc and chk.get("trigger") is True                    # FSH: trig[n] == out[n-1]
+    ofz = osc and isinstance(chk.get("flat_zero"), list) and bool(chk.get("flat_zero"))
     need_tol = ["flat", "gain", "x"] + (["lag"] if has_lag else []) \
         + (["phase"] if any_phases or alt else []) \
         + (["resid"] if not has_lag else []) + (["startup"] if sin or osu else []) \
         + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else []) \
-        + (["ramp_exact"] if orex else [])
+        + (["ramp_exact"] if orex else []) + (["trigger"] if otrig else []) + (["flat_zero"] if ofz else [])
+    if nolin:                                                     # FSH (F-7): the v1 tolerances do not apply, and are refused
+        need_tol = [q for q in need_tol if q not in LINEAR_ONLY_TOLS]
+        for q in LINEAR_ONLY_TOLS:
+            if q in spec["tolerances"]:
+                err.append(("LINEAR_NOT_APPLICABLE", "[tolerances.%s] given with [checks].linear_stage = false (no v1 checks)" % q))
     for q in need_tol:
         t = spec["tolerances"].get(q)
         if not isinstance(t, dict) or "value" not in t:
@@ -340,6 +444,14 @@ def validate_spec(spec):
     for name, t in spec["expected"].items():
         if not _has_label(t.get("source")):
             err.append(("SOURCE_MISSING", "expected table %s has no (a)/(b)/(c) source label" % name))
+        if nolin:                                                 # FSH: the table names only the article model (trace replay)
+            for k in LINEAR_ONLY_KEYS:
+                if k in t:
+                    err.append(("LINEAR_NOT_APPLICABLE", "expected table %s: %s given with [checks].linear_stage = false" % (name, k)))
+            if not isinstance(t.get("article"), str) or R.osc_article_model(t.get("article")) is None:
+                err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in reference.osc_article_model"
+                            % (name, t.get("article"))))
+            continue
         if len(t.get("gains", [])) != len(ts):
             err.append(("STRUCT", "expected table %s: %d gains for %d sine periods"
                         % (name, len(t.get("gains", [])), len(ts))))
@@ -429,6 +541,9 @@ def validate_spec(spec):
             elif v.get("role") == "real" and any(o not in outs for o in lins):
                 err.append(("OUTPUTS_BAD", "variant %s: a real variant must export the linear output %r"
                             % (vid, spec["checks"].get("linear_output"))))
+            elif v.get("role") == "real" and any(o not in outs for o in fisher_checked_outputs(chk)):
+                err.append(("OUTPUTS_BAD", "variant %s: a real variant must export every checked output %s"
+                            % (vid, fisher_checked_outputs(chk))))
             elif multi_linear(spec):                     # LRSI: one expected table per exported linear output
                 eo = v.get("expected_outputs")
                 mine = [o for o in outs if o in lins]
@@ -492,10 +607,10 @@ def validate_spec(spec):
                 if vid not in ctrl:
                     err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id"
                                 % vid))
-                applicable = ["flat", "gain"] + (["lag"] if has_lag else ["resid"]) \
-                    + (["phase"] if any_phases else []) + (["startup"] if sin or osu else []) \
+                applicable = ([] if nolin else ["flat", "gain"] + (["lag"] if has_lag else ["resid"])
+                              + (["phase"] if any_phases else [])) + (["startup"] if sin or osu else []) \
                     + (["trace", "bound"] + (["invariance"] if transforms else []) if osc else []) \
-                    + (["ramp_exact"] if orex else [])
+                    + (["ramp_exact"] if orex else []) + (["trigger"] if otrig else []) + (["flat_zero"] if ofz else [])
                 if (not isinstance(kinds, list) or not kinds
                         or any(k not in DETECT_KINDS or k not in applicable for k in kinds)):
                     err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the "
@@ -617,11 +732,16 @@ def validate_spec(spec):
         return err, info
 
     # INFO only: D2 floor x 10 <= tolerance per quantity; per-control 10x margin
-    kinds_on = ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else []) \
-        + (["resid"] if not has_lag else []) + (["startup"] if sin or osu else []) \
+    kinds_on = ([] if nolin else ["gain"] + (["lag"] if has_lag else []) + ["flat"] + (["phase"] if any_phases else [])
+                + (["resid"] if not has_lag else [])) + (["startup"] if sin or osu else []) \
         + (["trace"] + (["invariance"] if transforms else []) if osc else []) \
-        + (["ramp_exact"] if orex else [])
+        + (["ramp_exact"] if orex else []) + (["bound"] if nolin else []) \
+        + (["trigger"] if otrig else []) + (["flat_zero"] if ofz else [])
     tol = {q: spec["tolerances"][q]["value"] for q in kinds_on}
+
+    def _ratio(e, t_):
+        """effect / tolerance; a zero tolerance (trigger: exact) gives inf for a non-zero effect, 0 for none."""
+        return e / t_ if t_ else (float("inf") if e else 0.0)
     fl = spec.get("floor")
     for q in kinds_on:
         if fl and q in fl:
@@ -640,7 +760,7 @@ def validate_spec(spec):
             info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
             continue
         eff = dict(eff or {}, **fix)
-        ratios = {q: eff[q] / tol[q] for q in kinds_on if q in eff}
+        ratios = {q: _ratio(eff[q], tol[q]) for q in kinds_on if q in eff}
         if not ratios:
             info.append("INFO D2 margin %s: no measured effect for a checked quantity (not checked)" % v["id"])
             continue
@@ -653,7 +773,7 @@ def validate_spec(spec):
     for v in spec["variants"]:                      # role "info" (USE stage 1): run and reported, never PASS/FAIL
         if v["role"] == "info":
             eff = v.get("effect") or {}
-            ratios = {q: eff[q] / tol[q] for q in kinds_on if q in eff}
+            ratios = {q: _ratio(eff[q], tol[q]) for q in kinds_on if q in eff}
             info.append("INFO variant %s (role info, not a control, not in [detect]): effect/tolerance %s; "
                         "reported, never PASS/FAIL" % (v["id"], ", ".join("%s %.3gx" % (q, r) for q, r in ratios.items())
                                                        or "no measured effect in spec"))
@@ -671,7 +791,7 @@ def to_checker_spec(spec):
     for v in spec["variants"]:
         e = spec["expected"][v["expected"]]
         vd = dict(id=v["id"], params=v["label"], role=v["role"],
-                  expected=(e["flat"], list(e["gains"]), e.get("lag")))
+                  expected=(e.get("flat"), list(e.get("gains", [])), e.get("lag")))     # FSH (no linear stage): (None, [], None)
         # D4 keys, added ONLY when the spec / table / variant carries them (old specs: dict unchanged)
         if "seed" in v:
             vd["seed"] = v["seed"]
@@ -712,7 +832,8 @@ def to_checker_spec(spec):
              n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]),
              amp=_frac(inp["amp"]), slope=_frac(inp["slope"]), ts=tuple(inp["sine_periods"]),
              clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
-             tol_flat=t["flat"]["value"], tol_gain=t["gain"]["value"], tol_lag=t.get("lag", {}).get("value"),
+             tol_flat=t.get("flat", {}).get("value"), tol_gain=t.get("gain", {}).get("value"),
+             tol_lag=t.get("lag", {}).get("value"),
              tol_x=t["x"]["value"], variants=variants)
     # Amendment 1 keys, added ONLY when the spec has the section: a spec without them (H1) gives the
     # dict checker.h1_spec() has (test_g1) and the pre-amendment results format.
@@ -731,16 +852,30 @@ def to_checker_spec(spec):
     if ramp_down_of(spec):
         d["rampdn"] = True
     if osc_of(spec):
-        lin = spec["checks"]["linear_output"]
-        d["osc"] = dict(gate=spec["checks"]["trace_gate"], bound=spec["checks"]["bound"],
+        ck = spec["checks"]
+        lin = ck.get("linear_output")                       # None: no linear stage (FSH, linear_stage = false)
+        d["osc"] = dict(gate=ck["trace_gate"], bound=ck.get("bound"),
                         linear=list(lin) if isinstance(lin, list) else lin)
-        if "bound_output" in spec["checks"]:
-            d["osc"]["bound_output"] = spec["checks"]["bound_output"]
-        if spec["checks"].get("ramp_exact"):
-            d["osc"]["ramp_exact"] = dict(spec["checks"]["ramp_exact"])
-        if spec["checks"].get("startup_output") is True:
+        if "bound_output" in ck:
+            d["osc"]["bound_output"] = ck["bound_output"]
+        if ck.get("ramp_exact"):
+            d["osc"]["ramp_exact"] = dict(ck["ramp_exact"])
+        if ck.get("startup_output") is True:
             d["osc"]["startup"] = True
-        for q in ("trace", "bound", "invariance", "ramp_exact"):
+        # FSH stage 1 keys, added ONLY when present (older specs: dict unchanged)
+        if ck.get("trace_outputs"):
+            d["osc"]["trace_outputs"] = {o: list(g) for o, g in ck["trace_outputs"].items()}
+        if "clamp_gate" in ck:
+            d["osc"]["clamp_gate"] = ck["clamp_gate"]
+        if ck.get("bounds"):
+            d["osc"]["bounds"] = {o: (list(b_) if isinstance(b_, list) else b_) for o, b_ in ck["bounds"].items()}
+        if ck.get("ramp_exact_outputs"):
+            d["osc"]["ramp_exact_outputs"] = {o: dict(tab) for o, tab in ck["ramp_exact_outputs"].items()}
+        if ck.get("trigger") is True:
+            d["osc"]["trigger"] = True
+        if ck.get("flat_zero"):
+            d["osc"]["flat_zero"] = list(ck["flat_zero"])
+        for q in ("trace", "bound", "invariance", "ramp_exact", "trigger", "flat_zero"):
             if q in t:
                 d["tol_" + q] = t[q]["value"]
     if copies_of(spec):

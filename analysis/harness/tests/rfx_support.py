@@ -46,7 +46,9 @@ def own_model_outputs(path=SPEC_PATH):
         return c["outs"]
     models = {v["id"]: R.IMP_MODELS[spec["imp"]["must_pass"][v["id"]]]() for v in cs["variants"]}
     shared = {}
-    shared_types = (R.SharedModel, R.LrsiShared)     # Reflex shared MS (RFX); Laguerre RSI shared lr_init / lr_prevRSI (LRS)
+    shared_types = (R.SharedModel, R.LrsiShared, R.FisherShared)   # Reflex shared MS (RFX); Laguerre RSI lr_init / lr_prevRSI (LRS);
+    #                                                                Fisher ft_Value1 / ft_Fish (FSH)
+    sim_of = {"SharedModel": R.simulate_shared, "LrsiShared": R.simulate_lrsi_shared, "FisherShared": R.simulate_fisher_shared}
     for v in cs["variants"]:                         # slot order = the generator's call order (variant-major, skipped inputs omitted)
         m = models[v["id"]]
         if isinstance(m, shared_types):
@@ -54,7 +56,7 @@ def own_model_outputs(path=SPEC_PATH):
                 shared.setdefault((type(m).__name__, m[0]), []).append((v["id"], i, m[0][m.index]))
     sims = {}
     for (kind, _), slots in shared.items():
-        sim = R.simulate_shared if kind == "SharedModel" else R.simulate_lrsi_shared
+        sim = sim_of[kind]
         outs = sim([s[2] for s in slots], [x[s[1]] for s in slots])
         for s, o in zip(slots, outs):
             sims[(s[0], s[1])] = o
