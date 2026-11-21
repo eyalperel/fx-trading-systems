@@ -1069,6 +1069,420 @@ IMP_MODELS["fisher_superseded(10,10)[0]"] = lambda: fisher_superseded((10, 10), 
 IMP_MODELS["fisher_superseded(10,10)[1]"] = lambda: fisher_superseded((10, 10), 1)                         # NCT (instance 2)
 
 
+# ---------------------------------------------------------------------------------------------------
+# Adaptive smoothers (MAF stage 1; HARNESS_DESIGN D7, docs/harness/MAMA_FRAMA_SOURCE_REVIEW.md incl. its appendix C-1..C-3, S1..S5).
+# (a) MAMA / FAMA: Ehlers, TASC V.19:9 (2001), Sidebar Fig. 1, PDF p. 5. Every var starts at 0; the body runs only if CurrentBar > 5;
+#     a var not assigned on a bar keeps its value (EasyLanguage); ArcTangent returns degrees.
+# (a) FRAMA: Ehlers, TASC V.23:10 (2005), sidebar, PDF p. 3. N = full window (even); Dimen only if N1 > 0 and N2 > 0 and N3 > 0, else
+#     held (initial 0); Filt = Price while CurrentBar < N + 1.
+# D1 rule 2: every literal at its decimal value, an integer pair (n, d) evaluated as n/d in float64 (= the run-time integer build of the
+# corrected code: n/d is correctly rounded, so it equals the decimal literal parsed in float64). S1: exact pi (4*atan(1)) in MAMA.
+# The models mirror the PRE-REGISTERED corrected code's operation order (MAF stage 1 brief, code block): e.g. deg = 180/pi and
+# atan(.)*deg, then 360/P; Smooth = 4*P0 + 3*P1 + 2*P2 + P3 then /10; FRAMA D = log(N1 + N2) - log(N3) then /log(2); e = D - 1,
+# e = k*e, alpha = exp(-e); clamp .01 then 1. Input history before n = 0 is x[0] (series(), gotchas 9d.6); state history is 0
+# (series(0, n) of the corrected code = the sources' var initial values).
+# ---------------------------------------------------------------------------------------------------
+MamaModel = namedtuple("MamaModel", "FL SL w1 w2 ka kb a2 a8 up dn c33 c67 fama_k pi literals")
+MamaOut = namedtuple("MamaOut", "mama fama period alpha phase")
+MamaShared = namedtuple("MamaShared", "params index")       # old MAMA.c: static barCount shared by the listed instances (FL, SL)
+FramaModel = namedtuple("FramaModel", "N k lo literals startup")
+FramaOut = namedtuple("FramaOut", "out dim alpha")
+FramaShared = namedtuple("FramaShared", "Ts index")          # old FRAMA.c: statics frama_prev / frama_init shared by the listed calls
+ADAPTIVE_LITERALS = ("exact", "float32")
+MAMA_PI = ("exact", "zorro")
+FRAMA_STARTUP = ("source", "old")
+MAMA_COLUMNS = MamaOut._fields
+FRAMA_COLUMNS = FramaOut._fields
+MAMA_F32_OLD = dict(w1=0.0962, w2=0.5769, ka=0.075, kb=0.54, a2=0.2, a8=0.8, c33=0.33, c67=0.67, dn=0.67)   # MAMA.c decimal literals
+FRAMA_EXP_MIN = math.exp(-4.6)       # (b) alpha >= exp(-4.6) because D <= 2 (review section 3; C-3: one ulp below by rounding)
+
+
+def _pair_val(p, what, allow_neg=False):
+    if (not isinstance(p, (tuple, list)) or len(p) != 2 or not all(isinstance(i, int) and not isinstance(i, bool) for i in p)
+            or p[1] <= 0 or (p[0] <= 0 and not allow_neg)):
+        raise ValueError("%s must be an integer pair (n, d), d > 0%s, got %r" % (what, "" if allow_neg else ", n > 0", p))
+    return p[0] / p[1]
+
+
+def mama_article(FL, SL, w1=(962, 10000), w2=(5769, 10000), ka=(75, 1000), kb=(54, 100), a2=(2, 10), a8=(8, 10), up=(15, 10),
+                 dn=(67, 100), c33=(33, 100), c67=(67, 100), fama_k=(1, 2), pi="exact", literals="exact"):
+    """MAMA / FAMA (Sidebar Fig. 1) as a model. Every rational is an integer pair (n, d). Hooks (controls / INFO variants):
+        FL, SL        FastLimit, SlowLimit (MA05: 1/2, 1/20; MA03: 3/10, 1/10)
+        w1, w2        HT FIR weights .0962 / .5769 (NCH: w1 = 963/10000, every occurrence)
+        ka, kb        .075*Period[1] + .54
+        a2, a8        the .2 / .8 smoothers (I2, Q2, Re, Im, Period)
+        up, dn        Period bounds 1.5x / .67x Period[1] (NCB, INFO: dn = 68/100); c33 / c67 = SmoothPeriod (computed, unused)
+        fama_k        FAMA's alpha factor .5 (NCF: 51/100)
+        pi            "exact" (4*atan(1), S1) | "zorro" (float32(3.14159), the old file's PI: NCP)
+        literals      "exact" | "float32" (NC32: every constant rounded to float32, as the current file's decimal literals; FL / SL are
+                      call parameters built at run time and stay exact)"""
+    if literals not in ADAPTIVE_LITERALS or pi not in MAMA_PI:
+        raise ValueError("literals must be one of %s and pi one of %s" % (ADAPTIVE_LITERALS, MAMA_PI))
+    FLv, SLv = _pair_val(FL, "FL"), _pair_val(SL, "SL")
+    vals = [_pair_val(p, n) for p, n in ((w1, "w1"), (w2, "w2"), (ka, "ka"), (kb, "kb"), (a2, "a2"), (a8, "a8"), (up, "up"),
+                                          (dn, "dn"), (c33, "c33"), (c67, "c67"), (fama_k, "fama_k"))]
+    if literals == "float32":
+        vals = [f32(v) for v in vals]
+    piv = 4.0 * math.atan(1.0) if pi == "exact" else PI_ZORRO
+    return MamaModel(FLv, SLv, *vals, piv, literals)
+
+
+def _hold(a, i):
+    return a[i - 1] if i > 0 else 0.0
+
+
+def simulate_mama(m, x):
+    """Run a MamaModel on x (per-instance state, every var starts at 0, body from the 6th call; a var keeps its value on a bar where it
+    is not assigned, MA-2). Returns MamaOut arrays (float64). Operation order = the corrected MAMACore lines."""
+    xs = [float(v) for v in np.asarray(x, dtype=float)]
+    n = len(xs)
+    S, De, I1, Q1, jI, jQ, I2, Q2, Re, Im, P, SP, Ph, A, M, F = ([0.0] * n for _ in range(16))
+    deg = 180 / m.pi
+    u = 1.0
+
+    def px(i, k):
+        return xs[i - k] if i - k >= 0 else xs[0]
+
+    def h(a, i, k):
+        return a[i - k] if i - k >= 0 else 0.0
+
+    for i in range(n):
+        for a in (S, De, I1, Q1, jI, jQ, I2, Q2, Re, Im, P, SP, Ph, A, M, F):
+            a[i] = _hold(a, i)
+        if i + 1 <= 5:
+            continue
+        S[i] = 4 * xs[i] + 3 * px(i, 1) + 2 * px(i, 2) + px(i, 3)
+        S[i] = S[i] / 10
+        pf = m.ka * P[i - 1] + m.kb
+        De[i] = (m.w1 * S[i] + m.w2 * h(S, i, 2) - m.w2 * h(S, i, 4) - m.w1 * h(S, i, 6)) * pf
+        Q1[i] = (m.w1 * De[i] + m.w2 * h(De, i, 2) - m.w2 * h(De, i, 4) - m.w1 * h(De, i, 6)) * pf
+        I1[i] = h(De, i, 3)
+        jI[i] = (m.w1 * I1[i] + m.w2 * h(I1, i, 2) - m.w2 * h(I1, i, 4) - m.w1 * h(I1, i, 6)) * pf
+        jQ[i] = (m.w1 * Q1[i] + m.w2 * h(Q1, i, 2) - m.w2 * h(Q1, i, 4) - m.w1 * h(Q1, i, 6)) * pf
+        I2[i] = I1[i] - jQ[i]
+        Q2[i] = Q1[i] + jI[i]
+        I2[i] = m.a2 * I2[i] + m.a8 * I2[i - 1]
+        Q2[i] = m.a2 * Q2[i] + m.a8 * Q2[i - 1]
+        Re[i] = I2[i] * I2[i - 1] + Q2[i] * Q2[i - 1]
+        Im[i] = I2[i] * Q2[i - 1] - Q2[i] * I2[i - 1]
+        Re[i] = m.a2 * Re[i] + m.a8 * Re[i - 1]
+        Im[i] = m.a2 * Im[i] + m.a8 * Im[i - 1]
+        if Im[i] != 0 and Re[i] != 0:
+            P[i] = math.atan(Im[i] / Re[i])
+            P[i] = P[i] * deg
+            P[i] = 360 / P[i]
+        p1 = P[i - 1]
+        if P[i] > m.up * p1:
+            P[i] = m.up * p1
+        if P[i] < m.dn * p1:
+            P[i] = m.dn * p1
+        if P[i] < 6:
+            P[i] = 6.0
+        if P[i] > 50:
+            P[i] = 50.0
+        P[i] = m.a2 * P[i] + m.a8 * p1
+        SP[i] = m.c33 * P[i] + m.c67 * SP[i - 1]
+        if I1[i] != 0:
+            Ph[i] = math.atan(Q1[i] / I1[i])
+            Ph[i] = Ph[i] * deg
+        dp = Ph[i - 1] - Ph[i]
+        if dp < 1:
+            dp = 1.0
+        A[i] = m.FL / dp
+        if A[i] < m.SL:
+            A[i] = m.SL
+        if A[i] > m.FL:
+            A[i] = m.FL
+        M[i] = A[i] * xs[i] + (u - A[i]) * M[i - 1]
+        ah = m.fama_k * A[i]
+        F[i] = ah * M[i] + (u - ah) * F[i - 1]
+    return MamaOut(*(np.array(a) for a in (M, F, P, A, Ph)))
+
+
+def mama_superseded(params, index=0):
+    """Model handle for [imp]: the OLD MAMA.c (MAMA_Superseded, stage 2) called once per bar per slot; params = ((FL, SL) pairs) of the
+    instances, index = which instance. The slots' call order is the generator's (checker.adaptive_shared_slots)."""
+    return MamaShared(params=tuple((tuple(a), tuple(b)) for a, b in params), index=index)
+
+
+def simulate_mama_shared(params, xs):
+    """The OLD MAMA.c (blob at b7bdd69; review MA-1..MA-5), with the stage-2 rename only (mao_ prefix). One call slot per (instance,
+    input) in the generator's ACTUAL call order; params[s] = (FL, SL) values of slot s. Shared: the file static `barCount` (MA-3),
+    incremented by EVERY call of any slot; the file's INITRUN reset never runs in a generated script (it returns at INITRUN). Per slot:
+    its own series. series(v) sets [0] = v on every call and pads its history with the first call's value (9d.6): Smooth, MAMA, FAMA
+    = Price[0]; Period, SmoothPeriod = 20; the others 0. While barCount <= 5 the call returns Price[0] (MAMA and FAMA). Period keeps 20
+    and Phase 0 on a bar where they are not assigned (MA-2). Float32 literals .0962 .5769 .075 .54 .2 .8 .33 .67 (MA-4); 1.5, 6, 50,
+    360, 180, 4, 3, 2, 10, .5, 1 are float32-exact; PI = float32(3.14159) (MA-5). Expression order as the old file:
+    360/(atan(Im/Re)*180/PI), atan(Q1/I1)*180/PI, .5*alpha*MAMA + (1 - .5*alpha)*FAMA[1]. Returns [MamaOut] per slot."""
+    L = {k: f32(v) for k, v in MAMA_F32_OLD.items()}
+    w1, w2, ka, kb, a2, a8, c33, c67, k67 = (L[k] for k in ("w1", "w2", "ka", "kb", "a2", "a8", "c33", "c67", "dn"))
+    pi = PI_ZORRO
+    xs = [[float(v) for v in np.asarray(x, dtype=float)] for x in xs]
+    nb, ns = len(xs[0]), len(xs)
+    st = []
+    for s in range(ns):
+        st.append({k: [0.0] * nb for k in ("S", "De", "I1", "Q1", "jI", "jQ", "I2", "Q2", "Re", "Im", "P", "SP", "Ph", "M", "F", "AL")})
+    bar_count = 0
+    for t in range(nb):
+        for s in range(ns):
+            FL, SL = params[s]
+            x, d = xs[s], st[s]
+            x0 = x[0]
+            pad = dict(S=x0, M=x0, F=x0, P=20.0, SP=20.0)
+            bar_count += 1
+            d["S"][t], d["M"][t], d["F"][t] = x[t], x[t], x[t]
+            d["P"][t], d["SP"][t] = 20.0, 20.0
+            for k in ("De", "I1", "Q1", "jI", "jQ", "I2", "Q2", "Re", "Im", "Ph"):
+                d[k][t] = 0.0
+            if bar_count <= 5:
+                continue
+
+            def g(k, lag):
+                j = t - lag
+                return d[k][j] if j >= 0 else pad.get(k, 0.0)
+
+            def gx(lag):
+                return x[t - lag] if t - lag >= 0 else x0
+            d["S"][t] = (4.0 * x[t] + 3.0 * gx(1) + 2.0 * gx(2) + gx(3)) / 10.0
+            pf = ka * g("P", 1) + kb
+
+            def ht(k):
+                return (w1 * d[k][t] + w2 * g(k, 2) - w2 * g(k, 4) - w1 * g(k, 6)) * pf
+            d["De"][t] = ht("S")
+            d["Q1"][t] = ht("De")
+            d["I1"][t] = g("De", 3)
+            d["jI"][t] = ht("I1")
+            d["jQ"][t] = ht("Q1")
+            d["I2"][t] = d["I1"][t] - d["jQ"][t]
+            d["Q2"][t] = d["Q1"][t] + d["jI"][t]
+            d["I2"][t] = a2 * d["I2"][t] + a8 * g("I2", 1)
+            d["Q2"][t] = a2 * d["Q2"][t] + a8 * g("Q2", 1)
+            d["Re"][t] = d["I2"][t] * g("I2", 1) + d["Q2"][t] * g("Q2", 1)
+            d["Im"][t] = d["I2"][t] * g("Q2", 1) - d["Q2"][t] * g("I2", 1)
+            d["Re"][t] = a2 * d["Re"][t] + a8 * g("Re", 1)
+            d["Im"][t] = a2 * d["Im"][t] + a8 * g("Im", 1)
+            if d["Im"][t] != 0.0 and d["Re"][t] != 0.0:
+                d["P"][t] = 360.0 / (math.atan(d["Im"][t] / d["Re"][t]) * 180.0 / pi)
+            p1 = g("P", 1)
+            if d["P"][t] > 1.5 * p1:
+                d["P"][t] = 1.5 * p1
+            if d["P"][t] < k67 * p1:
+                d["P"][t] = k67 * p1
+            if d["P"][t] < 6.0:
+                d["P"][t] = 6.0
+            if d["P"][t] > 50.0:
+                d["P"][t] = 50.0
+            d["P"][t] = a2 * d["P"][t] + a8 * p1
+            d["SP"][t] = c33 * d["P"][t] + c67 * g("SP", 1)
+            if d["I1"][t] != 0.0:
+                d["Ph"][t] = math.atan(d["Q1"][t] / d["I1"][t]) * 180.0 / pi
+            dp = g("Ph", 1) - d["Ph"][t]
+            if dp < 1.0:
+                dp = 1.0
+            al = FL / dp
+            if al < SL:
+                al = SL
+            if al > FL:
+                al = FL
+            d["AL"][t] = al
+            d["M"][t] = al * x[t] + (1.0 - al) * g("M", 1)
+            d["F"][t] = 0.5 * al * d["M"][t] + (1.0 - 0.5 * al) * g("F", 1)
+    return [MamaOut(*(np.array(d[k]) for k in ("M", "F", "P", "AL", "Ph"))) for d in st]
+
+
+def frama_article(N, k=(46, 10), lo=(1, 100), literals="exact", startup="source"):
+    """FRAMA (sidebar) as a model. N = the FULL window (even, >= 2). Hooks: k = the exponent factor 4.6 (NCE: 461/100), lo = the alpha
+    floor .01, literals "exact" | "float32" (NC32: 4.6 and .01 as float32), startup "source" | "old" (NCT: the current file's start-up
+    and guard, per instance: seed on the first call, the EMA on every call where N3 > 0 (the first call has N3 = 0 on padded windows),
+    return without update (Dimen and alpha held) when N3 <= 0, no N1 / N2 condition (log(0) = -inf, alpha clamped to 1)). The window
+    control NCN is frama_article(N + 2)."""
+    if literals not in ADAPTIVE_LITERALS or startup not in FRAMA_STARTUP:
+        raise ValueError("literals must be one of %s and startup one of %s" % (ADAPTIVE_LITERALS, FRAMA_STARTUP))
+    if not isinstance(N, int) or isinstance(N, bool) or N < 2 or N % 2:
+        raise ValueError("N must be an even integer >= 2, got %r" % (N,))
+    kv, lov = _pair_val(k, "k"), _pair_val(lo, "lo")
+    if literals == "float32":
+        kv, lov = f32(kv), f32(lov)
+    return FramaModel(N, kv, lov, literals, startup)
+
+
+def frama_windows(H, L, N):
+    """(N1, N2, N3) arrays, the corrected FRAMACore's windows: N3 = (max H[0..N-1] - min L[0..N-1]) / N, N1 over bars 0..N/2-1,
+    N2 over N/2..N-1, each divided by N/2; history before n = 0 padded with H[0] / L[0] (series(), 9d.6). Same arithmetic as the
+    code: max / min are exact, then one subtraction and one division."""
+    H = np.asarray(H, dtype=float)
+    L = np.asarray(L, dtype=float)
+    h = N // 2
+    ph = np.concatenate([np.full(N - 1, H[0]), H])
+    pl = np.concatenate([np.full(N - 1, L[0]), L])
+    vh = np.lib.stride_tricks.sliding_window_view(ph, N)        # row i: H[i-N+1 .. i]; column N-1-k = lag k
+    vl = np.lib.stride_tricks.sliding_window_view(pl, N)
+    n3 = (vh.max(axis=1) - vl.min(axis=1)) / N
+    n1 = (vh[:, N - h:].max(axis=1) - vl[:, N - h:].min(axis=1)) / h          # lags 0..h-1
+    n2 = (vh[:, :N - h].max(axis=1) - vl[:, :N - h].min(axis=1)) / h          # lags h..N-1
+    return n1, n2, n3
+
+
+def simulate_frama(m, x, H=None, L=None):
+    """Run a FramaModel on x (Price) with High / Low series H, L (default H = L = x, point bars). Per-instance state (Filt, Dimen, alpha
+    start at 0). Returns FramaOut arrays."""
+    xs = np.asarray(x, dtype=float)
+    H = xs if H is None else np.asarray(H, dtype=float)
+    L = xs if L is None else np.asarray(L, dtype=float)
+    n1s, n2s, n3s = frama_windows(H, L, m.N)
+    n = len(xs)
+    out, dim, alp = np.zeros(n), np.zeros(n), np.zeros(n)
+    l2 = math.log(2)
+    u = 1.0
+    F = D = Al = 0.0
+    for i in range(n):
+        N1, N2, N3, xi = float(n1s[i]), float(n2s[i]), float(n3s[i]), float(xs[i])
+        if m.startup == "source":
+            if N1 > 0 and N2 > 0 and N3 > 0:
+                D = math.log(N1 + N2) - math.log(N3)
+                D = D / l2
+            e = D - u
+            e = m.k * e
+            Al = math.exp(-e)
+            if Al < m.lo:
+                Al = m.lo
+            if Al > u:
+                Al = u
+            F = Al * xi + (u - Al) * F
+            if i + 1 < m.N + 1:
+                F = xi
+        else:                                             # "old": the current file's start-up and guard, per instance (NCT)
+            if i == 0:
+                F = xi
+            if N3 > 0:
+                lg = math.log(N1 + N2) if N1 + N2 > 0 else -math.inf
+                D = lg - math.log(N3)
+                D = D / l2
+                e = D - u
+                e = m.k * e
+                Al = math.exp(-e)
+                if Al < m.lo:
+                    Al = m.lo
+                if Al > u:
+                    Al = u
+                F = Al * xi + (u - Al) * F
+        out[i], dim[i], alp[i] = F, D, Al
+    return FramaOut(out, dim, alp)
+
+
+def frama_superseded(Ts, index=0):
+    """Model handle for [imp]: the OLD FRAMA.c (FRAMA_Superseded(Price, High, Low, T), stage 2), one slot per (instance, input) of the
+    listed half windows T; index = which instance."""
+    return FramaShared(Ts=tuple(int(T) for T in Ts), index=index)
+
+
+def simulate_frama_shared(Ts, xs, Hs, Ls):
+    """The OLD FRAMA.c (blob at b7bdd69; review FR-1..FR-6) with the stage-2 input change only (Price / High / Low are parameters;
+    frama_ -> fro_). One call slot per (instance, input) in the generator's ACTUAL call order; Ts[s] = the slot's HALF window T. Per slot
+    its own High / Low copies (series(High[0]), series(Low[0]): padded with the first value). SHARED by every slot: the file statics
+    frama_prev and frama_init (FR-3): the first call of the run seeds frama_prev = Price; a call with N3 <= 0 returns frama_prev without
+    update (FR-5); otherwise D = (log(N1 + N2) - log(N3))/log(2.0), alpha = exp(-4.6*(D - 1.0)) clamped (> 1.0 -> 1.0, then < 0.01 ->
+    0.01), frama_prev = alpha*Price + (1.0 - alpha)*frama_prev (FR-4). Float32 literals 4.6 and 0.01 (FR-6); 1.0, 2.0 exact; log(0) =
+    -inf (c, C library). N3 = (max - min)/(2.0*T), N1 / N2 over T bars each, / T. Returns [FramaOut] per slot (dim / alpha: this call's
+    values, NaN where the call returned early; not exported by the old file)."""
+    k46, k01 = f32(4.6), f32(0.01)
+    nb, ns = len(xs[0]), len(xs)
+    wins = [frama_windows(Hs[s], Ls[s], 2 * Ts[s]) for s in range(ns)]
+    xs = [np.asarray(x, dtype=float) for x in xs]
+    outs = [(np.zeros(nb), np.full(nb, np.nan), np.full(nb, np.nan)) for _ in range(ns)]
+    prev, init = 0.0, False
+    for t in range(nb):
+        for s in range(ns):
+            N1, N2, N3 = (float(w[t]) for w in wins[s])    # frama_windows divides by N/2 = T and by N = 2T: the old file's divisors
+            price = float(xs[s][t])
+            if not init:
+                prev, init = price, True
+            if N3 <= 0:
+                outs[s][0][t] = prev
+                continue
+            lg = math.log(N1 + N2) if N1 + N2 > 0 else -math.inf
+            D = (lg - math.log(N3)) / math.log(2.0)
+            a = math.exp(-k46 * (D - 1.0))
+            if a > 1.0:
+                a = 1.0
+            if a < k01:
+                a = k01
+            prev = a * price + (1.0 - a) * prev
+            outs[s][0][t], outs[s][1][t], outs[s][2][t] = prev, D, a
+    return [FramaOut(*o) for o in outs]
+
+
+_MAMA_ARTICLE_RE = re.compile(r"mama_article\((\d{1,3})/(\d{1,4}),(\d{1,3})/(\d{1,4})\)")
+_FRAMA_ARTICLE_RE = re.compile(r"frama_article\((\d{1,3})\)")
+
+
+def adaptive_article_model(name):
+    """Resolve 'mama_article(FLn/FLd,SLn/SLd)' or 'frama_article(N)' (exact literals, source start-up) to a model. Restricted grammar,
+    no eval; None if unknown or invalid."""
+    if not isinstance(name, str):
+        return None
+    m = _MAMA_ARTICLE_RE.fullmatch(name)
+    if m:
+        a, b, c, d = (int(g) for g in m.groups())
+        if min(a, b, c, d) <= 0 or not c / d <= a / b:
+            return None
+        return mama_article((a, b), (c, d))
+    m = _FRAMA_ARTICLE_RE.fullmatch(name)
+    if m and int(m.group(1)) >= 2 and int(m.group(1)) % 2 == 0:
+        return frama_article(int(m.group(1)))
+    return None
+
+
+def adaptive_simulate(model, x, H=None, L=None):
+    """MamaOut / FramaOut of a MamaModel (x only) or FramaModel (x, H, L)."""
+    if isinstance(model, MamaModel):
+        return simulate_mama(model, x)
+    if isinstance(model, FramaModel):
+        return simulate_frama(model, x, H, L)
+    raise TypeError("not an adaptive model: %r" % (model,))
+
+
+def conditioning(model, x, cols, rng, draws=5, H_off=None):
+    """D7 rule 3 classifier quantity (model side): max over `draws` perturbations x(1 + 2^-52 u), u drawn from rng.integers(-1, 2, n)
+    per row (one draw of n integers per perturbation, in this order), of max |column(perturbed) - column(x)| over ALL rows, per column.
+    H_off = None: point bars (H = L = x); a number h: band bars H = y + h, L = y - h built from the PERTURBED y (the planning chat's
+    order, MAMA_FRAMA_STAGE1_NUMBERS.py). An affine copy of a band input is classified with h = k * (the base half-width), i.e. as a
+    band input of its own values (c: classification only; its exact H / L differ from y +- kh by rounding)."""
+    x = np.asarray(x, dtype=float)
+
+    def run(y):
+        if H_off is None:
+            return adaptive_simulate(model, y)
+        return adaptive_simulate(model, y, y + H_off, y - H_off)
+    base = run(x)
+    out = {c: 0.0 for c in cols}
+    for _ in range(draws):
+        p = run(x * (1 + 2.0 ** -52 * rng.integers(-1, 2, len(x))))
+        for c in cols:
+            out[c] = max(out[c], float(np.max(np.abs(getattr(p, c) - getattr(base, c)))))
+    return out
+
+
+# [imp] model registry for MAF (c: names chosen here). Explicit entries, no eval.
+IMP_MODELS["mama_article(1/2,1/20)"] = lambda: mama_article((1, 2), (1, 20))                                      # MA05
+IMP_MODELS["mama_article(3/10,1/10)"] = lambda: mama_article((3, 10), (1, 10))                                    # MA03
+IMP_MODELS["mama_article(1/2,1/20,w1=963/10000)"] = lambda: mama_article((1, 2), (1, 20), w1=(963, 10000))        # NCH
+IMP_MODELS["mama_article(1/2,1/20,fama_k=51/100)"] = lambda: mama_article((1, 2), (1, 20), fama_k=(51, 100))      # NCF
+IMP_MODELS["mama_article(1/2,1/20,literals=float32)"] = lambda: mama_article((1, 2), (1, 20), literals="float32")  # NC32
+IMP_MODELS["mama_article(1/2,1/20,pi=zorro)"] = lambda: mama_article((1, 2), (1, 20), pi="zorro")                 # NCP
+IMP_MODELS["mama_article(1/2,1/20,dn=68/100)"] = lambda: mama_article((1, 2), (1, 20), dn=(68, 100))              # NCB (INFO)
+IMP_MODELS["mama_superseded(1/2,1/20;1/2,1/20)[0]"] = lambda: mama_superseded((((1, 2), (1, 20)), ((1, 2), (1, 20))), 0)   # NCS
+IMP_MODELS["mama_superseded(1/2,1/20;1/2,1/20)[1]"] = lambda: mama_superseded((((1, 2), (1, 20)), ((1, 2), (1, 20))), 1)   # NCS2
+IMP_MODELS["frama_article(16)"] = lambda: frama_article(16)                                                      # FR16
+IMP_MODELS["frama_article(32)"] = lambda: frama_article(32)                                                      # FR32
+IMP_MODELS["frama_article(16,k=461/100)"] = lambda: frama_article(16, k=(461, 100))                              # NCE
+IMP_MODELS["frama_article(18)"] = lambda: frama_article(18)                                                      # NCN (window N + 2)
+IMP_MODELS["frama_article(16,literals=float32)"] = lambda: frama_article(16, literals="float32")                  # NC32
+IMP_MODELS["frama_article(16,startup=old)"] = lambda: frama_article(16, startup="old")                           # NCT
+IMP_MODELS["frama_superseded(8,8)[0]"] = lambda: frama_superseded((8, 8), 0)                                     # NCS
+IMP_MODELS["frama_superseded(8,8)[1]"] = lambda: frama_superseded((8, 8), 1)                                     # NCS2
+
+
 def bump3(v, units=1):
     """Add `units` to the 3rd significant digit of v (e.g. 0.8007 -> 0.8017)."""
     step = 10.0 ** (math.floor(math.log10(abs(v))) - 2)

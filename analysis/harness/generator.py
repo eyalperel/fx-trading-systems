@@ -39,6 +39,17 @@ FSH stage 1 (Fisher Transform), all opt-in, older specs regenerate byte-identica
   * [checks].ramp_exact_outputs = { <output> = { ramp = <number> | "model", rampdn = ... } }: ids exact-<output>-<input>;
   * [checks].trigger = true: new kind `trigger`, trig[n] == out[n-1] exactly for n >= 1 on every base input (Zorro-internal);
   * [checks].flat_zero = [outputs]: new kind `flat_zero`, every flat row of those outputs must be 0 (implementation known answer).
+MAF stage 1 (HARNESS_DESIGN D7, adaptive smoothers: MAMA / FAMA, FRAMA), a SEPARATE path selected by [checks].adaptive = true
+(validate_adaptive / to_checker_spec_adaptive / build_script_adaptive); older specs never enter it and regenerate byte-identical scripts:
+  * bars inputs: [inputs].band_half = [n, d] and band_inputs = [base ids]: band copies <id>B with High = x + h, Low = x - h (built at run
+    time); point inputs pass the same series as Price, High and Low (H = L = x). [checks].bars = true: calls pass (S, SH, SL);
+  * [inputs.equivariance]: inputs = [sine ids] and transforms = [{id, scale = [n, d], offset = [n, d]}]: affine copies x' = k x + c (and
+    H, L mapped the same way) of the listed inputs only, ids <tid><input without its leading 's'> (s40 -> sc40, s40B -> sc40B);
+  * every output column is written for every input a variant is called on (copies included: equivariance needs all columns);
+  * output names mama / fama / period / alpha / phase (MAMACore, returns mama) and out / dim / alpha (FRAMACore, returns out);
+  * per-column tolerance overrides ([tolerances.<q>].columns = {column = value}); kinds trace (from row 1 = n >= 0, per (input, column)
+    checked / INFO by the pre-registered conditioning classification of the expected table), bound (per column, from the expected
+    table, relative allowance, optional first row), hull, equivariance, ramp_exact, lag, flat.
 
 Usage: python analysis/harness/generator.py SPEC.toml [--out-dir DIR] [--lint-only]
 Labels: (a) source states, (b) verified here, (c) inference.
@@ -61,9 +72,13 @@ DEFAULT_OUT = os.path.join(REPO, "strategies", "tests")
 LABEL_RE = re.compile(r"^\s*\((a|b|c)\)")
 IDFRAG_RE = re.compile(r"^[A-Za-z0-9_]+$")
 DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bound", "invariance",
-                "ramp_exact", "trigger", "flat_zero")   # checker._kind values (D4 adds three, D6 three, LRSI one, FSH two)
+                "ramp_exact", "trigger", "flat_zero", "equivariance", "hull")   # checker._kind values (D4 adds three, D6 three, LRSI one,
+#                                                                                  FSH two, MAF two)
 OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out", "l0", "l3", "den",
                 "raw", "v1", "rng", "trig")  # variant outputs (RFX, MST, LRSI: l0 / l3 / den / out; FSH: raw / v1 / rng / trig / out)
+ADAPTIVE_COLUMNS = ("mama", "fama", "period", "alpha", "phase", "out", "dim")   # MAF (D7): MAMACore / FRAMACore columns
+ADAPTIVE_RETURNS = ("mama", "out")
+ADAPTIVE_KINDS = ("trace", "bound", "hull", "equivariance", "ramp_exact", "lag", "flat")
 TRACE_GATES = ("range", "clamp")             # FSH: per-output trace gates (range / amplitude; clamp distance of the pre-clamp v1)
 LINEAR_ONLY_TOLS = ("flat", "gain", "lag", "phase", "resid")      # tolerances of the v1 checks (refused with linear_stage = false)
 LINEAR_ONLY_KEYS = ("flat", "gains", "lag", "phases", "resid", "gain_alt", "phase_alt")   # expected-table keys of the v1 checks
@@ -281,6 +296,8 @@ def phase_periods(table):
 def validate_spec(spec):
     """Returns (errors, infos). errors: list of (code, message), a non-empty list means the spec
     is refused. infos: INFO lines (D2 floor and per-control margin), never a refusal."""
+    if adaptive_of(spec):                          # MAF (D7): its own validation; older specs never reach it
+        return validate_adaptive(spec)
     err, info = [], []
     need = ["batch", "zorro", "inputs", "clock", "tolerances", "expected", "variants"]
     for k in need:
@@ -783,6 +800,8 @@ def validate_spec(spec):
 
 def to_checker_spec(spec):
     """The dict analysis/harness/checker.py consumes (checker.h1_spec() has the same shape)."""
+    if adaptive_of(spec):
+        return to_checker_spec_adaptive(spec)
     errs, infos = validate_spec(spec)
     if errs:
         raise SpecError(errs)
@@ -962,6 +981,8 @@ def _fn_of(spec, v):
 def build_script(spec):
     """Returns (script text, list of inline function bodies). Raises SpecError if the spec is
     refused. The text is not linted here (write_script lints)."""
+    if adaptive_of(spec):
+        return build_script_adaptive(spec)
     errs, _ = validate_spec(spec)
     if errs:
         raise SpecError(errs)
@@ -1312,6 +1333,599 @@ def write_script(spec, out_dir, include_base=DEFAULT_OUT):
     with open(path, "x", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return path
+
+
+# ----------------------------------------------------------------------------- MAF stage 1: adaptive smoothers (HARNESS_DESIGN D7)
+def adaptive_of(spec):
+    """True when the spec selects the D7 adaptive-smoother check set ([checks].adaptive = true)."""
+    chk = spec.get("checks") if isinstance(spec, dict) else None
+    return isinstance(chk, dict) and chk.get("adaptive") is True
+
+
+def adaptive_base_ids(spec):
+    """flat, the sines, ramp (point bars)."""
+    return ["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]] + ["ramp"]
+
+
+def band_ids(spec):
+    """Band copies of [inputs].band_inputs, ids <id>B (High = x + h, Low = x - h)."""
+    return ["%sB" % i for i in spec["inputs"].get("band_inputs", [])]
+
+
+def eq_section(spec):
+    e = spec["inputs"].get("equivariance")
+    return e if isinstance(e, dict) else {}
+
+
+def copy_id(tid, iid):
+    """Id of the affine copy `tid` of input iid: s40 -> sc40, s40B -> sc40B (the leading 's' of the sine id is dropped)."""
+    return tid + iid[1:]
+
+
+def eq_copies(spec):
+    """[(copy id, transform id, base input id)] in input order (transform-major)."""
+    e = eq_section(spec)
+    return [(copy_id(tr["id"], i), tr["id"], i) for tr in e.get("transforms", []) for i in e.get("inputs", [])]
+
+
+def adaptive_input_ids(spec):
+    """Base inputs, band inputs, then the equivariance copies."""
+    return adaptive_base_ids(spec) + band_ids(spec) + [c for c, _, _ in eq_copies(spec)]
+
+
+def adaptive_bar_ids(spec):
+    """Inputs with their own High / Low (band inputs and copies of band inputs), in input order."""
+    bs = set(band_ids(spec))
+    return [i for i in adaptive_input_ids(spec) if i in bs or any(c == i and b in bs for c, _, b in eq_copies(spec))]
+
+
+def _tol_cols(t):
+    c = t.get("columns") if isinstance(t, dict) else None
+    return dict(c) if isinstance(c, dict) else {}
+
+
+def _pair_any(p):
+    """[n, d] with d > 0 (n any integer, e.g. a negative offset)."""
+    return (isinstance(p, list) and len(p) == 2 and all(isinstance(i, int) and not isinstance(i, bool) for i in p) and p[1] > 0)
+
+
+def adaptive_kinds_on(spec):
+    """The D7 kinds the spec checks (tolerance needed for each)."""
+    chk = spec.get("checks", {})
+    k = ["trace", "bound"]
+    if chk.get("hull"):
+        k.append("hull")
+    if eq_copies(spec):
+        k.append("equivariance")
+    for q, key in (("ramp_exact", "ramp_exact"), ("lag", "ramp_lag"), ("flat", "flat")):
+        if chk.get(key):
+            k.append(q)
+    return k
+
+
+def validate_adaptive(spec):
+    """Validation of a D7 (adaptive) spec. Returns (errors, infos) like validate_spec."""
+    err, info = [], []
+    for k in ("batch", "zorro", "inputs", "clock", "tolerances", "expected", "variants", "checks", "conditioning"):
+        if k not in spec:
+            err.append(("STRUCT", "missing section [%s]" % k))
+    if err:
+        return err, info
+    b, inp, chk, tols = spec["batch"], spec["inputs"], spec["checks"], spec["tolerances"]
+    for k in ("name", "id_prefix", "indicator", "script_name"):
+        if k not in b:
+            err.append(("STRUCT", "[batch] missing %s" % k))
+    if err:
+        return err, info
+
+    def idcheck(what, v):
+        if not isinstance(v, str) or not v or not IDFRAG_RE.match(v):
+            err.append(("ID_NOT_C", "%s %r is not a valid C identifier fragment [A-Za-z0-9_]" % (what, v)))
+        elif "-" in v:
+            err.append(("ID_HYPHEN", "%s %r contains '-'" % (what, v)))
+    idcheck("batch id_prefix", b["id_prefix"])
+    inc = spec["zorro"].get("include")
+    if not (isinstance(inc, list) and inc and all(isinstance(i, str) and i for i in inc)) and not (isinstance(inc, str) and inc):
+        err.append(("INCLUDE_BAD", "[zorro].include %r must be a path or a non-empty list of paths" % (inc,)))
+    ts = inp.get("sine_periods", [])
+    if not isinstance(ts, list) or not ts or any(not isinstance(t, int) or isinstance(t, bool) or t <= 0 for t in ts):
+        err.append(("ID_NOT_C", "[inputs].sine_periods %r must be positive integers" % (ts,)))
+        return err, info
+    base = adaptive_base_ids(spec)
+    if "band_inputs" in inp or "band_half" in inp:
+        bi, bh = inp.get("band_inputs"), inp.get("band_half")
+        if (not isinstance(bi, list) or not bi or len(set(bi)) != len(bi) or any(i not in base or i == "flat" for i in bi)
+                or not _is_pair(bh)):
+            err.append(("BARS_BAD", "[inputs].band_inputs %r must be distinct non-flat base ids and band_half %r a positive pair [n, d]"
+                        % (bi, bh)))
+            return err, info
+    ids = adaptive_base_ids(spec) + band_ids(spec)
+    eq = inp.get("equivariance")
+    if eq is not None:
+        ei, tl = (eq.get("inputs"), eq.get("transforms")) if isinstance(eq, dict) else (None, None)
+        sines = [i for i in ids if i.startswith("s")]
+        if not isinstance(ei, list) or not ei or len(set(ei)) != len(ei) or any(i not in sines for i in ei):
+            err.append(("EQUIVARIANCE_BAD", "[inputs.equivariance].inputs %r must be distinct sine ids from %s" % (ei, sines)))
+        tids = set()
+        for tr in (tl if isinstance(tl, list) and tl else [None]):
+            tid = tr.get("id") if isinstance(tr, dict) else None
+            if (not isinstance(tid, str) or not re.fullmatch(r"[a-z]+", tid) or tid in ("s", "flat", "ramp") or tid in tids
+                    or not _is_pair(tr.get("scale")) or not _pair_any(tr.get("offset"))):
+                err.append(("EQUIVARIANCE_BAD", "transform %r: need a unique lower-case id (not s / flat / ramp), scale [n, d] > 0 and "
+                            "offset [n, d] (d > 0)" % (tr,)))
+            tids.add(tid)
+        if err:
+            return err, info
+    all_ids = adaptive_input_ids(spec)
+    for v in spec["variants"]:
+        idcheck("variant id", v.get("id"))
+    if len({v.get("id") for v in spec["variants"]}) != len(spec["variants"]):
+        err.append(("STRUCT", "duplicate variant id"))
+    # [checks]
+    cols = chk.get("columns")
+    if not isinstance(cols, list) or not cols or len(set(cols)) != len(cols) or any(c not in ADAPTIVE_COLUMNS for c in cols):
+        err.append(("ADAPTIVE_BAD", "[checks].columns %r must be distinct names from %s" % (cols, "/".join(ADAPTIVE_COLUMNS))))
+        return err, info
+    lv = chk.get("level_columns", [])
+    if not isinstance(lv, list) or any(c not in cols for c in lv):
+        err.append(("ADAPTIVE_BAD", "[checks].level_columns %r must be a subset of the columns" % (lv,)))
+    if eq is not None:
+        fn = chk.get("equivariance_from_n")
+        if not isinstance(fn, int) or isinstance(fn, bool) or fn < 0 or fn >= inp["n_bars"]:
+            err.append(("EQUIVARIANCE_BAD", "[checks].equivariance_from_n %r must be an integer row in [0, n_bars)" % (fn,)))
+    hull = chk.get("hull")
+    if hull is not None and (not isinstance(hull, list) or not hull or any(c not in cols for c in hull)):
+        err.append(("ADAPTIVE_BAD", "[checks].hull %r must be a non-empty list of columns" % (hull,)))
+    for key in ("ramp_exact", "ramp_lag"):
+        t = chk.get(key)
+        if t is not None and (not isinstance(t, dict) or not t or any(c not in cols or i not in all_ids for c, i in t.items())):
+            err.append(("ADAPTIVE_BAD", "[checks].%s %r must map columns to input ids" % (key, t)))
+    fl = chk.get("flat")
+    if fl is not None and (not isinstance(fl, list) or not fl or any(c not in cols for c in fl)):
+        err.append(("ADAPTIVE_BAD", "[checks].flat %r must be a non-empty list of columns (equal to the level on every flat row)" % (fl,)))
+    fi = chk.get("flat_info")
+    if fi is not None and (not isinstance(fi, dict) or not isinstance(fi.get("columns"), list) or any(c not in cols for c in fi["columns"])
+                           or not isinstance(fi.get("from_n"), int)):
+        err.append(("ADAPTIVE_BAD", "[checks].flat_info %r must be {columns = [...], from_n = <row>}" % (fi,)))
+    if "bars" in chk and not isinstance(chk["bars"], bool):
+        err.append(("BARS_BAD", "[checks].bars %r must be true or false" % (chk["bars"],)))
+    if band_ids(spec) and chk.get("bars") is not True:
+        err.append(("BARS_BAD", "band inputs need [checks].bars = true (the calls pass High / Low)"))
+    if err:
+        return err, info
+    # tolerances
+    kinds = adaptive_kinds_on(spec)
+    for q in ["x", "imp"] + kinds:
+        t = tols.get(q)
+        if not isinstance(t, dict) or not _is_num(t.get("value")) or t["value"] < 0:
+            err.append(("STRUCT", "[tolerances.%s] missing or without a numeric value" % q))
+        elif not _has_label(t.get("source")):
+            err.append(("SOURCE_MISSING", "tolerance %s has no (a)/(b)/(c) source label" % q))
+        elif any(c not in cols or not _is_num(val) or val <= 0 for c, val in _tol_cols(t).items()):
+            err.append(("TOL_COLUMNS_BAD", "[tolerances.%s].columns %r must map columns to positive numbers" % (q, t.get("columns"))))
+    # conditioning (D7 rule 3)
+    cd = spec["conditioning"]
+    traced = adaptive_base_ids(spec) + band_ids(spec)
+    if (not isinstance(cd.get("seed"), int) or not isinstance(cd.get("draws"), int) or cd["draws"] < 1
+            or not isinstance(cd.get("skip_draws", 0), int) or cd.get("skip_draws", 0) < 0 or not isinstance(cd.get("bound"), dict)
+            or sorted(cd["bound"]) != sorted(cols) or not _has_label(cd.get("source"))
+            or not isinstance(cd.get("order"), list) or sorted(cd["order"]) != sorted(traced)):
+        err.append(("CONDITIONING_BAD", "[conditioning] needs integer seed, draws >= 1, skip_draws >= 0, bound = {every column: value}, "
+                    "order = every traced input %s once, and a labelled source" % traced))
+    else:
+        tt = tols.get("trace", {})
+        for c in cols:
+            want = _tol_cols(tt).get(c, tt.get("value")) / 10
+            if not math.isclose(cd["bound"][c], want, rel_tol=1e-12):
+                err.append(("CONDITIONING_BAD", "[conditioning].bound.%s = %r is not the trace tolerance / 10 = %r (S2)"
+                            % (c, cd["bound"][c], want)))
+    # expected tables
+    for name, t in spec["expected"].items():
+        if not _has_label(t.get("source")):
+            err.append(("SOURCE_MISSING", "expected table %s has no (a)/(b)/(c) source label" % name))
+        if R.adaptive_article_model(t.get("article")) is None:
+            err.append(("ARTICLE_MODEL", "expected table %s: article = %r is not a model in reference.adaptive_article_model"
+                        % (name, t.get("article"))))
+        bd = t.get("bounds")
+        if not isinstance(bd, dict) or not bd:
+            err.append(("BOUNDS_BAD", "expected table %s: bounds must be {column = {lo, hi, from_n}}" % name))
+        else:
+            for c, s in bd.items():
+                if (c not in cols or not isinstance(s, dict) or not s or any(k not in ("lo", "hi", "from_n") for k in s)
+                        or not ("lo" in s or "hi" in s) or any(not _is_num(s[k]) for k in ("lo", "hi") if k in s)
+                        or ("lo" in s and "hi" in s and not s["lo"] < s["hi"])
+                        or not isinstance(s.get("from_n", 0), int)):
+                    err.append(("BOUNDS_BAD", "expected table %s: bound %s = %r" % (name, c, s)))
+        if chk.get("ramp_lag") and not _is_num(t.get("ramp_lag")):
+            err.append(("STRUCT", "expected table %s: ramp_lag (bars) missing ([checks].ramp_lag is on)" % name))
+        cc = t.get("conditioning")
+        if (not isinstance(cc, dict) or not isinstance(cc.get("info"), dict) or not isinstance(cc.get("values"), dict)
+                or any(i not in all_ids or not isinstance(l, list) or any(c not in cols for c in l) for i, l in cc["info"].items())
+                or sorted(cc["values"]) != sorted(i for i in all_ids if i in cc["values"]) or not cc["values"]):
+            err.append(("CONDITIONING_BAD", "expected table %s: conditioning must have info = {input: [columns]} and values = "
+                        "{input: {column: value}}" % name))
+    # variants
+    roles = [v.get("role") for v in spec["variants"]]
+    rp = b.get("real_params") is True
+    for v in spec["variants"]:
+        vid = v.get("id")
+        if v.get("role") not in ("real", "neg_control", "info"):
+            err.append(("STRUCT", "variant %s: role must be real, neg_control or info" % vid))
+        if v.get("expected") not in spec["expected"]:
+            err.append(("STRUCT", "variant %s: expected table %r not defined" % (vid, v.get("expected"))))
+        pl = v.get("params")
+        if (not isinstance(pl, list) or not pl
+                or not all((isinstance(i, int) and not isinstance(i, bool)) or (rp and _is_pair(i)) for i in pl)):
+            err.append(("PARAMS_BAD", "variant %s: params %r must be integers%s" % (vid, pl, " or [n, d] pairs" if rp else "")))
+        outs = v.get("outputs")
+        if (not isinstance(outs, list) or not outs or len(set(outs)) != len(outs) or any(o not in cols for o in outs)
+                or outs[-1] not in ADAPTIVE_RETURNS or any(o in ADAPTIVE_RETURNS for o in outs[:-1])):
+            err.append(("OUTPUTS_BAD", "variant %s: outputs %r must be distinct columns ending in the return value (%s)"
+                        % (vid, outs, " or ".join(ADAPTIVE_RETURNS))))
+        elif v.get("role") == "real" and sorted(outs) != sorted(cols):
+            err.append(("OUTPUTS_BAD", "variant %s: a real variant must export every column %s" % (vid, cols)))
+        if "equivariance" in v and not isinstance(v["equivariance"], bool):
+            err.append(("EQUIVARIANCE_BAD", "variant %s: equivariance must be true or false" % vid))
+        if v.get("equivariance") and not eq_copies(spec):
+            err.append(("EQUIVARIANCE_BAD", "variant %s: equivariance = true but [inputs.equivariance] is missing" % vid))
+        if v.get("role") == "real" and eq_copies(spec) and not v.get("equivariance"):
+            err.append(("EQUIVARIANCE_BAD", "variant %s: a real variant must be called on the equivariance copies" % vid))
+        if v.get("kind") == "inline":
+            fn, body = v.get("function"), v.get("body")
+            if not fn or not isinstance(body, str) or not re.search(r"\b%s\s*\(" % re.escape(fn), body):
+                err.append(("STRUCT", "variant %s: inline needs function and a body defining it" % vid))
+        elif v.get("kind") != "param":
+            err.append(("STRUCT", "variant %s: kind must be param or inline" % vid))
+        err.extend(_lint_allow_errors(v))
+    if "neg_control" not in roles:
+        err.append(("NO_NEG_CONTROL", "no negative control"))
+    ctrl = [v.get("id") for v in spec["variants"] if v.get("role") == "neg_control"]
+    req = (spec.get("detect") or {}).get("required")
+    if not isinstance(req, dict):
+        err.append(("DETECT_MISSING", "[detect.required] missing"))
+    else:
+        for vid, ks in req.items():
+            if vid not in ctrl:
+                err.append(("DETECT_UNKNOWN_ID", "[detect.required] key %r is not a neg_control variant id" % vid))
+            if not isinstance(ks, list) or not ks or any(k not in kinds for k in ks):
+                err.append(("DETECT_BAD_KIND", "[detect.required] %s = %r: need a non-empty list of kinds the spec checks (%s)"
+                            % (vid, ks, "/".join(kinds))))
+        for vid in ctrl:
+            if vid not in req:
+                err.append(("DETECT_MISSING", "neg_control %s has no entry in [detect.required]" % vid))
+        io = (spec.get("detect") or {}).get("info_only", {})     # MAF review: kinds >= 10x deliberately reported as INFO only
+        if not isinstance(io, dict) or any(vid not in ctrl or not isinstance(ks, list) or not ks or any(k not in kinds for k in ks)
+                                           or set(ks) & set(req.get(vid, [])) for vid, ks in (io.items() if isinstance(io, dict) else [])):
+            err.append(("DETECT_BAD_KIND", "[detect.info_only] %r must map controls to checked kinds that are not in [detect.required]" % (io,)))
+    imp = spec.get("imp")
+    vids = [v.get("id") for v in spec["variants"]]
+    if not isinstance(imp, dict) or not all(isinstance(imp.get(k), dict) for k in ("must_pass", "must_fail")):
+        err.append(("IMP_BAD", "[imp] needs must_pass and must_fail tables"))
+    else:
+        for lst in ("must_pass", "must_fail"):
+            for vid, model in imp[lst].items():
+                if vid not in vids:
+                    err.append(("IMP_UNKNOWN_ID", "[imp].%s key %r is not a variant id" % (lst, vid)))
+                if model not in R.IMP_MODELS:
+                    err.append(("IMP_UNKNOWN_MODEL", "[imp].%s %s = %r is not in reference.IMP_MODELS" % (lst, vid, model)))
+        for vid in vids:
+            if vid not in imp["must_pass"]:
+                err.append(("IMP_BAD", "variant %s has no [imp].must_pass model" % vid))
+    lt = spec.get("lint")
+    if lt is not None:
+        ns = lt.get("no_static") if isinstance(lt, dict) else None
+        if not isinstance(ns, list) or not ns or not _has_label(lt.get("source")):
+            err.append(("LINT_SECTION_BAD", "[lint].no_static must be a non-empty list of paths with a labelled source"))
+    if err:
+        return err, info
+    # INFO: D2 floor x 10 <= tolerance per quantity (and per column override); per-control 10x margin
+    fl = spec.get("floor") or {}
+    for q in kinds:
+        if q in ("bound", "hull"):
+            continue
+        t = tols[q]
+        for c, tv in [(None, t["value"])] + sorted(_tol_cols(t).items()):
+            key = q if c is None else "%s_%s" % (q, c)
+            if key in fl:
+                ok = fl[key] * 10 <= tv
+                info.append("INFO D2 floor %s: floor %.3e x10 = %.3e %s tolerance %.3e -> %s"
+                            % (key, fl[key], fl[key] * 10, "<=" if ok else ">", tv, "window ok" if ok else "FLOOR x10 EXCEEDS TOLERANCE"))
+            else:
+                info.append("INFO D2 floor %s: no floor in spec (not checked)" % key)
+    for v in spec["variants"]:
+        if v["role"] not in ("neg_control", "info"):
+            continue
+        eff = v.get("effect") or {}
+        ratios = {q: (eff[q] / tols[q]["value"] if tols[q]["value"] else float("inf")) for q in kinds if q in eff}
+        if v["role"] == "info":
+            info.append("INFO variant %s (role info, not a control, not in [detect]): effect/tolerance %s; reported, never PASS/FAIL"
+                        % (v["id"], ", ".join("%s %.3gx" % kv for kv in ratios.items()) or "no measured effect in spec"))
+            continue
+        if not ratios:
+            info.append("INFO D2 margin %s: no measured effect in spec (not checked)" % v["id"])
+            continue
+        io = (spec.get("detect") or {}).get("info_only", {}).get(v["id"], [])
+        req_r = {q: r for q, r in ratios.items() if q not in io}
+        best = max(req_r, key=req_r.get) if req_r else None
+        info.append("INFO D2 margin %s: error/tolerance %s -> %s%s" % (
+            v["id"], ", ".join("%s %.3gx%s" % (q, r, " (INFO only)" if q in io else "") for q, r in ratios.items()),
+            "10x margin met (%s)" % best if best and req_r[best] >= 10 else "10x margin NOT met",
+            "; INFO-only kinds %s ([detect.info_only])" % ", ".join(io) if io else ""))
+    return err, info
+
+
+def to_checker_spec_adaptive(spec):
+    """The checker dict of a D7 spec (checker.adaptive_* reads spec['adaptive'])."""
+    errs, infos = validate_adaptive(spec)
+    if errs:
+        raise SpecError(errs)
+    inp, b, t, chk = spec["inputs"], spec["batch"], spec["tolerances"], spec["checks"]
+    eq = eq_section(spec)
+    variants = []
+    for v in spec["variants"]:
+        e = spec["expected"][v["expected"]]
+        cc = e["conditioning"]
+        variants.append(dict(id=v["id"], params=v["label"], role=v["role"], expected=(None, [], None), table=v["expected"],
+                             article=e["article"], outputs=list(v["outputs"]), equivariance=bool(v.get("equivariance")),
+                             bounds={c: dict(s) for c, s in e["bounds"].items()}, ramp_lag=e.get("ramp_lag"),
+                             info_pairs=sorted((i, c) for i, l in cc["info"].items() for c in l)))
+    ad = dict(columns=list(chk["columns"]), level_columns=list(chk.get("level_columns", [])), bars=chk.get("bars") is True,
+              base=adaptive_base_ids(spec), band=band_ids(spec),
+              band_half=_frac(inp["band_half"]) if "band_half" in inp else None,
+              copies=[dict(id=c, tid=tid, base=i) for c, tid, i in eq_copies(spec)],
+              transforms={tr["id"]: dict(scale=_frac(tr["scale"]), offset=_frac(tr["offset"])) for tr in eq.get("transforms", [])},
+              eq_inputs=list(eq.get("inputs", [])), eq_from=chk.get("equivariance_from_n", 0),
+              hull=list(chk.get("hull") or []), ramp_exact=dict(chk.get("ramp_exact") or {}), ramp_lag=dict(chk.get("ramp_lag") or {}),
+              flat=list(chk.get("flat") or []), flat_info=dict(chk["flat_info"]) if chk.get("flat_info") else None,
+              kinds=adaptive_kinds_on(spec))
+    cd = spec["conditioning"]
+    ad["conditioning"] = dict(seed=cd["seed"], draws=cd["draws"], skip_draws=cd.get("skip_draws", 0), order=list(cd["order"]),
+                              bound=dict(cd["bound"]))
+    ad["tables"] = {n: dict(article=e["article"], info={i: list(l) for i, l in e["conditioning"]["info"].items()},
+                            values={i: dict(c) for i, c in e["conditioning"]["values"].items()}) for n, e in spec["expected"].items()}
+    ad["real_tables"] = []
+    for v in spec["variants"]:
+        if v["role"] == "real" and v["expected"] not in ad["real_tables"]:
+            ad["real_tables"].append(v["expected"])
+    d = dict(batch=b["name"], id_prefix=b["id_prefix"], indicator=b["indicator"], asset=b["asset_label"],
+             n_bars=inp["n_bars"], w=inp["warmup"], level=_frac(inp["level"]), amp=_frac(inp["amp"]), slope=_frac(inp["slope"]),
+             ts=tuple(inp["sine_periods"]), clock_lo=spec["clock"]["lo"], clock_hi=spec["clock"]["hi"],
+             tol_flat=None, tol_gain=None, tol_lag=None, tol_x=t["x"]["value"], variants=variants, adaptive=ad, dc_gain=1.0)
+    for q in ad["kinds"]:
+        d["tol_" + q] = t[q]["value"]
+        d["tolcols_" + q] = _tol_cols(t[q])
+    d["detect_required"] = {k: list(v) for k, v in spec["detect"]["required"].items()}
+    d["imp"] = dict(must_pass=dict(spec["imp"]["must_pass"]), must_fail=dict(spec["imp"]["must_fail"]), tol=t["imp"]["value"],
+                    cols=_tol_cols(t["imp"]))
+    d["tol_imp"], d["tolcols_imp"] = t["imp"]["value"], _tol_cols(t["imp"])
+    d["info_lines"] = list(infos)
+    if "lint" in spec:
+        d["info_lines"] += no_static_lines(no_static_report(spec))
+    d["extended_report"] = True
+    return d
+
+
+def build_script_adaptive(spec):
+    """The Light-C batch script of a D7 spec (same plumbing as build_script: run-time integer constants, unconditional fixed-order
+    calls, out-parameters through local scalars, latch and write before quit()). Returns (text, inline bodies)."""
+    errs, _ = validate_adaptive(spec)
+    if errs:
+        raise SpecError(errs)
+    b, z, inp, chk = spec["batch"], spec["zorro"], spec["inputs"], spec["checks"]
+    P, p = b["id_prefix"].upper(), b["id_prefix"].lower()
+    ts = inp["sine_periods"]
+    ids = adaptive_input_ids(spec)
+    base, bands, copies = adaptive_base_ids(spec), band_ids(spec), eq_copies(spec)
+    bar_ids = adaptive_bar_ids(spec)
+    bars = chk.get("bars") is True
+    nin, nbar = len(ids), len(bar_ids)
+    traced = base + bands
+    tr_of = {tr["id"]: tr for tr in eq_section(spec).get("transforms", [])}
+    variants = spec["variants"]
+    plan, nslots, ncalls = [], 0, 0
+    for v in variants:
+        ks = [ids.index(i) for i in (ids if v.get("equivariance") else traced)]
+        nout = len(v["outputs"])
+        plan.append((ks, nout, nslots))
+        nslots += nout * len(ks)
+        ncalls += len(ks)
+
+    def vcols(vi):
+        v = variants[vi]
+        ks, nout, first = plan[vi]
+        return [("%s_%s_%s" % (o, v["id"], ids[k]), first + j * nout + q) for q, o in enumerate(v["outputs"]) for j, k in enumerate(ks)]
+    ycols = sum(len(vcols(vi)) for vi in range(len(variants)))
+    N = inp["n_bars"]
+    L = []
+    a = L.append
+    a("// %s.c  (GENERATED by analysis/harness/generator.py from the spec; edit the spec, not this file)" % b["script_name"])
+    a("//")
+    a("// PURPOSE:  Batch harness %s (HARNESS_DESIGN D7, adaptive smoothers). Feeds synthetic inputs through %s (%d variants:"
+      % (b["id_prefix"], b["indicator"], len(variants)))
+    a("//           %s) and writes the RAW outputs. It does NOT judge anything." % ", ".join(
+        v["id"] + (" [control]" if v["role"] == "neg_control" else (" [info]" if v["role"] == "info" else "")) for v in variants))
+    a("//           Python (analysis/harness/checker.py) measures and writes PASS/FAIL.")
+    a("// PREREG:   %s" % b["prereg"])
+    a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s | ramp level+slope*n"
+      % ",".join(str(t) for t in ts))
+    a("//           level=%d/%d amp=%d/%d slope=%d/%d. (b, H1 run 1) Decimal literals are float32 in this Zorro"
+      % (inp["level"][0], inp["level"][1], inp["amp"][0], inp["amp"][1], inp["slope"][0], inp["slope"][1]))
+    a("//           build and the PI macro is 3.14159, so every constant is built at run time from integers.")
+    if bands:
+        a("//           band bars %s: the same x with High = x + h, Low = x - h, h = %d/%d; point bars pass x as Price, High and Low."
+          % (", ".join(bands), inp["band_half"][0], inp["band_half"][1]))
+    for c, tid, i in copies:
+        tr = tr_of[tid]
+        a("//           copy %s = %d/%d * %s %s %d/%d (x, High and Low mapped together)"
+          % (c, tr["scale"][0], tr["scale"][1], i, "+" if tr["offset"][0] >= 0 else "-", abs(tr["offset"][0]), tr["offset"][1]))
+    a("//           %s is used only as a bar clock; clock_close is exported for the checker's magnitude guard." % z["clock_asset"])
+    a("// OUTPUT:   %s  (%d rows n=0..%d + header; %d columns; values printed with 15 decimals)"
+      % (z["raw_file"], N, N - 1, 2 + nin + 2 * nbar + ycols))
+    a("// CALLS:    %d indicator calls per bar, variant-major, unconditional, fixed order (gotchas 3.1)." % ncalls)
+    if real_params(spec):
+        a("// REALS:    real-valued parameters built at run time from integers (gotchas 9d.1, 9d.8): %s."
+          % ", ".join("%s = %d/%d" % (real_param_name(p, pr), pr[0], pr[1]) for pr in real_params(spec)))
+    a("// FEEDING:  every x[n], n=0..%d, reaches the indicators exactly once; INITRUN and EXITRUN feed and write nothing." % (N - 1))
+    a("// NO LOOKBACK GUARD: LookBack = 0, warmup bars are exported too; the checker requires n = 0..%d contiguous." % (N - 1))
+    a("// SOURCES:  expected values and tolerances are in the spec, each with an (a)/(b)/(c) label.")
+    a("// Y[] slots: variant-major; per call the outputs in the listed order (the last is the return value); see the call comments.")
+    a("")
+    a("#include <default.c>")
+    for inc_ in includes(spec):
+        a('#include "%s"' % inc_)
+    a("")
+    a('#define %s_RAW "%s"' % (P, z["raw_file"]))
+    a('#define %s_MARK "%s"' % (P, z["marker_file"]))
+    a("#define %s_NBARS %d" % (P, N))
+    a("")
+    for s in ("n", "done", "hdr", "rows"):
+        a("static int %s_%s = 0;" % (p, s))
+    a("")
+    bodies = []
+    for v in variants:
+        if v["kind"] == "inline":
+            for line in v.get("comment", "").splitlines():
+                a("// " + line)
+            body = v["body"].rstrip("\n")
+            bodies.append(body)
+            L.extend(body.split("\n"))
+            a("")
+    a("void run()")
+    a("{")
+    a("\t// Settings must be assigned on every call, including INITRUN, or Zorro never sees them.")
+    a("\tBarPeriod = %d;" % z["bar_period"])
+    a("\tStartDate = %d;" % z["start_date"])
+    a("\tEndDate   = %d;" % z["end_date"])
+    a("\tLookBack  = 0;")
+    a('\tasset("%s");' % z["clock_asset"])
+    a("")
+    a("\tif(is(INITRUN)) {")
+    a("\t\t%s_n = 0; %s_done = 0; %s_hdr = 0; %s_rows = 0;\t// declared initialisers" % (p, p, p, p))
+    a("\t\tfile_delete(%s_RAW);" % P)
+    a("\t\tfile_delete(%s_MARK);" % P)
+    a("\t\treturn;")
+    a("\t}")
+    a("\tif(is(EXITRUN)) {")
+    a('\t\tprintf("\\n%s EXIT: rows written = %%d, done = %%d  (expected %d and 1)", %s_rows, %s_done);' % (b["id_prefix"], N, p, p))
+    a("\t\t// marker file: if it exists after the run, EXITRUN ran even if the printf was lost (gotchas 9d.4)")
+    a('\t\tfile_append(%s_MARK, strf("EXITRUN ran: rows=%%d done=%%d\\n", %s_rows, %s_done), 0);' % (P, p, p))
+    a("\t\treturn;")
+    a("\t}")
+    a("")
+    a("\tint n;")
+    a("\tvar X[%d];" % nin)
+    if nbar:
+        a("\tvar XH[%d];" % nbar)
+        a("\tvar XL[%d];" % nbar)
+    a("\tvar Y[%d];" % nslots)
+    ptr_names = []
+    for v in variants:
+        for o in v["outputs"][:-1]:
+            if o not in ptr_names:
+                ptr_names.append(o)
+    for o in ptr_names:
+        a("\tvar %s_o_%s;" % (p, o))
+    a("\tn = %s_n;" % p)
+    a("")
+    a("\t// --- constants built at RUN TIME from integers (gotchas 9d.1, 9d.2, 9d.8) ---")
+    a("\tvar lvl = %d;\tlvl = lvl / %d;" % tuple(inp["level"]))
+    a("\tvar amp = %d;\tamp = amp / %d;" % tuple(inp["amp"]))
+    a("\tvar slp = %d;\tslp = slp / %d;" % tuple(inp["slope"]))
+    a("\tvar pi_x = 4;\tpi_x = pi_x * atan(1);")
+    if bands:
+        a("\tvar %s_hb = %d;\t%s_hb = %s_hb / %d;" % (p, inp["band_half"][0], p, p, inp["band_half"][1]))
+    for tid, tr in tr_of.items():
+        kn, cn = "%s_k_%s" % (p, tid), "%s_c_%s" % (p, tid)
+        a("\tvar %s = %d;\t%s = %s / %d;" % (kn, tr["scale"][0], kn, kn, tr["scale"][1]))
+        a("\tvar %s = 0;\t%s = %s %s %d;\t%s = %s / %d;" % (cn, cn, cn, "+" if tr["offset"][0] >= 0 else "-", abs(tr["offset"][0]),
+                                                           cn, cn, tr["offset"][1]))
+    for pr in real_params(spec):
+        nm = real_param_name(p, pr)
+        a("\tvar %s = %d;\t%s = %s / %d;" % (nm, pr[0], nm, nm, pr[1]))
+    a("")
+    a("\t// --- inputs from the bar counter (radians); no decimal literal, no PI macro ---")
+
+    def x_expr(iid):
+        bid = iid[:-1] if iid in bands else iid
+        if bid == "flat":
+            return "lvl"
+        if bid == "ramp":
+            return "lvl + slp * n"
+        return "lvl + amp * sin(2 * pi_x * n / %d)" % int(bid[1:])
+    for k, iid in enumerate(ids):
+        cp = [(tid, bi) for c, tid, bi in copies if c == iid]
+        if cp:
+            tid, bi = cp[0]
+            a("\tX[%d] = %s_k_%s * X[%d] + %s_c_%s;\t// %s" % (k, p, tid, ids.index(bi), p, tid, iid))
+        else:
+            a("\tX[%d] = %s;\t// %s" % (k, x_expr(iid), iid))
+    for j, iid in enumerate(bar_ids):
+        cp = [(tid, bi) for c, tid, bi in copies if c == iid]
+        if cp:
+            tid, bi = cp[0]
+            jb = bar_ids.index(bi)
+            a("\tXH[%d] = %s_k_%s * XH[%d] + %s_c_%s;\t// %s High" % (j, p, tid, jb, p, tid, iid))
+            a("\tXL[%d] = %s_k_%s * XL[%d] + %s_c_%s;\t// %s Low" % (j, p, tid, jb, p, tid, iid))
+        else:
+            a("\tXH[%d] = X[%d] + %s_hb;\t// %s High" % (j, ids.index(iid), p, iid))
+            a("\tXL[%d] = X[%d] - %s_hb;\t// %s Low" % (j, ids.index(iid), p, iid))
+    a("")
+    a("\t// --- input series: %d unconditional calls, fixed order ---" % (nin + 2 * nbar))
+    for k in range(nin):
+        a("\tvars S%d = series(X[%d], %d);" % (k, k, z["series_len"]))
+    for j in range(nbar):
+        a("\tvars SHi%d = series(XH[%d], %d);" % (j, j, z["series_len"]))
+        a("\tvars SLo%d = series(XL[%d], %d);" % (j, j, z["series_len"]))
+    a("")
+    a("\t// --- %d indicator calls, variant-major, unconditional, fixed order ---" % ncalls)
+    for v, (ks, nout, first) in zip(variants, plan):
+        for j, k in enumerate(ks):
+            s0 = first + j * nout
+            outs = v["outputs"][:-1]
+            ptrs = "".join(", &%s_o_%s" % (p, o) for o in outs)
+            args = ", ".join(real_param_name(p, i) if _is_pair(i) else "%d" % i for i in v["params"])
+            if bars:
+                if ids[k] in bar_ids:
+                    jb = bar_ids.index(ids[k])
+                    series_args = "S%d, SHi%d, SLo%d" % (k, jb, jb)
+                else:
+                    series_args = "S%d, S%d, S%d" % (k, k, k)
+            else:
+                series_args = "S%d" % k
+            a("\tY[%d] = %s(%s, %s%s);\t// %s %s" % (s0 + nout - 1, _fn_of(spec, v), series_args, args, ptrs, v["id"], ids[k]))
+            for q, o in enumerate(outs):
+                a("\tY[%d] = %s_o_%s;" % (s0 + q, p, o))
+    a("")
+    a("\t// --- write one row per fed bar ---")
+    a("\tif(!%s_done) {" % p)
+    a("\t\tif(!%s_hdr) {" % p)
+    hdr = ["n", "clock_close"] + ["x_" + i for i in ids] + [c for i in bar_ids for c in ("xh_" + i, "xl_" + i)]
+    for hc in _chunks(hdr, 9):
+        a('\t\t\tfile_append(%s_RAW, "%s%s", 0);' % (P, "" if hc[0] == "n" else ",", ",".join(hc)))
+    for vi in range(len(variants)):
+        for hc in _chunks([c for c, _ in vcols(vi)], 9):
+            a('\t\t\tfile_append(%s_RAW, ",%s", 0);' % (P, ",".join(hc)))
+    a('\t\t\tfile_append(%s_RAW, "\\n", 0);' % P)
+    a("\t\t\t%s_hdr = 1;" % p)
+    a("\t\t}")
+    first = ([("%d", "n"), ("%.15f", "priceClose()")] + [("%.15f", "X[%d]" % k) for k in range(nin)]
+             + [("%.15f", "%s[%d]" % (arr, j)) for j in range(nbar) for arr in ("XH", "XL")])
+    for ci, ch in enumerate(_chunks(first, 9)):
+        a('\t\tfile_append(%s_RAW, strf("%s%s", %s), 0);' % (P, "," if ci else "", ",".join(f for f, _ in ch), ", ".join(e for _, e in ch)))
+    for vi in range(len(variants)):
+        for ch in _chunks([s for _, s in vcols(vi)], 9):
+            a('\t\tfile_append(%s_RAW, strf(",%s", %s), 0);' % (P, ",".join("%.15f" for _ in ch), ",".join("Y[%d]" % j for j in ch)))
+    a('\t\tfile_append(%s_RAW, "\\n", 0);' % P)
+    a("\t\t%s_rows += 1;" % p)
+    a("\t\tif(n == %s_NBARS - 1) {" % P)
+    a("\t\t\t%s_done = 1;\t// latch first; nothing is written after this row" % p)
+    a('\t\t\tquit("%s batch complete: %d rows written");' % (b["id_prefix"], N))
+    a("\t\t} else {")
+    a("\t\t\t%s_n += 1;" % p)
+    a("\t\t}")
+    a("\t}")
+    a("}")
+    return "\n".join(L) + "\n", bodies
 
 
 def main():

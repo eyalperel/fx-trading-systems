@@ -23,6 +23,11 @@ checks `trace` / `bound` / `invariance` (osc_rows), all opt-in through spec["osc
 MST stage 1 (MESAStochastic, D6 + its notes): the models are Reflex (ReflexOut: gate quantity sqrt(MS)) or MESAStochastic
 (MesaOut: gate quantity HighestC - LowestC, the model's range); a two-sided ABSOLUTE bound `bound = [lo, hi]` read from a named
 output (`bound_output`, e.g. the raw Stoc) next to the old one-sided relative scalar; `startup_info` variants get the INFO start-up row.
+MAF stage 1 (HARNESS_DESIGN D7, adaptive smoothers), a separate path keyed by spec["adaptive"] (generator.to_checker_spec_adaptive): bars
+inputs (band High / Low, exported xh_ / xl_ and guarded), affine equivariance copies, trace of every column from row 1 with the pre-run
+per-(input, column) conditioning classification (conditioning_table / conditioning_mismatches), per-column bounds, hull, equivariance,
+ramp_exact / lag / flat known answers, per-column tolerances, an IMP replay whose INFO pairs are reported but never decide, the shared-state
+replays of the superseded MAMA.c / FRAMA.c (adaptive_shared_slots), and a floor guard per column group. Older specs never enter it.
 
 Labels: (a) source states, (b) verified here, (c) inference.
 """
@@ -82,13 +87,20 @@ def copy_names(spec):
 
 
 def input_names(spec):
-    """Every exported input (x_ columns): base inputs, then the invariance copies (none for the older specs)."""
+    """Every exported input (x_ columns): base inputs, then the invariance copies (none for the older specs). D7 (spec["adaptive"]):
+    base inputs, band inputs, equivariance copies."""
+    if spec.get("adaptive"):
+        ad = spec["adaptive"]
+        return list(ad["base"]) + list(ad["band"]) + [c["id"] for c in ad["copies"]]
     return base_names(spec) + copy_names(spec)
 
 
 def variant_inputs(spec, v):
     """Inputs a variant is called on: the base inputs, plus the invariance copies when the variant says so, minus the variant's
-    skipped inputs (LRSI stage 1, `skip`). Order = the generator's call order."""
+    skipped inputs (LRSI stage 1, `skip`). Order = the generator's call order. D7: base + band inputs, plus the copies with
+    equivariance = true."""
+    if spec.get("adaptive"):
+        return input_names(spec) if v.get("equivariance") else adaptive_traced(spec)
     ins = input_names(spec) if v.get("invariance") else base_names(spec)
     return [i for i in ins if i not in v.get("skip", ())]
 
@@ -128,6 +140,8 @@ def variant_columns(spec, v):
     outs = v.get("outputs")
     if not outs:
         return [(None, i, "y_%s_%s" % (v["id"], i)) for i in variant_inputs(spec, v)]
+    if spec.get("adaptive"):                     # D7: every output on every input of the variant (copies need all columns)
+        return [(o, i, "%s_%s_%s" % (o, v["id"], i)) for o in outs for i in variant_inputs(spec, v)]
     cols = []
     for k, o in enumerate(outs):
         ins = variant_inputs(spec, v) if k == len(outs) - 1 else [i for i in base_names(spec) if i not in v.get("skip", ())]
@@ -146,12 +160,60 @@ def variant_arrays(spec, raw, v):
 def header_of(spec):
     ins = input_names(spec)
     return (["n", "clock_close"] + ["x_" + i for i in ins]
+            + ([c for i in adaptive_bar_names(spec) for c in ("xh_" + i, "xl_" + i)] if spec.get("adaptive") else [])
             + [c for v in spec["variants"] for _, _, c in variant_columns(spec, v)])
+
+
+# ----------------------------------------------------------------------------- D7 inputs (MAF stage 1)
+def adaptive_traced(spec):
+    """D7: the inputs every variant is called on and traced on (base + band; the copies are for equivariance and IMP only)."""
+    ad = spec["adaptive"]
+    return list(ad["base"]) + list(ad["band"])
+
+
+def adaptive_bar_names(spec):
+    """D7: inputs with their own High / Low (band inputs and copies of band inputs), in input order (= generator.adaptive_bar_ids)."""
+    ad = spec["adaptive"]
+    bs = set(ad["band"])
+    return [i for i in input_names(spec) if i in bs or any(c["id"] == i and c["base"] in bs for c in ad["copies"])]
+
+
+def make_bars(spec, x=None):
+    """D7: {input: (High, Low)} for every input: point bars H = L = x; band H = x + h, L = x - h; a copy of a band input
+    H = k*H_base + c, L = k*L_base + c (the generator's run-time order). Computed in float64 as the script computes them."""
+    x = make_inputs(spec) if x is None else x
+    ad = spec["adaptive"]
+    out = {i: (x[i], x[i]) for i in input_names(spec)}
+    for i in ad["band"]:
+        out[i] = (x[i] + ad["band_half"], x[i] - ad["band_half"])
+    for c in ad["copies"]:
+        if c["base"] in ad["band"]:
+            tr = ad["transforms"][c["tid"]]
+            hb, lb = out[c["base"]]
+            out[c["id"]] = (tr["scale"] * hb + tr["offset"], tr["scale"] * lb + tr["offset"])
+    return out
+
+
+def _adaptive_inputs(spec):
+    n = np.arange(spec["n_bars"], dtype=float)
+    ad = spec["adaptive"]
+    x = {"flat": np.full(spec["n_bars"], spec["level"])}
+    for t in spec["ts"]:
+        x["s%d" % t] = spec["level"] + spec["amp"] * np.sin(2 * math.pi * n / t)
+    x["ramp"] = spec["level"] + spec["slope"] * n
+    for i in ad["band"]:
+        x[i] = x[i[:-1]].copy()
+    for c in ad["copies"]:
+        tr = ad["transforms"][c["tid"]]
+        x[c["id"]] = tr["scale"] * x[c["base"]] + tr["offset"]
+    return x
 
 
 # ----------------------------------------------------------------------------- inputs
 def make_inputs(spec):
     """Copied from h1_check.make_inputs(), parameters from the spec."""
+    if spec.get("adaptive"):
+        return _adaptive_inputs(spec)
     n = np.arange(spec["n_bars"], dtype=float)
     x = {"flat": np.full(spec["n_bars"], spec["level"])}
     for t in spec["ts"]:
@@ -359,6 +421,8 @@ def n_checks(spec, variant):
     """Number of checks one variant gets: flat, gains, [ramp-lag if dc_gain == 1], [ramp-res], phases, start-ups, and for an
     oscillator spec trace / bound / invariance / ramp_exact / start-up of the normalised output (n_osc_checks). For specs
     without the D4 keys this is 2 + len(ts) (H1 / SS2 / SS3). Multi-linear specs (LRSI): the linear count per exported linear output."""
+    if spec.get("adaptive"):
+        return adaptive_n_checks(spec, variant)
     if not _has_linear(spec, variant):
         lin = 0
     elif spec.get("osc") and variant.get("outputs"):
@@ -473,12 +537,17 @@ def _kind(check_id):
         return "trigger"
     if tail.startswith("flatzero"):                  # FSH: flat rows of raw / v1 / out are 0
         return "flat_zero"
+    if tail.startswith("equiv"):                     # MAF (D7): out(kx + c) = k out(x) + c, adaptation columns unchanged
+        return "equivariance"
+    if tail.startswith("hull"):                      # MAF (D7): out within the running [min x, max x]
+        return "hull"
     return "lag" if tail.startswith("ramp") else "flat"
 
 
 def _extra_kinds(spec):
     """D4 kinds enabled by the spec (tolerance present), in report order."""
-    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact", "trigger", "flat_zero")
+    return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact", "trigger", "flat_zero",
+                        "equivariance", "hull")
             if spec.get("tol_" + k) is not None]
 
 
@@ -599,6 +668,14 @@ def validate(spec, raw):
                 errs.append(("G_INPUT_MISMATCH", "x_%s differs from x[n]: max |diff| %.3g > %g"
                              % (i, float(np.nanmax(d)) if np.any(np.isfinite(d)) else float("nan"),
                                 spec["tol_x"])))
+        if spec.get("adaptive"):                         # D7: the exported High / Low of the band inputs and their copies
+            bars = make_bars(spec, x)
+            for i in adaptive_bar_names(spec):
+                for k, col in ((0, "xh_"), (1, "xl_")):
+                    d = np.abs(raw.cols[col + i] - bars[i][k])
+                    if not np.all(d <= spec["tol_x"]):
+                        errs.append(("G_INPUT_MISMATCH", "%s%s differs from the band input: max |diff| %.3g > %g"
+                                     % (col, i, float(np.nanmax(d)) if np.any(np.isfinite(d)) else float("nan"), spec["tol_x"])))
     return errs
 
 
@@ -610,6 +687,8 @@ def imp_rows(spec, raw, x=None):
     One row per listed variant and list (role "imp"). must_pass: residual <= tol; must_fail: residual > tol.
     An unknown model string or a non-finite residual is an ERROR row. Per-input residuals are kept in
     row["detail"] (not written to the CSV columns)."""
+    if spec.get("adaptive"):
+        return adaptive_imp_rows(spec, raw)
     imp, w, p = spec["imp"], spec["w"], spec["id_prefix"]
     tol = imp["tol"]
     seeds = {v["id"]: v.get("seed") for v in spec["variants"]}        # None = price (old behaviour); D4
@@ -982,6 +1061,340 @@ def osc_rows(spec, variant, x, ov):
     return rows
 
 
+# ----------------------------------------------------------------------------- adaptive smoothers (MAF stage 1, D7)
+_AD_CACHE = {}
+
+
+def _h(a):
+    return None if a is None else hashlib.md5(np.ascontiguousarray(np.asarray(a, dtype=float)).tobytes()).hexdigest()
+
+
+def adaptive_out(model, x, H=None, L=None):
+    """reference.adaptive_simulate cached per (model, input content, High, Low)."""
+    key = (model, _h(x), _h(H), _h(L))
+    if key not in _AD_CACHE:
+        _AD_CACHE[key] = R.adaptive_simulate(model, np.asarray(x, dtype=float), H, L)
+    return _AD_CACHE[key]
+
+
+def col_tol(spec, q, col):
+    """Tolerance of kind q for one column (per-column override, else the kind's value)."""
+    return spec.get("tolcols_" + q, {}).get(col, spec["tol_" + q])
+
+
+def _arow(spec, variant, cid, inp, e, a, q, col, d, res=None, role=None):
+    r = _orow(spec, variant, cid, inp, e, a, col_tol(spec, q, col) if col else spec["tol_" + q], d, res=res, role=role)
+    r["tgroup"] = col if (col and col in spec.get("tolcols_" + q, {})) else ""
+    return r
+
+
+def adaptive_columns(spec, variant):
+    """The variant's exported columns in the spec's column order."""
+    return [c for c in spec["adaptive"]["columns"] if c in variant["outputs"]]
+
+
+def adaptive_n_checks(spec, v):
+    """PASS/FAIL checks of one D7 variant: trace per CHECKED (input, column) (rule 3), one bound per bounded column, one hull row,
+    equivariance per (input, transform, column), ramp_exact / lag / flat per listed (column, input)."""
+    ad = spec["adaptive"]
+    cols = adaptive_columns(spec, v)
+    vin = variant_inputs(spec, v)
+    info = {tuple(p) for p in v["info_pairs"]}
+    n = sum((i, c) not in info for i in adaptive_traced(spec) for c in cols)
+    n += sum(c in cols for c in v["bounds"])
+    n += 1 if any(c in cols for c in ad["hull"]) else 0
+    if v.get("equivariance"):
+        n += sum(1 for cp in ad["copies"] if cp["base"] in ad["eq_inputs"]) * len(cols)
+    n += sum(1 for c, i in ad["ramp_exact"].items() if c in cols and i in vin)
+    n += sum(1 for c, i in ad["ramp_lag"].items() if c in cols and i in vin)
+    n += sum(1 for c in ad["flat"] if c in cols and "flat" in vin)
+    return n
+
+
+def adaptive_rows(spec, v, x, bars, ov):
+    """The D7 checks of one variant (HARNESS_DESIGN D7 rules 2-6):
+      trace-<col>-<input>    every exported column vs the source model, every row n >= w (w = 0: from row 1), on the base and band
+                             inputs; an (input, column) pair listed as INFO in the expected table's conditioning (rule 3) is written
+                             as info-trace-<col>-<input> (INFO, never PASS/FAIL) for real / info variants and skipped for controls;
+      bound-<col>            the expected table's per-column bounds over every row n >= from_n of every input of the variant,
+                             relative allowance |bound| x tol_bound (the larger relative excess side is reported);
+      hull                   the hull columns within the running [min x, max x] of the input, every row, absolute tol_hull;
+      equiv-<tid>-<col>      on each equivariance input: copy = k base + c (level columns) or = base (the rest), rows >= eq_from;
+      exact-<col>-<input>    ramp_exact: the column equals x on every row;
+      ramp-lag-<input>       mean (x - y)/slope over the last 100 rows vs the expected table's ramp_lag;
+      flat-<col>             the column equals the level on every flat row;
+      info-flat              (real only) max |col - level| on flat rows >= flat_info.from_n (INFO)."""
+    ad, w = spec["adaptive"], spec["w"]
+    model = R.adaptive_article_model(v.get("article"))
+    cols = adaptive_columns(spec, v)
+    vin = variant_inputs(spec, v)
+    info = {tuple(p) for p in v["info_pairs"]}
+    nan = float("nan")
+    rows = []
+    for i in adaptive_traced(spec):
+        mo = adaptive_out(model, x[i], *bars[i]) if model is not None else None
+        for c in cols:
+            is_info = (i, c) in info
+            if is_info and v["role"] == "neg_control":
+                continue
+            cid = ("info-trace-%s-%s" if is_info else "trace-%s-%s") % (c, i)
+            z = ov.get(c, {}).get(i)
+            if mo is None or z is None:
+                rows.append(_arow(spec, v, cid, "%s %s: no column or no model" % (c, i), 0.0, nan, "trace", c, nan, res="ERROR"))
+                continue
+            dev = np.abs(z[w:] - getattr(mo, c)[w:])
+            fin = bool(np.all(np.isfinite(dev)))
+            k = int(np.argmax(dev)) if fin else 0
+            d = float(dev[k]) if fin else nan
+            txt = "%s %s, rows n>=%d vs the source model (max at n=%d)%s" % (c, i, w, w + k, "; INFO (rule 3: ill-conditioned)" if is_info else "")
+            rows.append(_arow(spec, v, cid, txt, float(getattr(mo, c)[w + k]), float(z[w + k]) if fin else nan, "trace", c, d,
+                              res="INFO" if is_info else None, role="info" if is_info else None))
+    for c, s in v["bounds"].items():
+        if c not in cols:
+            continue
+        f0 = int(s.get("from_n", 0))
+        arrs = [ov[c][i][f0:] for i in vin if i in ov.get(c, {})]
+        if not arrs or not all(np.all(np.isfinite(a_)) for a_ in arrs):
+            rows.append(_arow(spec, v, "bound-%s" % c, "%s: no rows or non-finite" % c, nan, nan, "bound", None, nan, res="ERROR"))
+            continue
+        top, bot = float(max(np.max(a_) for a_ in arrs)), float(min(np.min(a_) for a_ in arrs))
+        sides = []
+        if "lo" in s:
+            sides.append(("low", s["lo"], bot, max(0.0, s["lo"] - bot)))
+        if "hi" in s:
+            sides.append(("high", s["hi"], top, max(0.0, top - s["hi"])))
+        side, bnd, val, exc = max(sides, key=lambda t: t[3] / abs(t[1]) if t[1] else (float("inf") if t[3] else 0.0))
+        r = _orow(spec, v, "bound-%s" % c, "%s over rows n>=%d of %d inputs: min %r, max %r vs [%s, %s]; %s side reported (relative "
+                  "allowance)" % (c, f0, len(arrs), bot, top, repr(s.get("lo", "-inf")), repr(s.get("hi", "inf")), side),
+                  bnd, val, abs(bnd) * spec["tol_bound"], exc)
+        r["tgroup"] = ""
+        rows.append(r)
+    hc = [c for c in ad["hull"] if c in cols]
+    if hc:
+        worst, where = 0.0, ""
+        for i in vin:
+            rmax, rmin = np.maximum.accumulate(x[i]), np.minimum.accumulate(x[i])
+            for c in hc:
+                y = ov[c][i]
+                e_ = np.maximum(y - rmax, rmin - y)
+                if not np.all(np.isfinite(e_)):
+                    worst, where = nan, "%s %s non-finite" % (c, i)
+                    break
+                m_ = float(np.max(e_))
+                if m_ > worst or not where:
+                    worst, where = max(worst, m_), "%s %s n=%d" % (c, i, int(np.argmax(e_)))
+            if not math.isfinite(worst):
+                break
+        d = max(0.0, worst) if math.isfinite(worst) else nan
+        rows.append(_arow(spec, v, "hull", "%s within the running [min x, max x], every row of %d inputs; largest excess at %s"
+                          % ("/".join(hc), len(vin), where), 0.0, worst, "hull", None, d))
+    if v.get("equivariance"):
+        f0 = ad["eq_from"]
+        for cp in ad["copies"]:
+            if cp["base"] not in ad["eq_inputs"]:
+                continue
+            tr = ad["transforms"][cp["tid"]]
+            for c in cols:
+                b_, y = ov.get(c, {}).get(cp["base"]), ov.get(c, {}).get(cp["id"])
+                cid = "equiv-%s-%s" % (cp["tid"], c) + ("" if len(ad["eq_inputs"]) == 1 else "-" + cp["base"])
+                if b_ is None or y is None:
+                    rows.append(_arow(spec, v, cid, "%s: no column" % c, 0.0, nan, "equivariance", c, nan, res="ERROR"))
+                    continue
+                lvl = c in ad["level_columns"]
+                ref = tr["scale"] * b_[f0:] + tr["offset"] if lvl else b_[f0:]
+                dev = np.abs(y[f0:] - ref)
+                fin = bool(np.all(np.isfinite(dev)))
+                k = int(np.argmax(dev)) if fin else 0
+                d = float(dev[k]) if fin else nan
+                rows.append(_arow(spec, v, cid, "%s %s vs %s %s, rows n>=%d (max at n=%d)" % (
+                    c, cp["id"], "%r x %s %s + %r" % (tr["scale"], c, cp["base"], tr["offset"]) if lvl else c, "" if lvl else cp["base"],
+                    f0, f0 + k), float(ref[k]) if fin else nan, float(y[f0 + k]) if fin else nan, "equivariance", c, d))
+    for c, i in ad["ramp_exact"].items():
+        if c in cols and i in vin:
+            dev = np.abs(ov[c][i] - x[i])
+            fin = bool(np.all(np.isfinite(dev)))
+            k = int(np.argmax(dev)) if fin else 0
+            rows.append(_arow(spec, v, "exact-%s-%s" % (c, i), "%s %s must equal x on every row (row furthest from it: n=%d)" % (c, i, k),
+                              float(x[i][k]), float(ov[c][i][k]), "ramp_exact", None, float(dev[k]) if fin else nan))
+    for c, i in ad["ramp_lag"].items():
+        if c in cols and i in vin:
+            m_ = float(np.mean((x[i][-100:] - ov[c][i][-100:]) / spec["slope"]))
+            e_ = v.get("ramp_lag")
+            rows.append(_arow(spec, v, "ramp-lag-%s" % i, "%s %s: mean (x - y)/slope over the last 100 rows (bars) vs (1 - alpha)/alpha"
+                              % (c, i), e_, m_, "lag", None, abs(m_ - e_) if e_ is not None else nan))
+    for c in ad["flat"]:
+        if c in cols and "flat" in vin:
+            dev = np.abs(ov[c]["flat"] - spec["level"])
+            rows.append(_arow(spec, v, "flat-%s" % c, "%s flat: must equal the level on every row" % c, spec["level"],
+                              float(ov[c]["flat"][int(np.argmax(dev))]), "flat", None, float(np.max(dev))))
+    fi = ad.get("flat_info")
+    if fi and v["role"] == "real" and "flat" in vin:
+        f0 = fi["from_n"]
+        per = {c: float(np.max(np.abs(ov[c]["flat"][f0:] - spec["level"]))) for c in fi["columns"] if c in cols}
+        d = max(per.values()) if per else nan
+        rows.append(_orow(spec, v, "info-flat", "flat, rows n>=%d: max |y - level| (%s) (INFO, D7 rule 6 / C-1)"
+                          % (f0, ", ".join("%s %r" % kv for kv in per.items())), spec["level"], spec["level"] + d, nan, d,
+                          res="INFO", role="info"))
+    return rows
+
+
+def conditioning_table(spec):
+    """D7 rule 3, the pre-run classifier (deterministic): {table: {input: {column: value}}} and {table: {input: [INFO columns]}} for
+    every expected table of a real variant (variant order). One numpy default_rng(seed); skip_draws draws of n_bars integers are
+    consumed first; then for each table, for each input of [conditioning].order (base and band inputs), and then for each table, for each
+    equivariance copy: reference.conditioning (draws perturbations x(1 + 2^-52 u), max |column change| over ALL rows). A band input
+    is perturbed as x with High / Low = y +- h built from the perturbed y; a copy of a band input with h = k x h. A column is INFO on an
+    input when its value exceeds [conditioning].bound (= trace tolerance / 10, S2)."""
+    ad = spec["adaptive"]
+    cd = ad["conditioning"]
+    rng = np.random.default_rng(cd["seed"])
+    for _ in range(cd["skip_draws"]):
+        rng.integers(-1, 2, spec["n_bars"])
+    x = make_inputs(spec)
+    band = set(ad["band"])
+    hoff = {i: (ad["band_half"] if i in band else None) for i in input_names(spec)}
+    for c in ad["copies"]:
+        hoff[c["id"]] = ad["transforms"][c["tid"]]["scale"] * ad["band_half"] if c["base"] in band else None
+    cols = ad["columns"]
+    vals = {t: {} for t in ad["real_tables"]}
+    for seq in (cd["order"], [c["id"] for c in ad["copies"]]):
+        for t in ad["real_tables"]:
+            m = R.adaptive_article_model(ad["tables"][t]["article"])
+            for i in seq:
+                vals[t][i] = R.conditioning(m, x[i], cols, rng, cd["draws"], hoff[i])
+    info = {t: {i: [c for c in cols if vals[t][i][c] > cd["bound"][c]] for i in vals[t]} for t in vals}
+    return vals, {t: {i: l for i, l in info[t].items() if l} for t in info}
+
+
+def conditioning_mismatches(spec, recomputed=None):
+    """Differences between the spec's pre-registered INFO lists and the recomputed classification ([] = identical; any entry is a
+    pre-run STOP). Tables of real variants only."""
+    vals, info = recomputed or conditioning_table(spec)
+    out = []
+    for t in info:
+        mine = {i: sorted(l) for i, l in spec["adaptive"]["tables"][t]["info"].items() if l}
+        got = {i: sorted(l) for i, l in info[t].items()}
+        if mine != got:
+            out.append("%s: spec INFO %r, recomputed %r" % (t, mine, got))
+    return out
+
+
+def adaptive_shared_slots(spec, model):
+    """[(variant id, input, instance parameter)] of every call of a superseded file, in the generator's ACTUAL call order: the variants
+    whose [imp].must_pass model has the same shared type and instance list, in spec (= variant-major call) order, each on its
+    variant_inputs. Only these calls touch the file statics."""
+    out = []
+    for v in spec["variants"]:
+        mk = R.IMP_MODELS.get(spec["imp"]["must_pass"].get(v["id"], ""))
+        m = mk() if mk else None
+        if type(m) is type(model) and m[0] == model[0]:
+            out += [(v["id"], i, m[0][m.index]) for i in variant_inputs(spec, v)]
+    return out
+
+
+def adaptive_shared_outputs(spec, model, xs, bars):
+    """{(variant id, input): MamaOut / FramaOut} of the shared-state replay over adaptive_shared_slots."""
+    slots = adaptive_shared_slots(spec, model)
+    if isinstance(model, R.MamaShared):
+        sims = R.simulate_mama_shared([(_pv(p[0]), _pv(p[1])) for _, _, p in slots], [xs[i] for _, i, _ in slots])
+    else:
+        sims = R.simulate_frama_shared([p for _, _, p in slots], [xs[i] for _, i, _ in slots],
+                                       [bars[i][0] for _, i, _ in slots], [bars[i][1] for _, i, _ in slots])
+    return {(s[0], s[1]): o for s, o in zip(slots, sims)}
+
+
+def _pv(p):
+    return p[0] / p[1]
+
+
+def adaptive_imp_rows(spec, raw):
+    """[imp] of a D7 spec: replay each listed variant's model on the x (and High / Low) columns EXPORTED by Zorro; residual per
+    (input, column) over every row (n >= 0, D7 rule 2). Pairs the variant's expected table classifies as INFO (rule 3) are reported
+    separately (row['info_detail'], trailer) and never decide PASS/FAIL; on the checked pairs the ratio residual / column tolerance
+    (tolerances.imp, per-column overrides) decides: must_pass PASS iff every ratio <= 1, must_fail PASS iff some ratio > 1. The row
+    reports the pair with the largest ratio. A shared (superseded) model replays all its calls in the generator's call order."""
+    imp, p = spec["imp"], spec["id_prefix"]
+    vmap = {v["id"]: v for v in spec["variants"]}
+    names = input_names(spec)
+    xs = {i: raw.cols["x_" + i] for i in names}
+    bset = set(adaptive_bar_names(spec))
+    bars = {i: ((raw.cols["xh_" + i], raw.cols["xl_" + i]) if i in bset else (xs[i], xs[i])) for i in names}
+    cache, rows = {}, []
+    for kind, table in (("pass", imp["must_pass"]), ("fail", imp["must_fail"])):
+        for vid, mstr in table.items():
+            v = vmap[vid]
+            maker = R.IMP_MODELS.get(mstr)
+            per, per_info = {}, {}
+            if maker is not None:
+                model = maker()
+                if isinstance(model, (R.MamaShared, R.FramaShared)):
+                    key = (type(model).__name__, model[0])
+                    if key not in cache:
+                        cache[key] = adaptive_shared_outputs(spec, model, xs, bars)
+                    mo_of = lambda i, key=key: cache[key][(vid, i)]
+                else:
+                    mo_of = lambda i, model=model: adaptive_out(model, xs[i], *bars[i])
+                info = {tuple(q) for q in v["info_pairs"]}
+                for i in variant_inputs(spec, v):
+                    mo = mo_of(i)
+                    for c in adaptive_columns(spec, v):
+                        d = float(np.max(np.abs(raw.cols["%s_%s_%s" % (c, vid, i)] - getattr(mo, c))))
+                        (per_info if (i, c) in info else per)["%s:%s" % (i, c)] = d
+            ratios = {k: d / col_tol(spec, "imp", k.split(":")[1]) for k, d in per.items()}
+            if maker is None or not per or not all(math.isfinite(r_) for r_ in ratios.values()):
+                res, worst, d, tol, ratio = "ERROR", "none", float("nan"), imp["tol"], float("nan")
+            else:
+                worst = max(ratios, key=ratios.get)
+                d, tol, ratio = per[worst], col_tol(spec, "imp", worst.split(":")[1]), ratios[worst]
+                res = ("PASS" if ratio <= 1 else "FAIL") if kind == "pass" else ("PASS" if ratio > 1 else "FAIL")
+            rows.append(dict(check_id="%s-%s-imp-%s" % (p, vid, kind), indicator=spec["indicator"],
+                             params="IMP must_%s: %s" % (kind, mstr), asset=spec["asset"],
+                             input="replay residual n>=0, checked (input:column) pairs, worst ratio at %s (column tolerances: %s); "
+                                   "%d INFO pairs reported in the trailer" % (worst, ", ".join(
+                                       "%s %g" % (c, col_tol(spec, "imp", c)) for c in adaptive_columns(spec, v)), len(per_info)),
+                             expected=0.0 if kind == "pass" else tol, actual=d, abs_diff=d, tolerance=tol, ratio=ratio,
+                             result=res, role="imp", detail=per, info_detail=per_info))
+    return rows
+
+
+def adaptive_floor_quantities(spec):
+    """(key, tolerance/10) of the D7 floor guard per real variant: every Zorro-vs-model kind (not bound / hull: structural), and a
+    'kind:column' key per column override (e.g. trace:phase)."""
+    out = []
+    for q in spec["adaptive"]["kinds"]:
+        if q in ("bound", "hull"):
+            continue
+        out.append((q, spec["tol_" + q] / 10))
+        out += [("%s:%s" % (q, c), t / 10) for c, t in sorted(spec.get("tolcols_" + q, {}).items())]
+    return out
+
+
+def adaptive_trailer(spec, rows):
+    """Trailer lines of a D7 spec: per IMP row the checked residuals and, separately, the INFO pairs; per real variant the
+    Zorro-vs-model maxima per floor key; the floor guard message."""
+    out = []
+    for r in rows:
+        if r["role"] == "imp":
+            out.append("# IMP %s %s worst=%s tol=%g ratio=%.3e checked: %s" % (
+                r["check_id"], r["result"], repr(float(r["actual"])), r["tolerance"], r["ratio"],
+                " ".join("%s=%s" % (k, repr(d)) for k, d in r.get("detail", {}).items())))
+            if r.get("info_detail"):
+                out.append("# IMP_INFO %s (rule-3 INFO pairs, never PASS/FAIL): %s" % (
+                    r["check_id"], " ".join("%s=%s" % (k, repr(d)) for k, d in r["info_detail"].items())))
+    for v in spec["variants"]:
+        if v["role"] != "real":
+            continue
+        pre = "%s-%s-" % (spec["id_prefix"], v["id"])
+        imp = [r["actual"] for r in rows if r["role"] == "imp" and r["check_id"] == pre + "imp-pass"]
+        fl = {r["check_id"][len(pre) + 6:]: r["actual"] for r in rows if r["role"] == "floor" and r["check_id"].startswith(pre + "floor-")}
+        out.append("# O_IMP_RESIDUAL %s imp=%s %s (INFO)" % (v["id"], repr(float(imp[0])) if imp else "n/a",
+                                                             " ".join("zorro_vs_model_%s=%.3e" % kv for kv in fl.items())))
+    bad = sorted(r["check_id"] for r in rows if r["role"] == "floor" and r["result"] != "PASS")
+    if bad:
+        out.append("# FLOOR_GUARD FAIL: tolerance window invalid (item 7; not accepted until explained): " + ",".join(bad))
+    return out
+
+
 def _shared_group(spec, model):
     """[(index, variant id)] of the variants whose must_pass model is a SharedModel of the same Ls, in call order."""
     out = []
@@ -1162,7 +1575,9 @@ def _imp_fisher(spec, raw, v, model, cache):
 def floor_quantities(spec):
     """(kind, tolerance/10) the floor guard checks per real variant: gain, lag (dc_gain 1 only), then the D4 kinds
     enabled by the spec. gain and lag first: H1 / SS2 / SS3 rows unchanged. A spec without a linear stage (FSH: no gain / lag
-    tolerance) has no gain / lag rows."""
+    tolerance) has no gain / lag rows. D7: per (kind, column-tolerance group), keys 'trace' / 'trace:phase' ..."""
+    if spec.get("adaptive"):
+        return adaptive_floor_quantities(spec)
     q = [("gain", spec["tol_gain"] / 10)] if spec.get("tol_gain") is not None else []
     if _has_lag(spec) and spec.get("tol_lag") is not None:
         q.append(("lag", spec["tol_lag"] / 10))
@@ -1179,10 +1594,14 @@ def floor_rows(spec, rows):
         pre = "%s-%s-" % (spec["id_prefix"], v["id"])
         rs = [r for r in rows if r["role"] == "real" and r["check_id"].startswith(pre)]
         for q, tol in floor_quantities(spec):
-            ds = [r["abs_diff"] for r in rs if _kind(r["check_id"]) == q]
+            if spec.get("adaptive"):                   # D7: key 'kind' or 'kind:column' (the column's own tolerance group)
+                kq, _, grp = q.partition(":")
+                ds = [r["abs_diff"] for r in rs if _kind(r["check_id"]) == kq and r.get("tgroup", "") == grp]
+            else:
+                ds = [r["abs_diff"] for r in rs if _kind(r["check_id"]) == q]
             a = max(ds) if ds else float("nan")
             fin = math.isfinite(a)
-            out.append(dict(check_id="%sfloor-%s" % (pre, q), indicator=spec["indicator"],
+            out.append(dict(check_id="%sfloor-%s" % (pre, q.replace(":", "-")), indicator=spec["indicator"],
                             params=v["params"], asset=spec["asset"], input="max |Zorro - book| " + q,
                             expected=0.0, actual=a, abs_diff=a, tolerance=tol,
                             ratio=(a / tol) if (fin and tol) else float("nan"),      # FSH trigger: tolerance 0 (exact)
@@ -1195,9 +1614,12 @@ def evaluate(spec, raw):
     x = make_inputs(spec)
     xe = {i: raw.cols["x_" + i] for i in input_names(spec)}          # EXPORTED inputs (start-up reference)
     rows = []
+    bars = make_bars(spec, x) if spec.get("adaptive") else None
     for v in spec["variants"]:
         ov = variant_arrays(spec, raw, v)
-        if v.get("outputs") and spec.get("osc") and isinstance(spec["osc"]["linear"], (list, tuple)):
+        if spec.get("adaptive"):                               # MAF (D7)
+            vr = adaptive_rows(spec, v, x, bars, ov)
+        elif v.get("outputs") and spec.get("osc") and isinstance(spec["osc"]["linear"], (list, tuple)):
             vr = []                                            # LRSI: v1 checks per linear output, own table, ids suffixed -<output>
             for o, vv in linear_views(spec, v):
                 for r in _linear_rows(spec, vv, x, ov[o], xe):
@@ -1265,6 +1687,8 @@ def imp_trailer(spec, rows):
     guard message. Empty list without [imp] (H1 / SS2 output unchanged)."""
     if not spec.get("imp") or not rows:
         return []
+    if spec.get("adaptive"):
+        return adaptive_trailer(spec, rows)
     p = spec["id_prefix"]
     out = []
     for r in rows:

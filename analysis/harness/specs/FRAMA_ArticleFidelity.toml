@@ -1,0 +1,1193 @@
+# FRAMA_ArticleFidelity.toml -- Fractal Adaptive Moving Average (Ehlers, TASC V.23:10 2005, sidebar), SOURCE FIDELITY + IMPLEMENTATION
+# (HARNESS_DESIGN section 1, both questions), the SECOND spec of the ADAPTIVE-SMOOTHER family (HARNESS_DESIGN D7; MAMA_ArticleFidelity first).
+# Pre-registration: this file, committed BEFORE the corrected FRAMA.c / FRAMA_Superseded.c are written and BEFORE the generated script is run
+# (CLAUDE.md section 4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of MAF stage 1 (planning chat 2026-11-20; review docs/harness/MAMA_FRAMA_SOURCE_REVIEW.md (b7bdd69) incl. its appendix C-1..C-3 and
+# S1..S5, D7, accepted by the user; brief docs/harness/MAF_STAGE1_PROMPT.md). Tooling: the D7 path of generator.py / checker.py
+# ([checks].adaptive = true, bars inputs) and the reference models frama_article / frama_superseded (reference.py).
+# Labels: (a) source states, (b) measured / computed here, (c) inference. Ids must not contain '-'. Rows are numbered n = 0, 1, ... (0-based):
+# "row 1" of the brief / D7 = n 0.
+#
+# What D7 changes against the oscillator specs (D6), as mapped to FRAMA:
+#   * Bars inputs (S5): FRAMACore(Price, High, Low, N, &dim, &alpha) reads High / Low for the dimension and Price for the filter (FR-2). Point
+#     bars pass x as Price, High and Low (H = L = x); band bars rampB, s5B .. s100B pass the same x with High = x + h, Low = x - h, h = 2/1000.
+#   * The output is a price level: copies sc = 10 x - 9.9 and of = x + 1.1 of s40B (x, High and Low mapped together) are checked for
+#     equivariance: out = k out + c, dim and alpha unchanged, from row 1 (C-2: FRAMA maps exactly from n = 0).
+#   * Trace of out, dim and alpha from row 1 (n >= 0) against frama_article, start-up included (Filt = Price while CurrentBar < N + 1).
+#     Conditioning (D7 rule 3): every pair is checked except dim and alpha on point flat (rounding noise decides whether N3 > 0: C-1), INFO.
+#   * Known answers: point ramp out = x on every row (alpha = 1: D < 1 for non-overlapping halves); band ramp lag = (1 - alpha)/alpha with
+#     D = log2(4 r1 / r3) (S5); point flat out = 1.1 on every row (Dimen never computed, N3 = 0). Bounds: alpha in [exp(-4.6), 1] and Dimen <= 2
+#     with the D6 relative allowance (C-3: rounding puts Dimen 1.8e-15 above 2 on band sines), out within the running [min x, max x] (hull).
+#   * Two variants: N = 16 (source default) and N = 32 (the slot configuration, FR-1: callers pass N = 32).
+#   * NCS / NCS2 are the REAL superseded file (FRAMA_Superseded.c, stage 2) called as two instances (both T = 8, i.e. N = 16) on every base and
+#     band input; they share frama_prev / frama_init (FR-3), i.e. the IIR state. (The brief names one control NCS "called as TWO instances";
+#     the second instance is NCS2 here. NCT is the brief's per-instance old start-up control, a different thing.)
+
+[batch]
+name = "FRAMA_ArticleFidelity"
+id_prefix = "FRA"
+indicator = "FRAMACore"                  # Light-C function called by the `param` variants (corrected FRAMA.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/FRAMA_ArticleFidelity.toml (this file)"
+script_name = "GEN_FRA_FRAMA"           # generated Light-C file; the generator never overwrites
+
+[source]
+article = "Ehlers, J. F., 'Fractal Adaptive Moving Averages', Technical Analysis of Stocks & Commodities V.23:10 (2005), pp. 81-82; 'FRAMA EasyLanguage code' sidebar, PDF p. 3 (project knowledge `Fractal Adaptive Moving Averages.pdf`). (b) Cybernetic Analysis (2004) does not contain FRAMA."
+formula = """
+(a) Inputs: Price((H+L)/2), N(16) {N must be an even number}; vars start at 0:
+    N3 = (Highest(High, N) - Lowest(Low, N)) / N;
+    HH = High; LL = Low; For count = 0 to N/2 - 1: HH = max(HH, High[count]); LL = min(LL, Low[count]);  N1 = (HH - LL) / (N/2);
+    HH = High[N/2]; LL = Low[N/2]; For count = N/2 to N - 1: (same);                                     N2 = (HH - LL) / (N/2);
+    If N1 > 0 and N2 > 0 and N3 > 0 then Dimen = (Log(N1 + N2) - Log(N3)) / Log(2);
+    alpha = ExpValue(-4.6*(Dimen - 1));  If alpha < .01 then alpha = .01;  If alpha > 1 then alpha = 1;
+    Filt = alpha*Price + (1 - alpha)*Filt[1];  If CurrentBar < N + 1 then Filt = Price;
+(a) N is the FULL window (two equal halves); the dimension uses High and Low, the filter Price. Dimen keeps its previous value (initial 0)
+    when N1, N2 or N3 is 0; Filt still updates.
+(b) Exported here: out = Filt, dim = Dimen, alpha. D <= 2 always (N1 + N2 <= 4 N3), so alpha >= exp(-4.6) and the .01 floor never binds
+    (the article's '0.01 when D = 2' is rounded); the 1.0 ceiling binds whenever D < 1 (point bars).
+"""
+reference = "analysis/harness/reference.py frama_article(N, k, lo, literals, startup) (simulate_frama: per-instance state, windows padded with the first High / Low (series(), 9d.6), the corrected code's operation order), frama_superseded(Ts, index) (simulate_frama_shared: the old FRAMA.c's shared frama_prev / frama_init over every superseded call in the generator's ACTUAL call order, float32 4.6 / .01, half window T)"
+d1 = "(b) D1 rule 2: every literal of the sidebar (4.6, .01, 1, 2) is taken at its decimal value, built from integers at run time; none equals a named constant to every printed digit, so there is no rule-1 / rule-4 replacement and no 'as printed' INFO variant. No trig, no PI."
+review_only = "(b) Checked by CODE REVIEW only (S4), not by a run: the source guard's log(0) branch (N1 + N2 = 0 with N3 > 0) is unreachable on these inputs (band bars never have a flat half; point sines / ramp neither); the corrected code cannot reach it at all (Dimen is computed only when N1, N2, N3 > 0). Stage 2's pre-run item (i) asserts the guard lines verbatim."
+other_forms = "(c) The source's FRAMA uses (H+L)/2 as Price and the bar's High / Low; with real bars (H > L) D >= 1 always (overlapping ranges). Which N trades better (16 vs 32) is a backtest question (review FR-1)."
+
+# Pre-registered corrected indicators/ehlers/FRAMA.c (FR-1..FR-7; the brief's code block, verbatim). Written in stage 2 AFTER this file is
+# committed; a test then asserts it contains these lines verbatim (whitespace-normalised, comments stripped). reference.frama_article
+# implements exactly these lines (same operations in the same order; IMP must pass).
+[corrected_code]
+file = "indicators/ehlers/FRAMA.c"
+function = "var FRAMACore(vars Price, vars High, vars Low, int N, var* pDim, var* pAlpha)"
+lines = """
+    vars fr_n = series(0, 2);      // per-instance CurrentBar (9d.9)
+    vars fr_F = series(0, 2);
+    vars fr_D = series(0, 2);
+    vars fr_A = series(0, 2);
+    fr_n[0] = fr_n[1] + 1;
+    fr_F[0] = fr_F[1];  fr_D[0] = fr_D[1];  fr_A[0] = fr_A[1];   // EasyLanguage hold (FR-5: Dimen held)
+    var fr_k  = 46;  fr_k  = fr_k/10;
+    var fr_lo = 1;   fr_lo = fr_lo/100;
+    var fr_u  = 1;
+    var fr_l2 = 2;   fr_l2 = log(fr_l2);
+    int fr_h = N/2;
+    int fr_i;
+    var fr_HH = High[0];
+    var fr_LL = Low[0];
+    for(fr_i = 1; fr_i < N; fr_i++) {
+        if(High[fr_i] > fr_HH) fr_HH = High[fr_i];
+        if(Low[fr_i]  < fr_LL) fr_LL = Low[fr_i];
+    }
+    var fr_N3 = fr_HH - fr_LL;  fr_N3 = fr_N3/N;
+    fr_HH = High[0];  fr_LL = Low[0];
+    for(fr_i = 0; fr_i < fr_h; fr_i++) {
+        if(High[fr_i] > fr_HH) fr_HH = High[fr_i];
+        if(Low[fr_i]  < fr_LL) fr_LL = Low[fr_i];
+    }
+    var fr_N1 = fr_HH - fr_LL;  fr_N1 = fr_N1/fr_h;
+    fr_HH = High[fr_h];  fr_LL = Low[fr_h];
+    for(fr_i = fr_h; fr_i < N; fr_i++) {
+        if(High[fr_i] > fr_HH) fr_HH = High[fr_i];
+        if(Low[fr_i]  < fr_LL) fr_LL = Low[fr_i];
+    }
+    var fr_N2 = fr_HH - fr_LL;  fr_N2 = fr_N2/fr_h;
+    if(fr_N1 > 0 && fr_N2 > 0 && fr_N3 > 0) {
+        fr_D[0] = log(fr_N1 + fr_N2) - log(fr_N3);
+        fr_D[0] = fr_D[0]/fr_l2;
+    }
+    var fr_e = fr_D[0] - fr_u;
+    fr_e = fr_k*fr_e;
+    fr_A[0] = exp(-fr_e);
+    if(fr_A[0] < fr_lo) fr_A[0] = fr_lo;
+    if(fr_A[0] > fr_u)  fr_A[0] = fr_u;
+    fr_F[0] = fr_A[0]*Price[0] + (fr_u - fr_A[0])*fr_F[1];
+    if(fr_n[0] < N + 1) fr_F[0] = Price[0];
+    *pDim   = fr_D[0];
+    *pAlpha = fr_A[0];
+    return fr_F[0];"""
+wrapper_function = "var FRAMA(vars Price, vars High, vars Low, int N)"
+wrapper_lines = """
+    var frw_1;
+    var frw_2;
+    return FRAMACore(Price, High, Low, N, &frw_1, &frw_2);"""
+notes = """(b) Changed vs the current .c (blob 3352fbe04ed691e479564bc63d46ae181334f9bb, last commit 2a5eca5; recorded again at pre-run (ii), stage 2):
+FR-1 the source convention N = full window (even; callers pass N = 32, keeping the slot configuration); FR-2 Price, High and Low are parameters
+(callers pass series((priceHigh() + priceLow())/2), series(priceHigh()), series(priceLow())); FR-3 per-instance state (Filt, Dimen, alpha and a
+call counter in series(0, 2), gotchas 9d.9) in place of the shared statics frama_prev / frama_init; FR-4 the source start-up (Filt = Price
+while CurrentBar < N + 1) in place of the price seed on the first call; FR-5 the source guard (Dimen held when any of N1, N2, N3 is 0; Filt
+always updated) in place of `if(N3 <= 0) return prev` without an N1 / N2 condition; FR-6 4.6 and .01 built from integers; FR-7 dim and alpha
+exported through FRAMACore(Price, High, Low, N, &dim, &alpha), FRAMA(Price, High, Low, N) a thin wrapper; FR-8 header (written with the .c).
+(b) Every series() call is unconditional and first (gotchas 3.1); no decimal literal (asserted by test_generator_maf); every expression starts
+with a variable (gotchas 9d.8). The model follows the same operations in the same order (finding xcheck: identical to the planning chat's
+frama_src to the last bit on all 26 inputs x 2 windows).
+(c) If any line cannot compile in Light-C (declarations after statements, `&&`, unary minus on a variable `-fr_e`, int division `N/2`), stage 2
+stops and reports. (b) Each construct has compiled in a harness run already: `&&` (LaguerreRSI_Superseded.c:25, LRS run 1),
+declarations after statements (FisherCore, FSH run 1), unary minus on a variable (Reflex.c:60 `exp(-rx_k*PI/rx_half)`, RFX run 1), int
+division of an int parameter (Reflex_Superseded.c:8 `Length / 2`, RFX run 1). (c) `-fr_e` alone as a call argument is not seen yet.
+(c) FRAMACore reads Price[0] and High / Low [0..N-1]: the caller's series must hold >= N values ([zorro].series_len = 34 >= 33; stage 2 says so
+in the header).
+Superseded file (stage 2): the CURRENT FRAMA.c body as indicators/ehlers/FRAMA_Superseded.c, `FRAMA_Superseded(vars Price, vars High, vars Low,
+int T)`; the ONLY behavioural edit is the input: priceHigh() / priceLow() -> High[0] / Low[0] (its own series of them are kept) and frama_price
+-> Price[0]; prefix frama_ -> fro_. It is the shared-state control NCS / NCS2."""
+
+[zorro]
+include = ["../../indicators/ehlers/FRAMA_Superseded.c", "../../indicators/ehlers/FRAMA.c"]   # resolved from strategies/tests/; FRAMA_Superseded.c is written in stage 2 (lint reports it missing until then); the current FRAMA.c exists but has no FRAMACore and still has its statics
+raw_file = "Data/GEN_FRA_raw.csv"
+marker_file = "Data/GEN_FRA_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 34           # (c) brief: High / Low [0..N-1] with N up to 32 (FR32) and 18 (NCN): >= 33, made 34
+
+[inputs]
+n_bars = 3000
+warmup = 0                # D7 rule 2: no W cut; every check reads rows n >= 0 (trace from row 1)
+level = [11, 10]          # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]            # 0.01
+slope = [1, 10000]        # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+band_half = [2, 1000]     # S5: h = 0.002, built at run time
+band_inputs = ["ramp", "s5", "s10", "s20", "s40", "s100"]  # band copies rampB, s5B .. s100B (High = x + h, Low = x - h)
+
+[inputs.equivariance]     # D7 rule 5: affine copies of s40B only (brief): sc = 10 x - 9.9, of = x + 1.1; High / Low mapped the same way
+inputs = ["s40B"]
+transforms = [{ id = "sc", scale = [10, 1], offset = [-99, 10] }, { id = "of", scale = [1, 1], offset = [11, 10] }]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                  # HARNESS_DESIGN D7 (rules 1-8) as mapped here
+adaptive = true
+bars = true                                          # calls pass (Price, High, Low)
+columns = ["out", "dim", "alpha"]
+level_columns = ["out"]                              # equivariance: copy out = k out + c; dim / alpha: copy = base
+equivariance_from_n = 0                              # C-2: FRAMA maps from row 1
+hull = ["out"]                                       # out within the running [min x, max x] every row (convex combination)
+ramp_exact = { out = "ramp" }                        # point ramp: out = x on every row (alpha = 1)
+ramp_lag = { out = "rampB" }                         # band ramp: lag vs the expected table's ramp_lag (S5)
+flat = ["out"]                                       # point flat: out = 1.1 on every row
+source = """(a)/(b) D7 mapped to FRAMA: rule 1 out, dim and alpha exported (FR-7); rule 2 trace of every column from row 1 (n >= 0) against
+frama_article, start-up included; rule 3 per (input, column) classification ([conditioning]; INFO pairs written as info-trace rows); rule 4
+bounds from the expected tables (alpha in [exp(-4.6), 1], Dimen <= 2) and the hull, every row of every input incl. the copies; rule 5
+equivariance on s40B, copies sc and of, from row 1; rule 6 known answers: point ramp out = x (ramp_exact), band ramp lag (lag), point flat
+out = level (flat); rule 7 NCS / NCS2; rule 8 no linear checks (the band ramp lag is a known answer of the source formula, (1 - a)/a for
+the constant alpha the band ramp gives, not a v1 linear check)."""
+
+[conditioning]            # D7 rule 3, the pre-run classifier (checker.conditioning_table), deterministic
+seed = 20261120
+draws = 5
+skip_draws = 70
+order = ["flat", "ramp", "s5", "s10", "s20", "s40", "s100", "rampB", "s5B", "s10B", "s20B", "s40B", "s100B"]
+bound = { out = 1e-11, dim = 1e-11, alpha = 1e-11 }
+source = """(b) S2: bound = trace tolerance / 10. One numpy default_rng(20261120); skip_draws = 70: the planning chat's script drew the MAMA
+classification first from the same generator (2 variants x 7 inputs x 5 draws of 3000 integers), so 70 draws are consumed before FRAMA's to
+reproduce its table 1 to the last digit; then per real expected table (FR16, then FR32), per input in `order` (point, then band: the
+planning chat's order), and then per table the copies (sc40B, of40B): 5 perturbations x(1 + 2^-52 u), u = rng.integers(-1, 2, 3000), and the
+max over ALL rows of |column(perturbed) - column(x)| of the MODEL (reference.frama_article). Band inputs: High / Low = y +- h built from the
+perturbed y (as the planning chat); a copy of a band input with h x 10 (sc) / h (of). A pair above its bound is INFO. A recomputed
+classification that differs from the lists below is a pre-run STOP (pass condition, pre-run (vii))."""
+
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X). Covers the band inputs' exported High / Low (xh_ / xl_ columns) and the copies."
+[tolerances.trace]
+value = 1e-10
+source = "(c) S2 (user, 2026-11-20): FRAMA trace 1e-10 (out, dim, alpha). Every checked (input, column) pair, every row n >= 0. Window: [floor] x10 <= tolerance (D2 rule 3); NC32 (the smallest control) >= 10x."
+[tolerances.bound]
+value = 1e-12
+source = "(c) D6 default: RELATIVE allowance |bound| x 1e-12 on alpha in [exp(-4.6), 1] (both sides) and Dimen <= 2 (C-3: Dimen 2.0000000000000018 on band sines; alpha 0.010051835744633504, 8.2e-15 relative below exp(-4.6))."
+[tolerances.hull]
+value = 1e-15
+source = "(c) Brief: ABSOLUTE 1e-15 on out within the running [min x, max x] of its own input (every row, every input incl. the copies). (b) The model gives 0 ([findings] hull_excess_model_*). (c) Zorro's out is printed with 15 decimals (<= 5e-16) and Zorro's x may differ from numpy's by an ulp of sin (2.2e-16 at 1.1): about 7e-16 of the 1e-15 is accounted for."
+[tolerances.equivariance]
+value = 1e-10
+source = "(c) Brief: as the trace (1e-10), from row 1. Zorro-internal, no model. (b) Model floor [floor].equivariance."
+[tolerances.ramp_exact]
+value = 1e-12
+source = "(c) Brief: point ramp out = x on every row (the model gives exactly 0, finding point_ramp_out_minus_x_*)."
+[tolerances.lag]
+value = 1e-06
+source = "(c) Brief: band ramp lag (mean (x - out)/slope over the last 100 rows) vs (1 - alpha)/alpha of the analytic D = log2(4 r1/r3); (b) the model's own residual is the floor ([floor].lag, 1.3e-11: convergence of alpha^n plus rounding)."
+[tolerances.flat]
+value = 1e-12
+source = "(c) Brief: point flat out = 1.1 on every row (the model gives exactly 0 difference: Dimen never computed, start-up then alpha = 1)."
+[tolerances.imp]
+value = 1e-09
+source = "(c) As every earlier spec (1e-9). On the CHECKED (input, column) pairs only; INFO pairs (point flat dim / alpha) are reported (rule 3). (b) Expected residual: [floor] imp estimate (the %.15f rounding of the exported x, High, Low through the model)."
+
+[lint]
+no_static = ["indicators/ehlers/FRAMA.c"]
+source = "(b) As LRSI / FSH: the corrected FRAMA.c must contain no `static` token (comments and strings excluded): the structural check for FR-3. generator.lint_no_static; seen to fire on the current body (2 hits, frama_init and frama_prev: test_generator_maf). Until stage 2 the current file has the statics: lint reports it, as it reports the missing FRAMA_Superseded.c include."
+
+# D2 floor per quantity (see source).
+[floor]
+trace = 1.93345339738471e-12
+equivariance = 6.38378239159465e-14
+lag = 1.3002932064409833e-11
+ramp_exact = 0.0
+flat = 0.0
+imp_estimate = 1.93345339738471e-12
+source = """(b) 2026-11-20, tests/maf_support.numbers(). trace = the largest of the conditioning values on the checked pairs and the IMP estimate (the model on x, High, Low printed with %.15f vs exact: brief item 4, FR16 s100 alpha 1.933e-12); x10 = 1.9e-11 <= 1e-10 (window holds). equivariance = the model's own residual on s40B from row 1 (brief item 7). lag = |model band ramp lag - (1 - a)/a| (1.3e-11: alpha^n convergence and rounding). ramp_exact, flat: the model gives exactly 0. No trig, no PI. (c) Zorro vs the model is expected at rounding level; pass item 7 guards the run value."""
+
+
+# Expected values: the trace model per variant (no tables), bounds, the band ramp lag, and the pre-registered conditioning classification.
+[expected.FR16]
+article = "frama_article(16)"
+bounds = { alpha = { lo = 0.010051835744633586, hi = 1.0 }, dim = { hi = 2.0 } }
+ramp_lag = 34.05274879969143
+source = "(b) reference.frama_article(16): the sidebar, N = 16 (source default), 4.6 = 46/10, .01 = 1/100, zero start, Filt = Price while CurrentBar < N + 1, Dimen held unless N1, N2, N3 > 0, windows padded with the first High / Low. Bounds (b): alpha >= exp(-4.6) = 0.010051835744633586 (repr of math.exp(-4.6)) because D <= 2; alpha <= 1 (clamp); Dimen <= 2. ramp_lag (b): band ramp, D = log2(4 r1/r3), r1 = s(N/2 - 1) + 2h, r3 = s(N - 1) + 2h, alpha = exp(-4.6(D - 1)), lag = (1 - alpha)/alpha (brief item 5, planning chat 34.05274879969143)."
+
+[expected.FR16.conditioning]
+info = { flat = ["dim", "alpha"] }
+values = { flat = { out = 2.220446049250313e-16, dim = 2.0000000000000053, alpha = 0.9899481642553667 }, ramp = { out = 2.220446049250313e-16, dim = 7.585043704239069e-13, alpha = 0.0 }, s5 = { out = 3.774758283725532e-15, dim = 3.4638958368304884e-14, alpha = 7.202571872255703e-15 }, s10 = { out = 3.9968028886505635e-15, dim = 3.4638958368304884e-14, alpha = 2.273181642920008e-14 }, s20 = { out = 1.7763568394002505e-15, dim = 6.394884621840902e-14, alpha = 2.942091015256665e-13 }, s40 = { out = 1.9984014443252818e-15, dim = 9.370282327836321e-14, alpha = 2.942091015256665e-13 }, s100 = { out = 1.9984014443252818e-15, dim = 5.17808018685173e-13, alpha = 1.2849721287011562e-12 }, rampB = { out = 2.220446049250313e-15, dim = 1.1679546219056647e-13, alpha = 1.5328016633731067e-14 }, s5B = { out = 4.6629367034256575e-15, dim = 2.842170943040401e-14, alpha = 8.354428260304303e-15 }, s10B = { out = 4.218847493575595e-15, dim = 2.842170943040401e-14, alpha = 9.547918011776346e-15 }, s20B = { out = 1.1102230246251565e-15, dim = 4.4853010194856324e-14, alpha = 1.3578027591165664e-13 }, s40B = { out = 1.1102230246251565e-15, dim = 5.906386491005833e-14, alpha = 6.850076061937216e-14 }, s100B = { out = 1.1102230246251565e-15, dim = 1.2301271112846734e-13, alpha = 5.012656956182582e-14 }, sc40B = { out = 1.3322676295501878e-15, dim = 6.439293542825908e-15, alpha = 9.2148511043888e-15 }, of40B = { out = 2.220446049250313e-15, dim = 1.1790568521519162e-13, alpha = 1.4527268277220173e-13 } }
+
+[expected.FR32]
+article = "frama_article(32)"
+bounds = { alpha = { lo = 0.010051835744633586, hi = 1.0 }, dim = { hi = 2.0 } }
+ramp_lag = 17.27287888639891
+source = "(b) reference.frama_article(32): as FR16 with N = 32 (the slot configuration, FR-1). ramp_lag: brief item 5, planning chat 17.27287888639891."
+
+[expected.FR32.conditioning]
+info = { flat = ["dim", "alpha"] }
+values = { flat = { out = 2.220446049250313e-16, dim = 1.9999999999999951, alpha = 0.9899481642553662 }, ramp = { out = 2.220446049250313e-16, dim = 4.2543746303636e-13, alpha = 0.0 }, s5 = { out = 4.6629367034256575e-15, dim = 3.4638958368304884e-14, alpha = 6.772360450213455e-15 }, s10 = { out = 3.774758283725532e-15, dim = 3.4638958368304884e-14, alpha = 2.5673907444456745e-14 }, s20 = { out = 3.3306690738754696e-15, dim = 3.219646771412954e-14, alpha = 4.7628567756419216e-14 }, s40 = { out = 1.5543122344752192e-15, dim = 8.326672684688674e-14, alpha = 3.0031532816110484e-13 }, s100 = { out = 1.3322676295501878e-15, dim = 1.3855583347321954e-13, alpha = 3.4217073618947325e-13 }, rampB = { out = 1.3322676295501878e-15, dim = 9.237055564881302e-14, alpha = 2.325917236589703e-14 }, s5B = { out = 5.773159728050814e-15, dim = 2.842170943040401e-14, alpha = 9.547918011776346e-15 }, s10B = { out = 5.773159728050814e-15, dim = 2.842170943040401e-14, alpha = 1.2129186544029835e-14 }, s20B = { out = 3.774758283725532e-15, dim = 3.197442310920451e-14, alpha = 1.3739009929736312e-14 }, s40B = { out = 1.3322676295501878e-15, dim = 4.884981308350689e-14, alpha = 6.722400414105323e-14 }, s100B = { out = 1.3322676295501878e-15, dim = 7.438494264988549e-14, alpha = 5.35682609381638e-14 }, sc40B = { out = 1.3322676295501878e-15, dim = 3.9968028886505635e-15, alpha = 9.658940314238862e-15 }, of40B = { out = 2.6645352591003757e-15, dim = 9.747758156208874e-14, alpha = 1.4444001550373287e-13 } }
+
+
+# ----------------------------------------------------------------------------- variants
+[[variants]]
+id = "FR16"
+role = "real"
+label = "N=16 (source default)"
+kind = "param"
+params = [16]
+expected = "FR16"
+outputs = ["dim", "alpha", "out"]
+equivariance = true
+
+[[variants]]
+id = "FR32"
+role = "real"
+label = "N=32 (the slot configuration, FR-1)"
+kind = "param"
+params = [32]
+expected = "FR32"
+outputs = ["dim", "alpha", "out"]
+equivariance = true
+
+[[variants]]
+id = "NCE"
+role = "neg_control"
+label = "NCE: exponent factor 4.6 -> 4.61 vs FR16"
+kind = "inline"
+function = "fra_nce"
+params = [16]
+expected = "FR16"
+outputs = ["dim", "alpha", "out"]
+comment = "NCE: realistic copying error (D2 rule 4: third digit): [corrected_code] with fr_k = 461/100."
+body = '''
+var fra_nce(vars Price, vars High, vars Low, int N, var* pDim, var* pAlpha)
+{
+    vars fxe_n = series(0, 2);      // per-instance CurrentBar (9d.9)
+    vars fxe_F = series(0, 2);
+    vars fxe_D = series(0, 2);
+    vars fxe_A = series(0, 2);
+    fxe_n[0] = fxe_n[1] + 1;
+    fxe_F[0] = fxe_F[1];  fxe_D[0] = fxe_D[1];  fxe_A[0] = fxe_A[1];   // EasyLanguage hold (FR-5: Dimen held)
+    var fxe_k  = 461; fxe_k  = fxe_k/100;
+    var fxe_lo = 1;   fxe_lo = fxe_lo/100;
+    var fxe_u  = 1;
+    var fxe_l2 = 2;   fxe_l2 = log(fxe_l2);
+    int fxe_h = N/2;
+    int fxe_i;
+    var fxe_HH = High[0];
+    var fxe_LL = Low[0];
+    for(fxe_i = 1; fxe_i < N; fxe_i++) {
+        if(High[fxe_i] > fxe_HH) fxe_HH = High[fxe_i];
+        if(Low[fxe_i]  < fxe_LL) fxe_LL = Low[fxe_i];
+    }
+    var fxe_N3 = fxe_HH - fxe_LL;  fxe_N3 = fxe_N3/N;
+    fxe_HH = High[0];  fxe_LL = Low[0];
+    for(fxe_i = 0; fxe_i < fxe_h; fxe_i++) {
+        if(High[fxe_i] > fxe_HH) fxe_HH = High[fxe_i];
+        if(Low[fxe_i]  < fxe_LL) fxe_LL = Low[fxe_i];
+    }
+    var fxe_N1 = fxe_HH - fxe_LL;  fxe_N1 = fxe_N1/fxe_h;
+    fxe_HH = High[fxe_h];  fxe_LL = Low[fxe_h];
+    for(fxe_i = fxe_h; fxe_i < N; fxe_i++) {
+        if(High[fxe_i] > fxe_HH) fxe_HH = High[fxe_i];
+        if(Low[fxe_i]  < fxe_LL) fxe_LL = Low[fxe_i];
+    }
+    var fxe_N2 = fxe_HH - fxe_LL;  fxe_N2 = fxe_N2/fxe_h;
+    if(fxe_N1 > 0 && fxe_N2 > 0 && fxe_N3 > 0) {
+        fxe_D[0] = log(fxe_N1 + fxe_N2) - log(fxe_N3);
+        fxe_D[0] = fxe_D[0]/fxe_l2;
+    }
+    var fxe_e = fxe_D[0] - fxe_u;
+    fxe_e = fxe_k*fxe_e;
+    fxe_A[0] = exp(-fxe_e);
+    if(fxe_A[0] < fxe_lo) fxe_A[0] = fxe_lo;
+    if(fxe_A[0] > fxe_u)  fxe_A[0] = fxe_u;
+    fxe_F[0] = fxe_A[0]*Price[0] + (fxe_u - fxe_A[0])*fxe_F[1];
+    if(fxe_n[0] < N + 1) fxe_F[0] = Price[0];
+    *pDim   = fxe_D[0];
+    *pAlpha = fxe_A[0];
+    return fxe_F[0];
+}'''
+[variants.effect]
+trace = 0.0007988543987603736
+bound = 0.005156843580662321
+hull = 0.0
+ramp_exact = 0.0
+lag = 0.2720886461499745
+flat = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCN"
+role = "neg_control"
+label = "NCN: window N + 2 (18) vs FR16"
+kind = "inline"
+function = "fra_ncn"
+params = [16]
+expected = "FR16"
+outputs = ["dim", "alpha", "out"]
+comment = "NCN: [corrected_code] with the window N + 2 everywhere (halves, N3 divisor, start-up), i.e. frama_article(18) called with N = 16."
+body = '''
+var fra_ncn(vars Price, vars High, vars Low, int N, var* pDim, var* pAlpha)
+{
+    vars fxn_n = series(0, 2);      // per-instance CurrentBar (9d.9)
+    vars fxn_F = series(0, 2);
+    vars fxn_D = series(0, 2);
+    vars fxn_A = series(0, 2);
+    fxn_n[0] = fxn_n[1] + 1;
+    fxn_F[0] = fxn_F[1];  fxn_D[0] = fxn_D[1];  fxn_A[0] = fxn_A[1];   // EasyLanguage hold (FR-5: Dimen held)
+    var fxn_k  = 46;  fxn_k  = fxn_k/10;
+    var fxn_lo = 1;   fxn_lo = fxn_lo/100;
+    var fxn_u  = 1;
+    var fxn_l2 = 2;   fxn_l2 = log(fxn_l2);
+    int fxn_N = N + 2;                 // NCN: window N + 2 everywhere
+    int fxn_h = fxn_N/2;
+    int fxn_i;
+    var fxn_HH = High[0];
+    var fxn_LL = Low[0];
+    for(fxn_i = 1; fxn_i < fxn_N; fxn_i++) {
+        if(High[fxn_i] > fxn_HH) fxn_HH = High[fxn_i];
+        if(Low[fxn_i]  < fxn_LL) fxn_LL = Low[fxn_i];
+    }
+    var fxn_N3 = fxn_HH - fxn_LL;  fxn_N3 = fxn_N3/fxn_N;
+    fxn_HH = High[0];  fxn_LL = Low[0];
+    for(fxn_i = 0; fxn_i < fxn_h; fxn_i++) {
+        if(High[fxn_i] > fxn_HH) fxn_HH = High[fxn_i];
+        if(Low[fxn_i]  < fxn_LL) fxn_LL = Low[fxn_i];
+    }
+    var fxn_N1 = fxn_HH - fxn_LL;  fxn_N1 = fxn_N1/fxn_h;
+    fxn_HH = High[fxn_h];  fxn_LL = Low[fxn_h];
+    for(fxn_i = fxn_h; fxn_i < fxn_N; fxn_i++) {
+        if(High[fxn_i] > fxn_HH) fxn_HH = High[fxn_i];
+        if(Low[fxn_i]  < fxn_LL) fxn_LL = Low[fxn_i];
+    }
+    var fxn_N2 = fxn_HH - fxn_LL;  fxn_N2 = fxn_N2/fxn_h;
+    if(fxn_N1 > 0 && fxn_N2 > 0 && fxn_N3 > 0) {
+        fxn_D[0] = log(fxn_N1 + fxn_N2) - log(fxn_N3);
+        fxn_D[0] = fxn_D[0]/fxn_l2;
+    }
+    var fxn_e = fxn_D[0] - fxn_u;
+    fxn_e = fxn_k*fxn_e;
+    fxn_A[0] = exp(-fxn_e);
+    if(fxn_A[0] < fxn_lo) fxn_A[0] = fxn_lo;
+    if(fxn_A[0] > fxn_u)  fxn_A[0] = fxn_u;
+    fxn_F[0] = fxn_A[0]*Price[0] + (fxn_u - fxn_A[0])*fxn_F[1];
+    if(fxn_n[0] < fxn_N + 1) fxn_F[0] = Price[0];
+    *pDim   = fxn_D[0];
+    *pAlpha = fxn_A[0];
+    return fxn_F[0];
+}'''
+[variants.effect]
+trace = 1.5849625007211567
+bound = 1.898355556191041e-15
+hull = 0.0
+ramp_exact = 0.0
+lag = 3.2506134097290413
+flat = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NC32"
+role = "neg_control"
+label = "NC32: float32 4.6 and .01 (the current file's literals), per-instance vs FR16"
+kind = "inline"
+function = "fra_nc32"
+params = [16]
+expected = "FR16"
+outputs = ["dim", "alpha", "out"]
+lint_allow_float32 = ["4.6", "0.01"]
+lint_allow_reason = "NC32 reproduces the CURRENT FRAMA.c literals, which are float32 by gotchas 9d.1 (FR-6): the float32 values are the point of this control"
+comment = "NC32: FR-6 alone. [corrected_code] with 4.6 and .01 as decimal literals (float32 in this Zorro build, gotchas 9d.1; exemption scoped to this body). The .01 floor never binds (D <= 2): the effect is 4.6's alone."
+body = '''
+var fra_nc32(vars Price, vars High, vars Low, int N, var* pDim, var* pAlpha)
+{
+    vars fx32_n = series(0, 2);      // per-instance CurrentBar (9d.9)
+    vars fx32_F = series(0, 2);
+    vars fx32_D = series(0, 2);
+    vars fx32_A = series(0, 2);
+    fx32_n[0] = fx32_n[1] + 1;
+    fx32_F[0] = fx32_F[1];  fx32_D[0] = fx32_D[1];  fx32_A[0] = fx32_A[1];   // EasyLanguage hold (FR-5: Dimen held)
+    var fx32_k  = 4.6;
+    var fx32_lo = 0.01;
+    var fx32_u  = 1;
+    var fx32_l2 = 2;   fx32_l2 = log(fx32_l2);
+    int fx32_h = N/2;
+    int fx32_i;
+    var fx32_HH = High[0];
+    var fx32_LL = Low[0];
+    for(fx32_i = 1; fx32_i < N; fx32_i++) {
+        if(High[fx32_i] > fx32_HH) fx32_HH = High[fx32_i];
+        if(Low[fx32_i]  < fx32_LL) fx32_LL = Low[fx32_i];
+    }
+    var fx32_N3 = fx32_HH - fx32_LL;  fx32_N3 = fx32_N3/N;
+    fx32_HH = High[0];  fx32_LL = Low[0];
+    for(fx32_i = 0; fx32_i < fx32_h; fx32_i++) {
+        if(High[fx32_i] > fx32_HH) fx32_HH = High[fx32_i];
+        if(Low[fx32_i]  < fx32_LL) fx32_LL = Low[fx32_i];
+    }
+    var fx32_N1 = fx32_HH - fx32_LL;  fx32_N1 = fx32_N1/fx32_h;
+    fx32_HH = High[fx32_h];  fx32_LL = Low[fx32_h];
+    for(fx32_i = fx32_h; fx32_i < N; fx32_i++) {
+        if(High[fx32_i] > fx32_HH) fx32_HH = High[fx32_i];
+        if(Low[fx32_i]  < fx32_LL) fx32_LL = Low[fx32_i];
+    }
+    var fx32_N2 = fx32_HH - fx32_LL;  fx32_N2 = fx32_N2/fx32_h;
+    if(fx32_N1 > 0 && fx32_N2 > 0 && fx32_N3 > 0) {
+        fx32_D[0] = log(fx32_N1 + fx32_N2) - log(fx32_N3);
+        fx32_D[0] = fx32_D[0]/fx32_l2;
+    }
+    var fx32_e = fx32_D[0] - fx32_u;
+    fx32_e = fx32_k*fx32_e;
+    fx32_A[0] = exp(-fx32_e);
+    if(fx32_A[0] < fx32_lo) fx32_A[0] = fx32_lo;
+    if(fx32_A[0] > fx32_u)  fx32_A[0] = fx32_u;
+    fx32_F[0] = fx32_A[0]*Price[0] + (fx32_u - fx32_A[0])*fx32_F[1];
+    if(fx32_n[0] < N + 1) fx32_F[0] = Price[0];
+    *pDim   = fx32_D[0];
+    *pAlpha = fx32_A[0];
+    return fx32_F[0];
+}'''
+[variants.effect]
+trace = 7.626795639481543e-09
+bound = 8.881784197001252e-16
+hull = 0.0
+ramp_exact = 0.0
+lag = 2.584830994578624e-06
+flat = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCT"
+role = "neg_control"
+label = "NCT: the current file's start-up and guard, per instance, vs FR16"
+kind = "inline"
+function = "fra_nct"
+params = [16]
+expected = "FR16"
+outputs = ["dim", "alpha", "out"]
+comment = "NCT: FR-4 + FR-5 alone (frama_article(16, startup = old)): seed Filt = Price on the instance's first call; when N3 > 0 the EMA on every call (incl. the first; N3 = 0 there on padded windows anyway); when N3 <= 0 no update (Filt, Dimen, alpha held); no N1 / N2 condition. Per-instance state, exact literals. (b) Its alpha bound row also fires (alpha held at the initial 0 where N3 <= 0: n = 0 of every input, all of point flat). That is INFO only, NOT a required kind (planning-chat review 2026-11-20): the old file has no alpha output; the held 0 is this body's construction, not old-file behaviour. [detect.required] NCT = [trace]."
+body = '''
+var fra_nct(vars Price, vars High, vars Low, int N, var* pDim, var* pAlpha)
+{
+    vars fxt_n = series(0, 2);      // per-instance call counter
+    vars fxt_F = series(0, 2);
+    vars fxt_D = series(0, 2);
+    vars fxt_A = series(0, 2);
+    fxt_n[0] = fxt_n[1] + 1;
+    fxt_F[0] = fxt_F[1];  fxt_D[0] = fxt_D[1];  fxt_A[0] = fxt_A[1];   // held when not assigned (old: no update when N3 <= 0)
+    var fxt_k  = 46;  fxt_k  = fxt_k/10;
+    var fxt_lo = 1;   fxt_lo = fxt_lo/100;
+    var fxt_u  = 1;
+    var fxt_l2 = 2;   fxt_l2 = log(fxt_l2);
+    int fxt_h = N/2;
+    int fxt_i;
+    var fxt_e = 0;
+    var fxt_HH = High[0];
+    var fxt_LL = Low[0];
+    for(fxt_i = 1; fxt_i < N; fxt_i++) {
+        if(High[fxt_i] > fxt_HH) fxt_HH = High[fxt_i];
+        if(Low[fxt_i]  < fxt_LL) fxt_LL = Low[fxt_i];
+    }
+    var fxt_N3 = fxt_HH - fxt_LL;  fxt_N3 = fxt_N3/N;
+    fxt_HH = High[0];  fxt_LL = Low[0];
+    for(fxt_i = 0; fxt_i < fxt_h; fxt_i++) {
+        if(High[fxt_i] > fxt_HH) fxt_HH = High[fxt_i];
+        if(Low[fxt_i]  < fxt_LL) fxt_LL = Low[fxt_i];
+    }
+    var fxt_N1 = fxt_HH - fxt_LL;  fxt_N1 = fxt_N1/fxt_h;
+    fxt_HH = High[fxt_h];  fxt_LL = Low[fxt_h];
+    for(fxt_i = fxt_h; fxt_i < N; fxt_i++) {
+        if(High[fxt_i] > fxt_HH) fxt_HH = High[fxt_i];
+        if(Low[fxt_i]  < fxt_LL) fxt_LL = Low[fxt_i];
+    }
+    var fxt_N2 = fxt_HH - fxt_LL;  fxt_N2 = fxt_N2/fxt_h;
+    if(fxt_n[0] == 1) fxt_F[0] = Price[0];          // old start-up: seed on the instance's first call
+    if(fxt_N3 > 0) {                                 // old guard: no update when N3 <= 0; no N1 / N2 condition
+        fxt_D[0] = log(fxt_N1 + fxt_N2) - log(fxt_N3);
+        fxt_D[0] = fxt_D[0]/fxt_l2;
+        fxt_e = fxt_D[0] - fxt_u;
+        fxt_e = fxt_k*fxt_e;
+        fxt_A[0] = exp(-fxt_e);
+        if(fxt_A[0] < fxt_lo) fxt_A[0] = fxt_lo;
+        if(fxt_A[0] > fxt_u)  fxt_A[0] = fxt_u;
+        fxt_F[0] = fxt_A[0]*Price[0] + (fxt_u - fxt_A[0])*fxt_F[0];
+    }
+    *pDim   = fxt_D[0];
+    *pAlpha = fxt_A[0];
+    return fxt_F[0];
+}'''
+[variants.effect]
+trace = 1.0000000000000002
+bound = 1.0
+hull = 0.0
+ramp_exact = 0.0
+lag = 1.3002932064409833e-11
+flat = 0.0
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: superseded FRAMA.c, instance 1 (T=8, shared frama_prev / frama_init) vs FR16"
+kind = "param"
+function = "FRAMA_Superseded"
+params = [8]
+expected = "FR16"
+outputs = ["out"]
+comment = "NCS: the REAL superseded FRAMA.c (stage 2: FRAMA_Superseded.c, the current body with High / Low / Price as parameters, fro_ prefix) called as two instances per bar, NCS then NCS2 (both T = 8, i.e. N = 16), each on every base and band input in the generator's variant-major order (26 calls per bar). The statics frama_prev / frama_init are the IIR state, shared by all 26 calls (FR-3). Exports out only."
+[variants.effect]
+trace = 0.29685972859365073
+hull = 0.28727929036176847
+ramp_exact = 0.0
+lag = 34.05274879969172
+flat = 0.22995714422522195
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+[[variants]]
+id = "NCS2"
+role = "neg_control"
+label = "NCS2: superseded FRAMA.c, instance 2 (T=8, shared frama_prev / frama_init) vs FR16"
+kind = "param"
+function = "FRAMA_Superseded"
+params = [8]
+expected = "FR16"
+outputs = ["out"]
+comment = "NCS2: the second instance of the superseded file (D7 rule 7)."
+[variants.effect]
+trace = 0.29685972859365073
+hull = 0.28727929036176847
+ramp_exact = 0.0
+lag = 34.05274879969172
+flat = 0.22995714422522195
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the FR16 (frama_article(16)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. in units of the kind's base tolerance (a column with its own tolerance counts at it); computed 2026-11-20 (tests/maf_support.numbers)"
+
+
+[detect]
+source = "(b) Each listed kind has a detection ratio (max abs_diff / row tolerance on the own-model raw file) >= 10. Ratios: NCE trace 7.99e+06x, bound 5.16e+09x, lag 2.72e+05x; NCN trace 1.58e+10x, lag 3.25e+06x; NC32 trace 76.3x; NCT trace 1e+10x, bound 1e+12x; NCS trace 2.97e+09x, hull 2.87e+14x, lag 3.41e+07x, flat 2.3e+11x; NCS2 trace 2.97e+09x, hull 2.87e+14x, lag 3.41e+07x, flat 2.3e+11x. Non-zero kinds below 10x, not required: NCN bound 0.0019x; NC32 bound 0.000888x, lag 2.58x; NCT lag 1.3e-05x. NCT bound (>= 10x) is INFO only, not required (planning-chat review 2026-11-20): it comes from the body's alpha held at the initial 0 where N3 <= 0 (n = 0 of every input, every point flat row); the old file has no alpha output, so the held 0 is our construction, not old-file behaviour. NCT is required on trace."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (trace-* | bound-* | hull | equiv-* | exact-* | ramp-lag-* | flat-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCE = ["trace", "bound", "lag"]
+NCN = ["trace", "lag"]
+NC32 = ["trace"]
+NCT = ["trace"]
+NCS = ["trace", "hull", "lag", "flat"]
+NCS2 = ["trace", "hull", "lag", "flat"]
+[detect.info_only]   # kinds >= 10x reported as INFO, deliberately not required (see [detect].source)
+NCT = ["bound"]
+
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x, High and Low columns
+EXPORTED by Zorro (x_, and xh_ / xl_ for the band inputs and band copies; reference.IMP_MODELS); residual per (input, column) = max |Zorro -
+replay| over every row n >= 0, on every input the variant is called on (point flat, s5 .. s100, ramp; band rampB, s5B .. s100B; FR16 / FR32
+also the copies sc40B, of40B). The INFO pairs of the expected table (point flat dim / alpha, rule 3) are reported separately (trailer line
+IMP_INFO) and never decide PASS/FAIL; on the checked pairs residual / 1e-9 decides. NCS / NCS2 are replayed with frama_superseded: the old file
+over ALL superseded calls in the generator's ACTUAL call order (checker.adaptive_shared_slots: NCS on the 13 inputs, then NCS2)."""
+tolerance = "[tolerances.imp] 1e-9"
+must_pass = { FR16 = "frama_article(16)", FR32 = "frama_article(32)", NCE = "frama_article(16,k=461/100)", NCN = "frama_article(18)", NC32 = "frama_article(16,literals=float32)", NCT = "frama_article(16,startup=old)", NCS = "frama_superseded(8,8)[0]", NCS2 = "frama_superseded(8,8)[1]" }
+must_fail = { FR16 = "frama_article(16,k=461/100)", NCS = "frama_article(16)" }
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs the source). IMP FAIL on
+any real variant: Zorro / implementation problem; the fidelity result is not interpretable. FR16 must_fail = the NCE model is absent from the run
+output; NCS must_fail = the superseded calls do not behave as the source."""
+
+[imp.fire_test]
+fr16_vs_nce_model = 0.0007988543987603736
+ncs_vs_fr16_model = 0.29685972859365073
+source = "(b) 2026-11-20: checker.imp_rows on the synthetic own-model raw file of this spec (tests/maf_support.synth_raw; exact x, so these are model-vs-model discriminations, not run values), worst checked (input:column) pair; ratio = residual / column tolerance"
+[imp.fire_test.must_fail_ratio]
+fr16_vs_nce_model = 798854.3987603735
+ncs_vs_fr16_model = 296859728.5936507
+[imp.fire_test.must_pass_own_model]
+FR16 = 0.0
+FR32 = 0.0
+NCE = 0.0
+NCN = 0.0
+NC32 = 0.0
+NCT = 0.0
+NCS = 0.0
+NCS2 = 0.0
+[imp.fire_test.discrimination]   # variant own-model output replayed with the FR16 model: worst residual (pair in the comment)
+FR16 = 0.0   # flat:out, ratio 0.000e+00
+FR32 = 2.0000000000000004   # s5:dim, ratio 2.000e+09
+NCE = 0.0007988543987603736   # s100:alpha, ratio 7.989e+05
+NCN = 1.5849625007211567   # s5:dim, ratio 1.585e+09
+NC32 = 7.626795639481543e-09   # s100:alpha, ratio 7.627e+00
+NCT = 1.0000000000000002   # s5:dim, ratio 1.000e+09
+NCS = 0.29685972859365073   # s5B:out, ratio 2.969e+08
+NCS2 = 0.29685972859365073   # s5B:out, ratio 2.969e+08
+[imp.fire_test.exported_x_15f]   # (b) the expected IMP must_pass residual of a perfect run: the own-model raw file with every x / High / Low printed with %.15f (as Zorro exports them), worst checked pair (comment: pair, ratio)
+FR16 = 1.93345339738471e-12   # s100:alpha, ratio 1.933e-03
+FR32 = 2.952083022478291e-13   # s40:alpha, ratio 2.952e-04
+NCE = 1.9377832671807482e-12   # s100:alpha, ratio 1.938e-03
+NCN = 1.3457013281481522e-12   # s100:alpha, ratio 1.346e-03
+NC32 = 1.93345339738471e-12   # s100:alpha, ratio 1.933e-03
+NCT = 1.93345339738471e-12   # s100:alpha, ratio 1.933e-03
+NCS = 9.592326932761353e-14   # s40:out, ratio 9.592e-05
+NCS2 = 9.992007221626409e-14   # s100:out, ratio 9.992e-05
+[imp.fire_test.exported_x_15f_info_max]   # (b) the same, max over the INFO pairs (rule 3; reported, never PASS/FAIL)
+FR16 = 0.0
+FR32 = 0.0
+NCE = 0.0
+NCN = 0.0
+NC32 = 0.0
+NCT = 0.0
+NCS = 0.0
+NCS2 = 0.0
+
+# ----------------------------------------------------------------------------- findings (reproduced with reference.py, MAF stage 1)
+[findings]
+alpha_min_every_input_FR16 = 0.010051835744633504
+alpha_min_every_input_FR32 = 0.010051835744633567
+band_ramp_D_analytic_FR16 = 1.773229138152978
+band_ramp_D_analytic_FR32 = 1.6316125940199773
+band_ramp_D_model_FR16 = 1.773229138152998
+band_ramp_D_model_FR32 = 1.6316125940199588
+band_ramp_alpha_analytic_FR16 = 0.028528433125587088
+band_ramp_alpha_analytic_FR32 = 0.054725914083758966
+band_ramp_lag_analytic_FR16 = 34.05274879969143
+band_ramp_lag_analytic_FR32 = 17.27287888639891
+band_ramp_lag_last_row_off_1e9_FR16 = 853
+band_ramp_lag_last_row_off_1e9_FR32 = 449
+band_ramp_lag_model_FR16 = 34.052748799678426
+band_ramp_lag_model_FR32 = 17.272878886401344
+dim_max_every_input_FR16 = 2.0000000000000018
+dim_max_every_input_FR32 = 2.0000000000000004
+effect_NC32_alpha_flat = 0.0
+effect_NC32_alpha_ramp = 0.0
+effect_NC32_alpha_rampB = 2.1037117568789565e-09
+effect_NC32_alpha_s10 = 6.204084107563901e-09
+effect_NC32_alpha_s100 = 7.626795639481543e-09
+effect_NC32_alpha_s100B = 6.885911840726067e-09
+effect_NC32_alpha_s10B = 7.612292463043957e-09
+effect_NC32_alpha_s20 = 6.412279124345943e-09
+effect_NC32_alpha_s20B = 7.624907705228168e-09
+effect_NC32_alpha_s40 = 7.575926497249696e-09
+effect_NC32_alpha_s40B = 7.610535368574034e-09
+effect_NC32_alpha_s5 = 3.7836990623985045e-09
+effect_NC32_alpha_s5B = 7.612292463043957e-09
+effect_NC32_dim_flat = 0.0
+effect_NC32_dim_ramp = 0.0
+effect_NC32_dim_rampB = 0.0
+effect_NC32_dim_s10 = 0.0
+effect_NC32_dim_s100 = 0.0
+effect_NC32_dim_s100B = 0.0
+effect_NC32_dim_s10B = 0.0
+effect_NC32_dim_s20 = 0.0
+effect_NC32_dim_s20B = 0.0
+effect_NC32_dim_s40 = 0.0
+effect_NC32_dim_s40B = 0.0
+effect_NC32_dim_s5 = 0.0
+effect_NC32_dim_s5B = 0.0
+effect_NC32_out_flat = 0.0
+effect_NC32_out_ramp = 0.0
+effect_NC32_out_rampB = 2.584827907270437e-10
+effect_NC32_out_s10 = 3.539213366821059e-11
+effect_NC32_out_s100 = 1.6671775071586126e-11
+effect_NC32_out_s100B = 1.1922307585621184e-10
+effect_NC32_out_s10B = 3.394551306712401e-11
+effect_NC32_out_s20 = 1.4930301439619598e-10
+effect_NC32_out_s20B = 2.0640067432964315e-10
+effect_NC32_out_s40 = 8.72049099598371e-11
+effect_NC32_out_s40B = 1.5276202525171811e-10
+effect_NC32_out_s5 = 1.456812448452638e-11
+effect_NC32_out_s5B = 1.456812448452638e-11
+effect_NCE_alpha_flat = 0.0
+effect_NCE_alpha_ramp = 0.0
+effect_NCE_alpha_rampB = 0.00021973951777535042
+effect_NCE_alpha_s10 = 0.0006492833638768458
+effect_NCE_alpha_s100 = 0.0007988543987603736
+effect_NCE_alpha_s100B = 0.0007208464666039471
+effect_NCE_alpha_s10B = 0.0007972849698498208
+effect_NCE_alpha_s20 = 0.0006711280627735849
+effect_NCE_alpha_s20B = 0.0007986411203804722
+effect_NCE_alpha_s40 = 0.0007934268829515312
+effect_NCE_alpha_s40B = 0.0007971923975910733
+effect_NCE_alpha_s5 = 0.0003955914341757516
+effect_NCE_alpha_s5B = 0.0007972849698498208
+effect_NCE_dim_flat = 0.0
+effect_NCE_dim_ramp = 0.0
+effect_NCE_dim_rampB = 0.0
+effect_NCE_dim_s10 = 0.0
+effect_NCE_dim_s100 = 0.0
+effect_NCE_dim_s100B = 0.0
+effect_NCE_dim_s10B = 0.0
+effect_NCE_dim_s20 = 0.0
+effect_NCE_dim_s20B = 0.0
+effect_NCE_dim_s40 = 0.0
+effect_NCE_dim_s40B = 0.0
+effect_NCE_dim_s5 = 0.0
+effect_NCE_dim_s5B = 0.0
+effect_NCE_out_flat = 0.0
+effect_NCE_out_ramp = 0.0
+effect_NCE_out_rampB = 2.7208864616934392e-05
+effect_NCE_out_s10 = 2.8157108609150328e-06
+effect_NCE_out_s100 = 1.7463097050640641e-06
+effect_NCE_out_s100B = 1.2507592992649919e-05
+effect_NCE_out_s10B = 2.661128995828932e-06
+effect_NCE_out_s20 = 1.562451972314527e-05
+effect_NCE_out_s20B = 2.1622175324198523e-05
+effect_NCE_out_s40 = 9.13312327233129e-06
+effect_NCE_out_s40B = 1.6006309065730306e-05
+effect_NCE_out_s5 = 7.877847909565361e-07
+effect_NCE_out_s5B = 7.877847909565361e-07
+effect_NCN_alpha_flat = 0.0
+effect_NCN_alpha_ramp = 0.0
+effect_NCN_alpha_rampB = 0.0029159962417498013
+effect_NCN_alpha_s10 = 0.8325424856231327
+effect_NCN_alpha_s100 = 0.7452440564613753
+effect_NCN_alpha_s100B = 0.03304791477239133
+effect_NCN_alpha_s10B = 0.25181266893079246
+effect_NCN_alpha_s20 = 0.914438642072914
+effect_NCN_alpha_s20B = 0.6017248106085753
+effect_NCN_alpha_s40 = 0.7867617775116249
+effect_NCN_alpha_s40B = 0.16297088497911857
+effect_NCN_alpha_s5 = 0.9321752090960258
+effect_NCN_alpha_s5B = 0.29867226021347093
+effect_NCN_dim_flat = 0.0
+effect_NCN_dim_ramp = 0.8300749985576873
+effect_NCN_dim_rampB = 0.021156651596628606
+effect_NCN_dim_s10 = 1.3884838272612434
+effect_NCN_dim_s100 = 0.8209396698650159
+effect_NCN_dim_s100B = 0.0925421602282861
+effect_NCN_dim_s10B = 0.2839549546942499
+effect_NCN_dim_s20 = 1.0000000000000002
+effect_NCN_dim_s20B = 0.400851044220077
+effect_NCN_dim_s40 = 0.7579031249719764
+effect_NCN_dim_s40B = 0.2114531991439177
+effect_NCN_dim_s5 = 1.5849625007211567
+effect_NCN_dim_s5B = 0.43506068724930946
+effect_NCN_out_flat = 0.0
+effect_NCN_out_ramp = 0.0
+effect_NCN_out_rampB = 0.0003250613409728764
+effect_NCN_out_s10 = 0.009301114833753399
+effect_NCN_out_s100 = 0.001201051163600475
+effect_NCN_out_s100B = 0.0005032419058244031
+effect_NCN_out_s10B = 0.009314052989909394
+effect_NCN_out_s20 = 0.009288646443443627
+effect_NCN_out_s20B = 0.006379796341060562
+effect_NCN_out_s40 = 0.006191438596126808
+effect_NCN_out_s40B = 0.0025544967330310975
+effect_NCN_out_s5 = 0.009414966524094792
+effect_NCN_out_s5B = 0.009414966524094792
+effect_NCS2_out_flat = 0.22995714422522195
+effect_NCS2_out_ramp = 0.0
+effect_NCS2_out_rampB = 0.0034052748799688892
+effect_NCS2_out_s10 = 0.22556845433337247
+effect_NCS2_out_s100 = 0.08499985527551157
+effect_NCS2_out_s100B = 0.2389526381336904
+effect_NCS2_out_s10B = 0.29374874895437153
+effect_NCS2_out_s20 = 0.19996939706760997
+effect_NCS2_out_s20B = 0.29207396599184654
+effect_NCS2_out_s40 = 0.12483600511557702
+effect_NCS2_out_s40B = 0.24491383829321256
+effect_NCS2_out_s5 = 0.22771482327904113
+effect_NCS2_out_s5B = 0.29685972859365073
+effect_NCS_out_flat = 0.22995714422522195
+effect_NCS_out_ramp = 0.0
+effect_NCS_out_rampB = 0.0034052748799688892
+effect_NCS_out_s10 = 0.22349213002094315
+effect_NCS_out_s100 = 0.06756545849571327
+effect_NCS_out_s100B = 0.2389526381336904
+effect_NCS_out_s10B = 0.29374874895437153
+effect_NCS_out_s20 = 0.21475422128456523
+effect_NCS_out_s20B = 0.29207396599184654
+effect_NCS_out_s40 = 0.11338065866970992
+effect_NCS_out_s40B = 0.24491383829321256
+effect_NCS_out_s5 = 0.22771412799547885
+effect_NCS_out_s5B = 0.29685972859365073
+effect_NCT_alpha_flat = 1.0
+effect_NCT_alpha_ramp = 1.0
+effect_NCT_alpha_rampB = 0.0
+effect_NCT_alpha_s10 = 1.0
+effect_NCT_alpha_s100 = 1.0
+effect_NCT_alpha_s100B = 0.0
+effect_NCT_alpha_s10B = 0.0
+effect_NCT_alpha_s20 = 1.0
+effect_NCT_alpha_s20B = 0.0
+effect_NCT_alpha_s40 = 1.0
+effect_NCT_alpha_s40B = 0.0
+effect_NCT_alpha_s5 = 1.0
+effect_NCT_alpha_s5B = 0.0
+effect_NCT_dim_flat = 0.0
+effect_NCT_dim_ramp = 1.0000000000000002
+effect_NCT_dim_rampB = 0.0
+effect_NCT_dim_s10 = 1.0000000000000002
+effect_NCT_dim_s100 = 1.0000000000000002
+effect_NCT_dim_s100B = 0.0
+effect_NCT_dim_s10B = 0.0
+effect_NCT_dim_s20 = 1.0000000000000002
+effect_NCT_dim_s20B = 0.0
+effect_NCT_dim_s40 = 1.0000000000000002
+effect_NCT_dim_s40B = 0.0
+effect_NCT_dim_s5 = 1.0000000000000002
+effect_NCT_dim_s5B = 0.0
+effect_NCT_out_flat = 0.0
+effect_NCT_out_ramp = 0.0
+effect_NCT_out_rampB = 0.0012578893837629224
+effect_NCT_out_s10 = 0.014388203350953921
+effect_NCT_out_s100 = 0.0
+effect_NCT_out_s100B = 0.0035439466698272692
+effect_NCT_out_s10B = 0.01285909371552818
+effect_NCT_out_s20 = 0.010077741850582855
+effect_NCT_out_s20B = 0.01273795847678083
+effect_NCT_out_s40 = 0.0006866946889869663
+effect_NCT_out_s40B = 0.005287609795326276
+effect_NCT_out_s5 = 0.014921642640524091
+effect_NCT_out_s5B = 0.009663821069414436
+equiv_model_FR16_of_alpha = 6.38378239159465e-14
+equiv_model_FR16_of_dim = 5.773159728050814e-14
+equiv_model_FR16_of_out = 1.3322676295501878e-15
+equiv_model_FR16_sc_alpha = 2.7700064464397656e-14
+equiv_model_FR16_sc_dim = 1.532107773982716e-14
+equiv_model_FR16_sc_out = 6.8833827526759706e-15
+equiv_model_FR32_of_alpha = 5.917488721252084e-14
+equiv_model_FR32_of_dim = 5.773159728050814e-14
+equiv_model_FR32_of_out = 1.7763568394002505e-15
+equiv_model_FR32_sc_alpha = 2.786659791809143e-14
+equiv_model_FR32_sc_dim = 1.1546319456101628e-14
+equiv_model_FR32_sc_out = 7.993605777301127e-15
+exp_minus_4_6 = 0.010051835744633586
+hull_excess_model_FR16 = 0.0
+hull_excess_model_FR32 = 0.0
+imp_est_FR16_flat_out = 0.0
+imp_est_FR16_of40B_alpha = 1.3383738561856262e-13
+imp_est_FR16_of40B_dim = 8.970602038971265e-14
+imp_est_FR16_of40B_out = 2.220446049250313e-15
+imp_est_FR16_rampB_alpha = 7.57380269611474e-15
+imp_est_FR16_rampB_dim = 5.773159728050814e-14
+imp_est_FR16_rampB_out = 1.3322676295501878e-15
+imp_est_FR16_ramp_alpha = 0.0
+imp_est_FR16_ramp_dim = 2.4091839634365897e-13
+imp_est_FR16_ramp_out = 2.220446049250313e-16
+imp_est_FR16_s100B_alpha = 8.743006318923108e-14
+imp_est_FR16_s100B_dim = 1.4099832412739488e-13
+imp_est_FR16_s100B_out = 1.1102230246251565e-15
+imp_est_FR16_s100_alpha = 1.93345339738471e-12
+imp_est_FR16_s100_dim = 5.17808018685173e-13
+imp_est_FR16_s100_out = 2.6645352591003757e-15
+imp_est_FR16_s10B_alpha = 1.176836406102666e-14
+imp_est_FR16_s10B_dim = 5.5067062021407764e-14
+imp_est_FR16_s10B_out = 6.439293542825908e-15
+imp_est_FR16_s10_alpha = 6.772360450213455e-15
+imp_est_FR16_s10_dim = 6.794564910705958e-14
+imp_est_FR16_s10_out = 3.774758283725532e-15
+imp_est_FR16_s20B_alpha = 1.8429702208777599e-13
+imp_est_FR16_s20B_dim = 5.129230373768223e-14
+imp_est_FR16_s20B_out = 1.3322676295501878e-15
+imp_est_FR16_s20_alpha = 2.952083022478291e-13
+imp_est_FR16_s20_dim = 7.693845560652335e-14
+imp_est_FR16_s20_out = 3.1086244689504383e-15
+imp_est_FR16_s40B_alpha = 1.244004899092488e-13
+imp_est_FR16_s40B_dim = 9.103828801926284e-14
+imp_est_FR16_s40B_out = 1.3322676295501878e-15
+imp_est_FR16_s40_alpha = 5.128120150743598e-13
+imp_est_FR16_s40_dim = 1.66644475996236e-13
+imp_est_FR16_s40_out = 3.774758283725532e-15
+imp_est_FR16_s5B_alpha = 1.176836406102666e-14
+imp_est_FR16_s5B_dim = 5.639932965095795e-14
+imp_est_FR16_s5B_out = 4.884981308350689e-15
+imp_est_FR16_s5_alpha = 6.772360450213455e-15
+imp_est_FR16_s5_dim = 6.661338147750939e-14
+imp_est_FR16_s5_out = 3.774758283725532e-15
+imp_est_FR16_sc40B_alpha = 1.459943277382081e-14
+imp_est_FR16_sc40B_dim = 1.1546319456101628e-14
+imp_est_FR16_sc40B_out = 1.5543122344752192e-15
+imp_est_FR32_flat_out = 0.0
+imp_est_FR32_of40B_alpha = 1.177946629127291e-13
+imp_est_FR32_of40B_dim = 7.549516567451064e-14
+imp_est_FR32_of40B_out = 1.7763568394002505e-15
+imp_est_FR32_rampB_alpha = 1.16157083951407e-14
+imp_est_FR32_rampB_dim = 4.618527782440651e-14
+imp_est_FR32_rampB_out = 1.1102230246251565e-15
+imp_est_FR32_ramp_alpha = 0.0
+imp_est_FR32_ramp_dim = 1.2811973704174306e-13
+imp_est_FR32_ramp_out = 2.220446049250313e-16
+imp_est_FR32_s100B_alpha = 1.0147438445073931e-13
+imp_est_FR32_s100B_dim = 9.725553695716371e-14
+imp_est_FR32_s100B_out = 8.881784197001252e-16
+imp_est_FR32_s100_alpha = 2.697286838326818e-13
+imp_est_FR32_s100_dim = 1.652011860642233e-13
+imp_est_FR32_s100_out = 1.3322676295501878e-15
+imp_est_FR32_s10B_alpha = 1.176836406102666e-14
+imp_est_FR32_s10B_dim = 3.4638958368304884e-14
+imp_est_FR32_s10B_out = 4.6629367034256575e-15
+imp_est_FR32_s10_alpha = 6.772360450213455e-15
+imp_est_FR32_s10_dim = 4.241051954068098e-14
+imp_est_FR32_s10_out = 5.10702591327572e-15
+imp_est_FR32_s20B_alpha = 1.7985612998927536e-14
+imp_est_FR32_s20B_dim = 3.197442310920451e-14
+imp_est_FR32_s20B_out = 2.886579864025407e-15
+imp_est_FR32_s20_alpha = 4.9960036108132044e-14
+imp_est_FR32_s20_dim = 2.8199664825478976e-14
+imp_est_FR32_s20_out = 5.10702591327572e-15
+imp_est_FR32_s40B_alpha = 1.2007062011321068e-13
+imp_est_FR32_s40B_dim = 7.682743330406083e-14
+imp_est_FR32_s40B_out = 1.1102230246251565e-15
+imp_est_FR32_s40_alpha = 2.952083022478291e-13
+imp_est_FR32_s40_dim = 1.5121237595394632e-13
+imp_est_FR32_s40_out = 1.3322676295501878e-15
+imp_est_FR32_s5B_alpha = 1.176836406102666e-14
+imp_est_FR32_s5B_dim = 5.617728504603292e-14
+imp_est_FR32_s5B_out = 6.439293542825908e-15
+imp_est_FR32_s5_alpha = 6.772360450213455e-15
+imp_est_FR32_s5_dim = 6.772360450213455e-14
+imp_est_FR32_s5_out = 5.551115123125783e-15
+imp_est_FR32_sc40B_alpha = 1.5654144647214707e-14
+imp_est_FR32_sc40B_dim = 6.439293542825908e-15
+imp_est_FR32_sc40B_out = 1.5543122344752192e-15
+imp_est_info_FR16_flat_alpha = 0.0
+imp_est_info_FR16_flat_dim = 0.0
+imp_est_info_FR32_flat_alpha = 0.0
+imp_est_info_FR32_flat_dim = 0.0
+ncs2_out_flat_last_row_gt_1e12 = 2999
+ncs2_out_flat_max = 0.22995714422522195
+ncs2_out_flat_max_ge_1000 = 0.22995714422522195
+ncs2_out_flat_rows_gt_1e12 = 2999
+ncs2_out_rampB_last_row_gt_1e12 = 2999
+ncs2_out_rampB_max = 0.0034052748799688892
+ncs2_out_rampB_max_ge_1000 = 0.0034052748799688892
+ncs2_out_rampB_rows_gt_1e12 = 2984
+ncs2_out_ramp_last_row_gt_1e12 = -1
+ncs2_out_ramp_max = 0.0
+ncs2_out_ramp_max_ge_1000 = 0.0
+ncs2_out_ramp_rows_gt_1e12 = 0
+ncs2_out_s100B_last_row_gt_1e12 = 2999
+ncs2_out_s100B_max = 0.2389526381336904
+ncs2_out_s100B_max_ge_1000 = 0.2389526381336904
+ncs2_out_s100B_rows_gt_1e12 = 2999
+ncs2_out_s100_last_row_gt_1e12 = 2985
+ncs2_out_s100_max = 0.08499985527551157
+ncs2_out_s100_max_ge_1000 = 0.08499985527551157
+ncs2_out_s100_rows_gt_1e12 = 360
+ncs2_out_s10B_last_row_gt_1e12 = 2999
+ncs2_out_s10B_max = 0.29374874895437153
+ncs2_out_s10B_max_ge_1000 = 0.29374874895437153
+ncs2_out_s10B_rows_gt_1e12 = 2999
+ncs2_out_s10_last_row_gt_1e12 = 2999
+ncs2_out_s10_max = 0.22556845433337247
+ncs2_out_s10_max_ge_1000 = 0.22556845433337247
+ncs2_out_s10_rows_gt_1e12 = 2991
+ncs2_out_s20B_last_row_gt_1e12 = 2999
+ncs2_out_s20B_max = 0.29207396599184654
+ncs2_out_s20B_max_ge_1000 = 0.29207396599184654
+ncs2_out_s20B_rows_gt_1e12 = 2999
+ncs2_out_s20_last_row_gt_1e12 = 2995
+ncs2_out_s20_max = 0.19996939706760997
+ncs2_out_s20_max_ge_1000 = 0.19996939706760997
+ncs2_out_s20_rows_gt_1e12 = 1794
+ncs2_out_s40B_last_row_gt_1e12 = 2999
+ncs2_out_s40B_max = 0.24491383829321256
+ncs2_out_s40B_max_ge_1000 = 0.24491383829321256
+ncs2_out_s40B_rows_gt_1e12 = 2999
+ncs2_out_s40_last_row_gt_1e12 = 2999
+ncs2_out_s40_max = 0.12483600511557702
+ncs2_out_s40_max_ge_1000 = 0.12483600511557702
+ncs2_out_s40_rows_gt_1e12 = 899
+ncs2_out_s5B_last_row_gt_1e12 = 2999
+ncs2_out_s5B_max = 0.29685972859365073
+ncs2_out_s5B_max_ge_1000 = 0.29685972859365073
+ncs2_out_s5B_rows_gt_1e12 = 2999
+ncs2_out_s5_last_row_gt_1e12 = 2999
+ncs2_out_s5_max = 0.22771482327904113
+ncs2_out_s5_max_ge_1000 = 0.22771482327904113
+ncs2_out_s5_rows_gt_1e12 = 2991
+ncs_out_flat_last_row_gt_1e12 = 2999
+ncs_out_flat_max = 0.22995714422522195
+ncs_out_flat_max_ge_1000 = 0.22995714422522195
+ncs_out_flat_rows_gt_1e12 = 2998
+ncs_out_rampB_last_row_gt_1e12 = 2999
+ncs_out_rampB_max = 0.0034052748799688892
+ncs_out_rampB_max_ge_1000 = 0.0034052748799688892
+ncs_out_rampB_rows_gt_1e12 = 2984
+ncs_out_ramp_last_row_gt_1e12 = -1
+ncs_out_ramp_max = 0.0
+ncs_out_ramp_max_ge_1000 = 0.0
+ncs_out_ramp_rows_gt_1e12 = 0
+ncs_out_s100B_last_row_gt_1e12 = 2999
+ncs_out_s100B_max = 0.2389526381336904
+ncs_out_s100B_max_ge_1000 = 0.2389526381336904
+ncs_out_s100B_rows_gt_1e12 = 2999
+ncs_out_s100_last_row_gt_1e12 = 2985
+ncs_out_s100_max = 0.06756545849571327
+ncs_out_s100_max_ge_1000 = 0.06756545849571327
+ncs_out_s100_rows_gt_1e12 = 360
+ncs_out_s10B_last_row_gt_1e12 = 2999
+ncs_out_s10B_max = 0.29374874895437153
+ncs_out_s10B_max_ge_1000 = 0.29374874895437153
+ncs_out_s10B_rows_gt_1e12 = 2999
+ncs_out_s10_last_row_gt_1e12 = 2999
+ncs_out_s10_max = 0.22349213002094315
+ncs_out_s10_max_ge_1000 = 0.22349213002094315
+ncs_out_s10_rows_gt_1e12 = 2991
+ncs_out_s20B_last_row_gt_1e12 = 2999
+ncs_out_s20B_max = 0.29207396599184654
+ncs_out_s20B_max_ge_1000 = 0.29207396599184654
+ncs_out_s20B_rows_gt_1e12 = 2999
+ncs_out_s20_last_row_gt_1e12 = 2995
+ncs_out_s20_max = 0.21475422128456523
+ncs_out_s20_max_ge_1000 = 0.21475422128456523
+ncs_out_s20_rows_gt_1e12 = 1794
+ncs_out_s40B_last_row_gt_1e12 = 2999
+ncs_out_s40B_max = 0.24491383829321256
+ncs_out_s40B_max_ge_1000 = 0.24491383829321256
+ncs_out_s40B_rows_gt_1e12 = 2999
+ncs_out_s40_last_row_gt_1e12 = 2999
+ncs_out_s40_max = 0.11338065866970992
+ncs_out_s40_max_ge_1000 = 0.11338065866970992
+ncs_out_s40_rows_gt_1e12 = 899
+ncs_out_s5B_last_row_gt_1e12 = 2999
+ncs_out_s5B_max = 0.29685972859365073
+ncs_out_s5B_max_ge_1000 = 0.29685972859365073
+ncs_out_s5B_rows_gt_1e12 = 2999
+ncs_out_s5_last_row_gt_1e12 = 2999
+ncs_out_s5_max = 0.22771412799547885
+ncs_out_s5_max_ge_1000 = 0.22771412799547885
+ncs_out_s5_rows_gt_1e12 = 2991
+point_flat_dim_max_abs_FR16 = 0.0
+point_flat_dim_max_abs_FR32 = 0.0
+point_flat_out_minus_level_FR16 = 0.0
+point_flat_out_minus_level_FR32 = 0.0
+point_ramp_alpha_min_FR16 = 1.0
+point_ramp_alpha_min_FR32 = 1.0
+point_ramp_dim_FR16 = 0.9004643264491008
+point_ramp_dim_FR32 = 0.9526942852216506
+point_ramp_dim_analytic_FR16 = 0.9004643264490856
+point_ramp_dim_analytic_FR32 = 0.9526942852216433
+point_ramp_out_minus_x_FR16 = 0.0
+point_ramp_out_minus_x_FR32 = 0.0
+source = """(b) 2026-11-20, tests/maf_support.numbers() (reference.py models, checker): the brief's items 1 and 4-7 reproduced; differences are in docs/harness/MAF_STAGE1_REPORT.md. point_ramp_* / band_ramp_* / point_flat_*: the known answers (item 5; band_ramp_*_analytic from D = log2(4 r1/r3), *_model from the model; lag_model = mean (x - out)/slope over the last 100 rows; lag_last_row_off_1e9 = the last row whose (x - out)/slope is more than 1e-9 from the analytic lag). alpha_min_every_input / dim_max_every_input / hull_excess_model: item 6 over every input incl. the copies. equiv_model_<v>_<copy>_<column>: |copy - (k base + c)| (out) or |copy - base| (dim, alpha) on s40B from row 1 (item 7, the equivariance floor). imp_est_<v>_<input>_<column>: the model on x, High, Low printed with %.15f vs exact, all rows (CHECKED pairs); imp_est_info_*: the INFO pairs. effect_<control>_<column>_<input>: the control's own-model output vs the FR16 model, max over all rows. ncs_* / ncs2_*: the shared-statics replay (26 superseded calls per bar in the generator's call order) vs the FR16 model per (instance, input): max over all rows, over rows n >= 1000, the number of rows and the last row with |diff| > 1e-12."""
+
+# ----------------------------------------------------------------------------- pass condition
+[pass_condition]
+text = """FRAMA source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept
+(CLAUDE.md section 4.8), and its cause found before anything is changed:
+1. All 98 real checks PASS: 2 variants (FR16, FR32) x 49 checks = trace 37 (every CHECKED (input, column) pair, from row 1 = n >= 0: out on the
+   13 inputs (point flat, ramp, s5 .. s100; band rampB, s5B .. s100B) + dim and alpha on the 12 inputs other than point flat) + bound 2 (alpha in
+   [exp(-4.6), 1], Dimen <= 2; relative allowance) + hull 1 (out within the running [min x, max x]; absolute 1e-15) + known answers 3 (point ramp
+   out = x every row; band ramp lag vs (1 - alpha)/alpha; point flat out = 1.1 every row) + equivariance 6 (s40B, copies sc and of, x out / dim /
+   alpha, from row 1). Bounds and hull read every row of every input incl. the copies. The brief expected 49 / 98: no difference. INFO rows
+   (info-trace dim / alpha on point flat) are written with result INFO and are not counted.
+2. Each of the 6 negative controls (NCE, NCN, NC32, NCT, NCS, NCS2) FAILS on every kind listed in [detect.required]. A control that passes =
+   harness broken.
+3. No input guard fires (x[n] incl. the band inputs and the copies, and the exported High / Low of the band inputs and band copies (xh_ / xl_),
+   vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant, no NaN / infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 2 real + 6 negative controls = 8 variants.
+6. IMP: every [imp].must_pass replay <= 1e-9 on every CHECKED pair of every input the variant is called on (8 variants), and both
+   [imp].must_fail replays exceed it (FR16 vs the NCE model; NCS vs the FR16 model; guard seen to fire). The INFO pairs' IMP residuals (point flat
+   dim / alpha) are reported, never PASS / FAIL.
+7. Floor guard: for every real variant, max |Zorro - model| <= tolerance / 10 for trace (1e-11), equivariance (1e-11), ramp_exact (1e-13), lag
+   (1e-7) and flat (1e-13) (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items
+   1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected FRAMA.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped);
+   (ii) the current FRAMA.c blob (3352fbe04ed691e479564bc63d46ae181334f9bb, last commit 2a5eca5) is recorded and the corrected file differs from it
+        only by FR-1 .. FR-8; FRAMA_Superseded.c is the current body with ONLY the input change (priceHigh() / priceLow() -> High[0] / Low[0],
+        frama_price -> Price[0]), the function name / signature and frama_ -> fro_;
+   (iii) reference.py reproduces this file's conditioning values, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 relative (an
+        absolute 1e-15 for values below 1e-6). Every number is stored at full precision. Each inline control body is checked at run time, not by
+        reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every required margin >= 10x; after stage 2 also the two includes resolve and the
+        no-static check passes);
+   (v) no-static lint: indicators/ehlers/FRAMA.c contains no `static` token (comments excluded); the check is seen to fire on the superseded body
+        (2 hits: frama_init, frama_prev; fro_ after stage 2). Recorded here and in the results header (INFO L_NO_STATIC line);
+   (vi) the callers of FRAMA (strategies/tests/Test_FRAMA_Laguerre_DSMA.c:87, Test_FRAMA_vs_MAMA.c:39, Test_UltimateChannelBands.c:83; grep, stage
+        1 report) pass series((priceHigh() + priceLow())/2), series(priceHigh()), series(priceLow()) and N = 32 (FR-1, FR-2; stage 2); no other
+        caller exists;
+   (vii) the conditioning classification recomputed by the tooling (checker.conditioning_table: same seed, skip_draws, draw order and bound) equals
+        the INFO lists of [expected.FR16.conditioning] and [expected.FR32.conditioning] (checker.conditioning_mismatches = []); a mismatch is a STOP."""
+
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance per kind; per-control margin) in the results header."
+O_CONDITIONING = "(b) Rule 3 classification ([expected.*.conditioning], both variants identical): every pair CHECKED except dim and alpha on point flat (Dimen 2.0, alpha 0.9899 per ulp: rounding noise decides whether N3 > 0; C-1), INFO. Largest checked: out 5.773e-15, dim 5.178e-13 (FR16 s100), alpha 1.285e-12 (FR16 s100) (brief item 1, reproduced to every digit with skip_draws = 70)."
+O_KNOWN = "(b) Known answers (brief item 5, reproduced): point ramp out = x on every row and alpha = 1 (D = 0.9004643264491008 / 0.9526942852216506 vs log2(4(N/2 - 1)/(N - 1)) = 0.9004643264490856 / 0.9526942852216433); band ramp D = 1.773229138152978 / 1.6316125940199773, lag 34.05274879969143 / 17.27287888639891 bars (model 34.052748799678426 / 17.272878886401344; converged to 1e-9 from n = 854 / 450); point flat out = 1.1 exactly, Dimen never computed (0)."
+O_BOUNDS = "(b) C-3 reproduced: alpha min 0.010051835744633504 (FR16, band sines; 8.2e-15 relative below exp(-4.6)) and Dimen max 2.0000000000000018: the relative allowance 1e-12 covers both. Model hull excess 0 on every input."
+O_NCS = "(b) NCS / NCS2 (the superseded file, two instances, 26 shared calls per bar in variant-major order; the IIR state frama_prev is shared): every (instance, input) differs from FR16 on rows n >= 1000 by 0.0034 (rampB) .. 0.30 (s5B), including point flat (0.23: a flat call returns the previous call's state) -- EXCEPT the point ramp, where the difference is 0 on every row: alpha = 1 there (D < 1), so every call overwrites the shared state with its own x. The brief's (c) 'large on every non-flat input' therefore holds except on the point ramp; the STOP condition (differs only on flat or only at start-up) is not met. Detected by trace, hull, lag (the band ramp lag is 0 instead of 34.05: the previous slot left the same x) and flat ([findings] ncs_* / ncs2_*)."
+O_NCT = "(b) NCT (FR-4 + FR-5 per instance): out differs by up to 1.49e-2 (s5) .. 0 (s100) on point bars and 1.26e-3 .. 1.29e-2 on band bars (brief, reproduced: findings effect_NCT_out_*); detected by trace. Its alpha is held at the initial 0 on rows where N3 <= 0 (n = 0 of every input and all of point flat), below exp(-4.6), so its bound row fires (1.0e12x): reported as INFO, not required ([detect.info_only]): the old file has no alpha output and the held 0 is this body's construction, not old-file behaviour (planning-chat review 2026-11-20)."
+O_NC32 = "(b) NC32 (FR-6): alpha 3.78e-09 .. 7.63e-09 (76.3x the trace tolerance), out up to 2.6e-10; band ramp lag 2.6e-6 bars (2.6x, not required). The .01 floor never binds (D <= 2)."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant (checked pairs) and the Zorro-vs-model residual per kind per real variant (the measured floor). (b) A perfect run printed with %.15f: FR16 1.933e-12 (s100 alpha), FR32 2.952e-13 ([imp.fire_test.exported_x_15f]); INFO pairs 0 (flat is exact under %.15f)."
+O_STATICS_RESET = "(b) The generated script's own statics (fra_n, fra_done, fra_hdr, fra_rows) are reset at INITRUN. The superseded file's statics frama_prev / frama_init are not (it is called only after INITRUN returns): restart Zorro before a rerun ([run_notes])."
+
+# ----------------------------------------------------------------------------- run notes
+[run_notes]
+rerun = "(b)/(c) Restart Zorro before any rerun of the generated script: the superseded file's statics frama_prev / frama_init (fro_ after stage 2) persist across [Test] presses of a loaded script and the generated script returns at INITRUN before any indicator call, so the file's own INITRUN reset never runs; a second press would start NCS / NCS2 from the previous run's last state (as RFX A2.4 / LRS A1.3 / FSH A1.3)."
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
+
+
+# ============================================================================ Amendment 1
+# 2026-11-21, BEFORE the run (MAF stage 2). Pre-run records and one note on the superseded input edit. Text above unchanged.
+# Unchanged: tolerances, floors, expected tables, variants, effects, [detect.required], [imp] (incl. [imp.fire_test]), pass items 1-7,
+# [corrected_code], [observations], [findings], the pass condition, the generator.
+[amendment_1]
+date = "2026-11-21"
+base_commit = "7713f5b"
+before_run = true
+criterion_changed = false
+changes = [
+  "A1.1 Pre-run records (pass_condition pre-run items i-v; item vi = the three FRAMA caller updates, recorded here too), all done before the [Test] click; see [prerun] below. No criterion, tolerance, table, floor, effect or variant is changed. The generator was not changed (three-column call path, bars inputs, copies, series_len 34 and the D7 kinds generate the FRAMA layout as is).",
+  "A1.2 Superseded input edit, as built: in indicators/ehlers/FRAMA_Superseded.c the input edit uses ALIASES of the caller's series (`vars fro_High = High; vars fro_Low = Low; var fro_price = Price[0];`), so the file allocates no series of its own. This supersedes the stage 1 note in [corrected_code].notes ('its own series of them are kept'). (b) The values are identical: the generated scripts' High / Low series are the caller's series padded with the first value, which is what the reference model assumes, and an alias reads the same elements the old file's own series() of priceHigh() / priceLow() held. No criterion, tolerance, table, floor, effect or variant is changed. Consequence: the superseded FRAMA file has no series() call, so the default-length question of the MAMA superseded file (MAMA A1.2) does not arise here; the test asserts it.",
+  "A1.3 Run note (not a criterion): restart Zorro before the run and between the two scripts. The generated script returns at INITRUN before any indicator call, so FRAMA_Superseded.c's own INITRUN reset (fro_init) never runs; a second [Test] press of a loaded script would start NCS / NCS2 from the previous run's statics fro_prev / fro_init (see [run_notes], as RFX A2.4 / LRS A1.3 / FSH A1.3).",
+  "A1.4 Check strictness (accepted from the stage 2 report): pre-run item (i) is asserted as 'each function body EQUALS the pre-registered lines' (whitespace-normalised, comments stripped), stricter than containment; no generator change.",
+]
+
+[prerun]
+cond_i = "PASS. analysis/harness/tests/test_maf_corrected_code.py: indicators/ehlers/FRAMA.c, function FRAMACore, body == [corrected_code].lines and function FRAMA, body == .wrapper_lines (whitespace-normalised, comments stripped; equality, not containment). Guards seen to fire on temp copies, each reported not-ok: `vars fr_n = series(0, 2);` -> `static vars fr_n`; `var fr_k  = 46;  fr_k  = fr_k/10;` -> `var fr_k  = 4.6;`; the guard `fr_N1 > 0 && fr_N2 > 0 && fr_N3 > 0` -> `fr_N3 > 0` (FR-5); `if(fr_n[0] < N + 1)` -> `if(fr_n[0] < N)` (FR-4); the wrapper `return FRAMACore(...)` -> `return frw_1;`; in FRAMA_Superseded.c one `fro_` left as `frama_` (fro_init -> frama_init). Scans (each seen to fire): no `static`, `INITRUN`, `Period`, `#include`, global var / vars, decimal literal or product of literals in the corrected file; 4 series() calls, all before the first statement; every series() in FRAMA.c has an explicit length and FRAMA_Superseded.c has none. Callers: no FRAMA( with one argument anywhere (scan seen to fire on FRAMA(16) and FRAMA(FRAMA_T))."
+cond_ii = "PASS. Old blob 3352fbe04ed691e479564bc63d46ae181334f9bb (FRAMA.c at 7713f5b / b7bdd69, confirmed by git rev-parse) recorded. The token multiset difference old -> new (FRAMACore + wrapper) is asserted exactly and is only FR-1 .. FR-7 and renames; the other differences (none an FR item): the three box loops reuse fr_HH / fr_LL (the source's HH / LL) instead of the six names Hi1..Lo3, and N3 is computed over bars 0..N-1 directly as the source writes it (the old file took the max of the two boxes: same value). Superseded: FRAMA_Superseded.c == the old blob after (1) FRAMA(int T) -> FRAMA_Superseded(vars Price, vars High, vars Low, int T), (2) the input edit (A1.2: `vars fro_High = High;`, `vars fro_Low  = Low;`, `var fro_price = Price[0];`; the only behavioural edit), (3) frama_ -> fro_, plus the header comment: token-identical (asserted, comments stripped). Statics, INITRUN reset, literals 4.6 / 0.01, the `if(N3 <= 0) return prev` guard and the arithmetic are unchanged."
+cond_iii = "PASS. analysis/harness/tests/test_reference_maf_spec.py: largest deviation 0.000e+00 in every section (conditioning 90 values, findings 419; self-consistency as for MAMA)."
+cond_iv = "PASS. python analysis/harness/generator.py analysis/harness/specs/FRAMA_ArticleFidelity.toml --lint-only: 'lint clean; nothing written', exit 0; both includes (FRAMA_Superseded.c, FRAMA.c) resolve. INFO: D2 floors trace 1.933e-12, equivariance 6.384e-14, ramp_exact 0, lag 1.300e-11, flat 0 (x10 each within tolerance: window ok). Control margins (all >= 10x): NCE trace 7.99e+06x, bound 5.16e+09x, lag 2.72e+05x; NCN trace 1.58e+10x, lag 3.25e+06x; NC32 trace 76.3x, lag 2.58x (detected by trace); NCT trace 1e+10x, bound 1e+12x (INFO only, [detect.info_only]); NCS trace 2.97e+09x, hull 2.87e+14x, flat 2.3e+11x; NCS2 the same. L_FLOAT32 exemption used by NC32 for 4.6 and 0.01 (deliberate: the control). INFO L_NO_STATIC indicators/ehlers/FRAMA.c: 0 static tokens (comments excluded): PASS."
+cond_v = "PASS. The no-static lint (generator.lint_no_static, comments excluded) finds 0 hits in the new indicators/ehlers/FRAMA.c and 2 hits in the new indicators/ehlers/FRAMA_Superseded.c: `fro_init` (line 46) and `fro_prev` (line 87), asserted by test_maf_corrected_code.py (seen to fire on the real superseded file, not only on the old blob)."
+cond_vi = "PASS (compile-unverified). strategies/tests/Test_FRAMA_Laguerre_DSMA.c, Test_FRAMA_vs_MAMA.c and Test_UltimateChannelBands.c define FRAMA_N 32 (was FRAMA_T 16 = half window = the same 32 bars), build `series((priceHigh() + priceLow())/2, FRAMA_N)`, `series(priceHigh(), FRAMA_N)`, `series(priceLow(), FRAMA_N)` with their own prefixes (fld_, fvm_, ucbf_) before the call and call FRAMA(mid, hi, lo, FRAMA_N). Outputs and column names unchanged; none was run; their outputs change by design (FR-1..FR-6)."
+tests_before = 817
+tests_after = 853
+tests_added = 36
+suite = "bash analysis/harness/run_tests.sh: TOTAL 853  PASS 853  FAIL 0  ERROR 0  SKIP 0 (Claude Code shell, 2026-11-21; shared with the MAMA spec: 36 new tests in test_maf_corrected_code.py; baseline TOTAL 817 PASS 817 in the user's Git Bash at 7713f5b; the commit-message count comes from the user's Git Bash run)"
+blob_FRAMA_c_old = "3352fbe04ed691e479564bc63d46ae181334f9bb"
+blob_FRAMA_c_new = "1213ae9cb3b9a0752112c1653e2c658d6024bd7a"
+blob_FRAMA_Superseded_c_new = "81356dbde9da98d8555e8191c45bfe57c19a8d79"
+blob_source = "(b) git rev-parse 7713f5b:indicators/ehlers/FRAMA.c (old); git hash-object indicators/ehlers/FRAMA.c and FRAMA_Superseded.c (new), 2026-11-21, Claude Code shell"
+script = "strategies/tests/GEN_FRA_FRAMA.c"
+script_sha256 = "afa733e2cc186eeb5161ed2fbdbd3c96d5c9524aa6d7ef05ad114942b40db6c3"
+script_check = "(b) read-through 2026-11-21 (Claude Code; regex counts plus reading the run() part): includes FRAMA_Superseded.c then FRAMA.c, in that order, with the relative paths of [zorro].include; the 15 price inputs (flat, s5..s100, ramp, rampB, s5B..s100B, sc40B, of40B) and 16 band values (High / Low of the 8 B-inputs, h = 2/1000) built from integers before the 31 unconditional `series(X, 34)` calls and before any indicator call; the sc / of copies built from integers (10/1, -99/10, 1/1, 11/10) and mapped on x, High and Low together; no decimal literal in the harness part (the only decimal literals are NC32's 4.6 and 0.01, deliberate float32, and comments); the four generated statics (fra_n, fra_done, fra_hdr, fra_rows) reset at INITRUN; 108 unconditional calls per bar in fixed variant-major order, counted by regex: FRAMACore 30 (FR16 / FR32 x 15 inputs; point inputs pass the same series as Price, High and Low), fra_nce / fra_ncn / fra_nc32 / fra_nct 13 each (the 13 base inputs), FRAMA_Superseded 26 (NCS on the 13 inputs = Y[246..258] with T = 8, then NCS2 on the same 13 = Y[259..271], the order of the stage 1 replay); the four inline bodies defined once each, no statics, each with its own 4 series(0, n); out-parameters pass through the two local scalars fra_o_dim / fra_o_alpha, copied to Y[] right after each call and before the next (the superseded calls return the value only); no bare `Period` identifier (only BarPeriod); raw file Data/GEN_FRA_raw.csv with 305 columns (counted from the header lines: 305 unique names), deleted at INITRUN (the repo's convention for the raw file, as GEN_FSH; the exclusive-create guard belongs to the results file), header and all rows written before quit() with fra_done latched first (gotchas 9d.4); C:/Zorro/Data/GEN_FRA_raw.csv does not exist yet. series() lengths: every series() call in the generated script (47 = 31 inputs + 4 x 4 inline), in FRAMA.c (4) has an explicit length; FRAMA_Superseded.c has none (aliases, A1.2); none without."
+
+[amendment_2]
+date = "2026-11-21"
+base_commit = "d0c9a23"
+before_run = false
+after_run = true
+criterion_changed = false
+changes = [
+  "A2.1 Run 1 result: PASS. Run date 2026-11-21, after a Zorro restart (one [Test] click); script strategies/tests/GEN_FRA_FRAMA.c; Zorro window: Warning 047 only (harmless, gotchas 9d.7), no line starting with Error, 'FRA batch complete: 3000 rows written' (user report). Raw C:/Zorro/Data/GEN_FRA_raw.csv, 305 columns; local copy GEN_FRA_raw_run1.csv sha256 12c0e3bf87f7ab0af20454ae76503a8733d47dc67c60b32bf04c44871c2f1d27 (verified again before the checker, Claude Code shell, sha256sum). Results file analysis/harness/results/FRAMA_ArticleFidelity_20261121.csv, sha256 d9bf1bff7fcdce339c990de1607ffd294cc38b8dc5a2bc58f5323918c3817c89. Pre-registration chain: review b7bdd69, tooling + spec 7713f5b, corrected .c + FRAMA_Superseded.c + callers + Amendment 1 d0c9a23, prediction 8c1e648, results (this commit). Counts: variants_run=8 (2 real FR16 / FR32 + 6 controls NCE NCN NC32 NCT NCS NCS2). (1) 98 of 98 real checks PASS, 0 FAIL, 0 ERROR. (2) 6 of 6 controls detected on every [detect.required] kind at >= 10x (best ratio: NCE trace 7.989e6, bound 5.157e9, lag 2.721e5; NCN trace 1.585e10, lag 3.251e6; NC32 trace 76.27, lag 2.585 not required; NCT trace 1.000e10, bound 1.0e12 INFO only as registered; NCS and NCS2 trace 2.969e9, hull 2.873e14, lag 3.405e7, flat 2.300e11); 129 FAIL rows of 212 control rows: NCE 24, NCN 35, NC32 17, NCT 23, NCS 15, NCS2 15 (every detected kind as the prediction). (3) No input guard fired; INFO traces dim and alpha on the point flat input. (4) IMP must_pass 10 of 10 (worst FR16 s100 alpha 1.9337864642920977e-12, ratio 1.9e-3; FR32 worst 2.956523914576792e-13) and must_fail fire: FR16 vs the NCE model 7.988543995718911e-4, NCS vs the FR16 model 0.2968597285936496. (5) Floor guard 10 of 10 PASS. (6) Lint L_NO_STATIC on indicators/ehlers/FRAMA.c: 0 static tokens, PASS. Zorro vs the source model, per-kind maxima over FR16 and FR32: trace out 1.110e-15, dim 2.220e-15, alpha 2.165e-15; equivariance (s40B, offset and scale) out 1.155e-14, dim 5.795e-14, alpha 6.400e-14; hull excess 4.441e-16 (inside the allowance); bound alpha min 0.010051835744634 (exp(-4.6) = 0.010051835744633586), dim max 2.000000000000002 (FR16, inside the 1e-12 relative allowance); known answers exact: point ramp |out - x| 2.22e-16 (1 ulp of the 1.1011 level) and point flat out 1.1 exactly; band ramp lag 34.052748799681034 vs 34.05274879969143 (FR16, 1.04e-11) and 17.272878886401035 vs 17.27287888639891 (FR32, 2.1e-12).",
+  "A2.2 Read twice (HARNESS_DESIGN section 4): the planning chat's back-check and prediction (docs/harness/MAF_RUN1_PREDICTION.md, code docs/harness/MAF_RUN1_BACKCHECK.py, 8c1e648, PASS predicted) were committed before the checker ran. Second read (Claude Code, Sonnet), from the results file, as for MAMA. Agreed: verdict, 98 / 0 / 0, 6 of 6 detections with the predicted kinds and ratios (NCE 7.99e6 + bound + lag 34.32483744584003, NCN 1.585e10 + lag 30.80213538996035, NC32 76.3 the thinnest required margin with lag 2.6 x not required, NCT 1.0e10 with bound INFO only, NCS / NCS2 trace + hull + lag + flat), every control FAIL kind, IMP must_pass worst (1.9337864642920977e-12, identical to 17 digits) and must_fail (7.988543995718911e-4, identical), dim trace maximum, equivariance maxima, band-ramp lags, hull, point ramp and point flat. Differences, ulp-level, none changes a result: the prediction gave the trace maxima as out <= 8.9e-16 and alpha <= 5.0e-16; FR16 agrees (out 6.661e-16, alpha 4.996e-16, dim 5.551e-16) but FR32 is larger, out 1.110e-15 (s10) and alpha 2.165e-15 (s100B), i.e. 1.2x and 4.3x the stated values, at most 2.2e-15 absolute and about 2e-5 of the tolerance 1e-10, far inside the ~1e-14 comparison limit. Cause not examined (c: the back-check's stated maxima apparently did not cover the N = 32 variant for out and alpha). The prediction's NCS / NCS2 replay (<= 1.0e-13) agrees with the checker's IMP replay (NCS 9.570e-14, NCS2 1.004e-13).",
+  "A2.3 Findings (b). (1) Zorro equals the source model to rounding (<= 2.2e-15 trace, start-up included, rows from n = 0). (2) Both known answers are exact to rounding: out = x on the point ramp, and the band-ramp lag (1 - alpha) / alpha = 34.0527... (N = 16) / 17.2729... (N = 32) to 1e-11. (3) NC32 (the old file's float32 literals 4.6 and .01) is the thinnest required margin, 76.3 x on the alpha trace (its alpha floor is 0.010051836703251 against 0.010051835744634); the 10x rule is met. (4) NCS and NCS2 (FRAMA_Superseded.c as two instances, shared frama_prev / frama_init) replay to <= 1.0e-13 with the generator's call order (26 calls per bar: flat, s5 .. s100, ramp, rampB, s5B .. s100B, then NCS2); on the point ramp alpha = 1 overwrites the shared state so the out error is 0, as predicted. (5) Disclosed by the planning chat (prediction, 'Disclosed while back-checking'): its first NCS replay used the input order flat, ramp, s5 ... and disagreed with Zorro by up to 0.30; the generator's order (ramp after the sines) gives 1.0e-13. The error was in the replay, not in the run; lesson (c): take the call order of a shared-state control from the generated script, not from the input list.",
+  "A2.4 Variants tested: 8 (2 real + 6 controls), as counted in the results file. Restart Zorro before any rerun of the generated script (A1.3 / [run_notes]): FRAMA_Superseded.c's statics persist across [Test] presses and the generated script returns at INITRUN before any indicator call. Raw copies are gitignored (*_raw_run*.csv); the sha256 above identifies them.",
+]
