@@ -1,0 +1,158 @@
+== MAM: rebuilt inputs vs exported x (max |diff|; %.15f export resolution 5e-16)
+  flat  0.000e+00
+  ramp  2.220e-16
+  s5    4.441e-16
+  s10   4.441e-16
+  s20   4.441e-16
+  s40   4.441e-16
+  s100  4.441e-16
+  sc40  4.441e-16
+  of40  4.441e-16
+
+== MAM MA05: trace (all rows) checked / INFO; tol 1e-9 (phase 1e-8)
+  s10   mama 4.441e-16  fama 4.441e-16  alpha 0.000e+00  period 3.553e-15  phase 1.421e-14
+  s20   mama 4.441e-16  fama 4.441e-16  alpha 4.718e-16  period 1.776e-14  phase 4.974e-14
+  s40   mama 1.332e-15  fama 1.776e-15  alpha 1.096e-15  period 3.553e-14  phase 7.816e-14
+  s100  mama 8.882e-16  fama 6.661e-16  alpha 7.772e-16  period 8.882e-16  phase 7.105e-15
+  flat  mama 4.441e-16 (INFO)  fama 4.441e-16 (INFO)  alpha 6.994e-15 (INFO)  period 1.421e-14 (INFO)  phase 3.020e-14 (INFO)
+  ramp  mama 6.661e-16 (INFO)  fama 6.661e-16 (INFO)  alpha 5.135e-16 (INFO)  period 8.882e-16 (INFO)  phase 3.553e-15 (INFO)
+  s5    mama 4.441e-16 (INFO)  fama 4.441e-16 (INFO)  alpha 0.000e+00 (INFO)  period 8.882e-16  phase 7.105e-15 (INFO)
+  bound alpha rows n>=5 in [np.float64(0.05), np.float64(0.5)] vs [0.05, 0.5]: PASS; Period max np.float64(50.0): PASS
+  equivariance n>=1000: sc40:mama 1.865e-14  sc40:fama 1.532e-14  sc40:alpha 1.900e-13  sc40:period 2.757e-12  sc40:phase 2.001e-11  of40:mama 3.997e-15  of40:fama 3.109e-15  of40:alpha 3.710e-13  of40:period 6.210e-12  of40:phase 5.273e-11
+  IMP checked inputs worst s100:alpha 1.7374657268476312e-11 (ratio 1.737e-02); INFO inputs worst s5:phase 179.99999999999963
+
+== MAM MA03: trace (all rows) checked / INFO; tol 1e-9 (phase 1e-8)
+  s10   mama 4.441e-16  fama 4.441e-16  alpha 0.000e+00  period 3.553e-15  phase 1.421e-14
+  s20   mama 4.441e-16  fama 4.441e-16  alpha 0.000e+00  period 1.776e-14  phase 4.974e-14
+  s40   mama 4.441e-16  fama 4.996e-16  alpha 4.718e-16  period 3.553e-14  phase 7.816e-14
+  s100  mama 8.882e-16  fama 6.661e-16  alpha 6.661e-16  period 8.882e-16  phase 7.105e-15
+  flat  mama 4.441e-16 (INFO)  fama 4.996e-16 (INFO)  alpha 4.052e-15 (INFO)  period 1.421e-14 (INFO)  phase 3.020e-14 (INFO)
+  ramp  mama 6.661e-16 (INFO)  fama 8.882e-16 (INFO)  alpha 6.661e-16 (INFO)  period 8.882e-16 (INFO)  phase 3.553e-15 (INFO)
+  s5    mama 4.441e-16 (INFO)  fama 4.718e-16 (INFO)  alpha 0.000e+00 (INFO)  period 8.882e-16  phase 7.105e-15 (INFO)
+  bound alpha rows n>=5 in [np.float64(0.1), np.float64(0.3)] vs [0.1, 0.3]: PASS; Period max np.float64(50.0): PASS
+  equivariance n>=1000: sc40:mama 1.132e-14  sc40:fama 9.548e-15  sc40:alpha 0.000e+00  sc40:period 2.757e-12  sc40:phase 2.001e-11  of40:mama 1.332e-15  of40:fama 1.776e-15  of40:alpha 0.000e+00  of40:period 6.210e-12  of40:phase 5.273e-11
+  IMP checked inputs worst s100:phase 1.1238654451517505e-10 (ratio 1.124e-02); INFO inputs worst s5:phase 179.99999999999963
+
+  MAM real checks counted here: 66, FAIL 0
+
+== MAM controls vs the MA05 model: max |diff| all rows on checked pairs (ratio to tol); bounds
+  NCB   trace best s5:period ratio 3.626e+07; Period max np.float64(50.0); alpha [np.float64(0.05), np.float64(0.5)]; own-model IMP worst ratio (checked) 1.737e-02
+  NCH   trace best s10:phase ratio 1.262e+07; Period max np.float64(50.0); alpha [np.float64(0.05), np.float64(0.5)]; own-model IMP worst ratio (checked) 2.109e-02
+  NCF   trace best s40:fama ratio 8.500e+06; Period max np.float64(50.0); alpha [np.float64(0.05), np.float64(0.5)]; own-model IMP worst ratio (checked) 1.737e-02
+  NC32  trace best s5:period ratio 5.944e+03; Period max np.float64(50.000003725290505); alpha [np.float64(0.05), np.float64(0.5)]; own-model IMP worst ratio (checked) 1.983e-02
+  NCP   trace best s100:period ratio 4.328e+04; Period max np.float64(50.0); alpha [np.float64(0.05), np.float64(0.5)]; own-model IMP worst ratio (checked) 1.737e-02
+
+== MAM NCS / NCS2: vs the MA05 model (detection) and vs the shared-barCount replay (IMP), all rows
+  NCS  flat  vs MA05 model nan   replay IMP 4.441e-16
+  NCS  s5    vs MA05 model nan   replay IMP 5.008e-03
+  NCS  s10   vs MA05 model 1.107868e+00   replay IMP 8.882e-16
+  NCS  s20   vs MA05 model 1.107706e+00   replay IMP 1.332e-15
+  NCS  s40   vs MA05 model 1.104558e+00   replay IMP 3.553e-15
+  NCS  s100  vs MA05 model 1.101663e+00   replay IMP 4.508e-14
+  NCS  ramp  vs MA05 model nan   replay IMP 1.705e-04
+  NCS2 flat  vs MA05 model nan   replay IMP 4.441e-16
+  NCS2 s5    vs MA05 model nan   replay IMP 5.008e-03
+  NCS2 s10   vs MA05 model 1.106389e+00   replay IMP 8.882e-16
+  NCS2 s20   vs MA05 model 1.106720e+00   replay IMP 1.332e-15
+  NCS2 s40   vs MA05 model 1.103972e+00   replay IMP 3.553e-15
+  NCS2 s100  vs MA05 model 1.101663e+00   replay IMP 4.508e-14
+  NCS2 ramp  vs MA05 model nan   replay IMP 1.705e-04
+  must_fail MA05 replayed with NCH model: 0.1261940444433307
+
+== FRA: rebuilt inputs vs exported x / xh / xl
+  flat   x 0.000e+00
+  ramp   x 2.220e-16
+  s5     x 4.441e-16
+  s10    x 4.441e-16
+  s20    x 4.441e-16
+  s40    x 4.441e-16
+  s100   x 4.441e-16
+  rampB  x 2.220e-16  xh 2.220e-16  xl 2.220e-16
+  s5B    x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  s10B   x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  s20B   x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  s40B   x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  s100B  x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  sc40B  x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+  of40B  x 4.441e-16  xh 4.441e-16  xl 4.441e-16
+
+== FRA FR16: trace all rows, tol 1e-10
+  flat   out 0.000e+00  dim 0.000e+00 (INFO)  alpha 0.000e+00 (INFO)
+  ramp   out 2.220e-16  dim 4.441e-16  alpha 0.000e+00
+  s5     out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s10    out 4.441e-16  dim 4.441e-16  alpha 4.892e-16
+  s20    out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  s40    out 4.441e-16  dim 4.441e-16  alpha 4.927e-16
+  s100   out 4.441e-16  dim 5.551e-16  alpha 4.476e-16
+  rampB  out 4.441e-16  dim 4.441e-16  alpha 4.961e-16
+  s5B    out 4.441e-16  dim 4.441e-16  alpha 4.961e-16
+  s10B   out 4.441e-16  dim 4.441e-16  alpha 4.961e-16
+  s20B   out 8.882e-16  dim 4.441e-16  alpha 4.996e-16
+  s40B   out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  s100B  out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  bounds: alpha [np.float64(0.010051835744634), np.float64(1.0)] (exp(-4.6) = 0.010051835744633586) PASS; dim max np.float64(2.000000000000002) PASS; hull excess 0.000e+00 PASS
+  known answers: point ramp |out - x| 0.000e+00 PASS; band ramp lag 34.05274879968001 vs 34.05274879969143 (diff 1.142e-11) PASS; flat |out - 1.1| 0.000e+00 PASS
+  equivariance (all rows): sc40B:out 9.770e-15  sc40B:dim 1.510e-14  sc40B:alpha 2.798e-14  of40B:out 2.220e-15  of40B:dim 5.795e-14  of40B:alpha 6.400e-14
+  IMP (exported x / xh / xl, all inputs incl. copies) worst s100:alpha 1.9337864642920977e-12
+
+== FRA FR32: trace all rows, tol 1e-10
+  flat   out 0.000e+00  dim 0.000e+00 (INFO)  alpha 0.000e+00 (INFO)
+  ramp   out 2.220e-16  dim 2.220e-15  alpha 0.000e+00
+  s5     out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s10    out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s20    out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s40    out 4.441e-16  dim 4.441e-16  alpha 4.961e-16
+  s100   out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  rampB  out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  s5B    out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s10B   out 4.441e-16  dim 4.441e-16  alpha 4.788e-16
+  s20B   out 4.441e-16  dim 4.441e-16  alpha 4.701e-16
+  s40B   out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  s100B  out 4.441e-16  dim 4.441e-16  alpha 4.996e-16
+  bounds: alpha [np.float64(0.010051835744634), np.float64(1.0)] (exp(-4.6) = 0.010051835744633586) PASS; dim max np.float64(2.0) PASS; hull excess 0.000e+00 PASS
+  known answers: point ramp |out - x| 0.000e+00 PASS; band ramp lag 17.27287888640001 vs 17.27287888639891 (diff 1.101e-12) PASS; flat |out - 1.1| 0.000e+00 PASS
+  equivariance (all rows): sc40B:out 1.155e-14  sc40B:dim 1.110e-14  sc40B:alpha 2.798e-14  of40B:out 2.220e-15  of40B:dim 5.795e-14  of40B:alpha 5.906e-14
+  IMP (exported x / xh / xl, all inputs incl. copies) worst s40:alpha 2.956523914576792e-13
+
+  FRA real checks counted here: 98, FAIL 0
+
+== FRA controls vs the FR16 model: best trace ratio (tol 1e-10); bounds; own-model IMP
+  NCE   best s100:alpha ratio 7.989e+06; alpha min np.float64(0.01); own-model IMP 1.937e-12
+  NCN   best s5:dim ratio 1.585e+10; alpha min np.float64(0.010051835744634); own-model IMP 1.346e-12
+  NC32  best s100:alpha ratio 7.627e+01; alpha min np.float64(0.010051836703251); own-model IMP 1.934e-12
+  NCT   best s5:dim ratio 1.000e+10; alpha min np.float64(0.0); own-model IMP 1.934e-12
+  NCS / NCS2 (out): vs FR16 model, all rows | rows >= 1000 | shared-state replay IMP (generator order)
+    NCS  flat   2.299571e-01 | 2.299571e-01 | 4.285e-14
+    NCS2 flat   2.299571e-01 | 2.299571e-01 | 4.285e-14
+    NCS  s5     2.277141e-01 | 2.277141e-01 | 4.263e-14
+    NCS2 s5     2.277148e-01 | 2.277148e-01 | 4.330e-14
+    NCS  s10    2.234921e-01 | 2.234921e-01 | 4.219e-14
+    NCS2 s10    2.255685e-01 | 2.255685e-01 | 4.241e-14
+    NCS  s20    2.147542e-01 | 2.147542e-01 | 6.417e-14
+    NCS2 s20    1.999694e-01 | 1.999694e-01 | 4.907e-14
+    NCS  s40    1.133807e-01 | 1.133807e-01 | 9.570e-14
+    NCS2 s40    1.248360e-01 | 1.248360e-01 | 8.971e-14
+    NCS  s100   6.756546e-02 | 6.756546e-02 | 8.815e-14
+    NCS2 s100   8.499986e-02 | 8.499986e-02 | 1.004e-13
+    NCS  ramp   2.220446e-16 | 2.220446e-16 | 0.000e+00
+    NCS2 ramp   2.220446e-16 | 2.220446e-16 | 0.000e+00
+    NCS  rampB  3.405275e-03 | 3.405275e-03 | 2.220e-16
+    NCS2 rampB  3.405275e-03 | 3.405275e-03 | 2.220e-16
+    NCS  s5B    2.968597e-01 | 2.968597e-01 | 1.110e-15
+    NCS2 s5B    2.968597e-01 | 2.968597e-01 | 1.110e-15
+    NCS  s10B   2.937487e-01 | 2.937487e-01 | 1.554e-15
+    NCS2 s10B   2.937487e-01 | 2.937487e-01 | 1.554e-15
+    NCS  s20B   2.920740e-01 | 2.920740e-01 | 5.218e-14
+    NCS2 s20B   2.920740e-01 | 2.920740e-01 | 5.218e-14
+    NCS  s40B   2.449138e-01 | 2.449138e-01 | 5.129e-14
+    NCS2 s40B   2.449138e-01 | 2.449138e-01 | 5.129e-14
+    NCS  s100B  2.389526e-01 | 2.389526e-01 | 4.285e-14
+    NCS2 s100B  2.389526e-01 | 2.389526e-01 | 4.285e-14
+  other required kinds (FR16 reference values: band ramp lag 34.05274879969143, flat 1.1, hull, alpha >= exp(-4.6)):
+    NCE   lag 34.32483744584003 (diff 2.721e-01, ratio 2.721e+05); flat 0.000e+00 (ratio 0.000e+00); hull excess 0.000e+00; alpha min np.float64(0.01) (below exp(-4.6) by 5.184e-05)
+    NCN   lag 30.80213538996035 (diff 3.251e+00, ratio 3.251e+06); flat 0.000e+00 (ratio 0.000e+00); hull excess 0.000e+00; alpha min np.float64(0.010051835744634) (below exp(-4.6) by -4.146e-16)
+    NCT   lag 34.05274879968001 (diff 1.142e-11, ratio 1.142e-05); flat 0.000e+00 (ratio 0.000e+00); hull excess 0.000e+00; alpha min np.float64(0.0) (below exp(-4.6) by 1.005e-02)
+    NC32  lag 34.05274621486001 (diff 2.585e-06, ratio 2.585e+00); flat 0.000e+00 (ratio 0.000e+00); hull excess 0.000e+00; alpha min np.float64(0.010051836703251) (below exp(-4.6) by -9.586e-10)
+    NCS   lag 0.0 (diff 3.405e+01, ratio 3.405e+07); flat 2.300e-01 (ratio 2.300e+11); hull excess 2.873e-01; alpha min nan (below exp(-4.6) by nan)
+    NCS2  lag 0.0 (diff 3.405e+01, ratio 3.405e+07); flat 2.300e-01 (ratio 2.300e+11); hull excess 2.873e-01; alpha min nan (below exp(-4.6) by nan)
+  must_fail FR16 replayed with NCE model: 0.0007988543995718911
