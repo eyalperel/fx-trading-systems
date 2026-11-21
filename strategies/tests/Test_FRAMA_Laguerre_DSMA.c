@@ -43,7 +43,7 @@
 // ---------------------------------------------------
 
 // --- Indicator parameters ---
-#define FRAMA_T      16    // half-period: full window = 32 bars
+#define FRAMA_N      32    // full window (source N); was T = 16 (half window) = the same 32 bars
 #define LAG_GAMMA    0.5   // Laguerre memory depth
 #define DSMA_PERIOD  20    // StdDev + SuperSmoother lookback
 #define HP_PERIOD    48    // RoofingFilter highpass cutoff
@@ -84,7 +84,11 @@ void run() {
     // Compute indicators on EVERY bar including lookback
     // so internal state is fully warmed up before output starts
     var rf_value  = RoofingFilter(Close, HP_PERIOD, SS_PERIOD);
-    var frama_val = FRAMA(FRAMA_T);
+    // FRAMA inputs as the source (Price = (H+L)/2, High, Low); own prefix, unconditional, >= FRAMA_N values
+    vars fld_mid = series((priceHigh() + priceLow())/2, FRAMA_N);
+    vars fld_hi  = series(priceHigh(), FRAMA_N);
+    vars fld_lo  = series(priceLow(), FRAMA_N);
+    var frama_val = FRAMA(fld_mid, fld_hi, fld_lo, FRAMA_N);
     var lag_val   = Laguerre(LAG_GAMMA);
     var dsma_val  = DSMA(rf_value, DSMA_PERIOD);
 

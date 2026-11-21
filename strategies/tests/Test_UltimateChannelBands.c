@@ -39,6 +39,7 @@
 // RSIH — fixed length, project Week 13 convention. Ehlers' 14 is
 // inherited from Wilder and is not his recommendation. Adaptive
 // variant registered for later comparison against this baseline.
+#define FRAMA_N       32    // full window (source N); was T = 16 (half window) = the same 32 bars
 #define RSIH_LENGTH   20
 
 // Laguerre oscillator — ARTICLE defaults, not the Week 13
@@ -79,8 +80,12 @@ void run() {
     // P3 split variable. FRAMA deliberately, not the centre line:
     // the band width IS built from (Close - centre), so splitting
     // on that would be circular. FRAMA shares no term with either
-    // width. T=16 per Week 9.
-    var frama = FRAMA(16);
+    // width. N = 32 (full window, source N; was T = 16 per Week 9 = the same 32 bars).
+    // FRAMA inputs as the source (Price = (H+L)/2, High, Low); own prefix, unconditional, >= FRAMA_N values.
+    vars ucbf_mid = series((priceHigh() + priceLow())/2, FRAMA_N);
+    vars ucbf_hi  = series(priceHigh(), FRAMA_N);
+    vars ucbf_lo  = series(priceLow(), FRAMA_N);
+    var frama = FRAMA(ucbf_mid, ucbf_hi, ucbf_lo, FRAMA_N);
 
     // NATR must be a series for the regime window. Value passed
     // INTO series() — writing [0] afterward shifts the wrong value

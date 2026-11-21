@@ -20,12 +20,13 @@ Light-C is not full C. Constructs that compile elsewhere will fail here.
 |---|---|---|---|
 | 1.1 | **No ternary operator `? :`** | `syntax error` at the line | Explicit `if`/`else` |
 | 1.2 | `Period` is a reserved word | Compile error or unexpected behaviour | Use `BarPeriod`, or a prefixed local. (b, Zorro 3.11, H1 run 2) `int Period` as a function parameter compiles with no Error line. Not tested as a global or static name: keep avoiding it there (c). |
-| 1.3 | 🔇 **Flat variable namespace across all included files** | Silent collision; one file overwrites another's local | Prefix every local: `rm_`, `rmo_`, `cc_`, `cyc_`, `ab_`, `mstc_`, `fi_` (FisherCore), `fto_` (FisherTransform_Superseded), `ift_` (Test_Fisher_IFT_COG) |
+| 1.3 | 🔇 **Flat variable namespace across all included files** | Silent collision; one file overwrites another's local | Prefix every local: `rm_`, `rmo_`, `cc_`, `cyc_`, `ab_`, `mstc_`, `fi_` (FisherCore), `fto_` (FisherTransform_Superseded), `ift_` (Test_Fisher_IFT_COG), `ma_` (MAMACore), `maw_` (MAMA wrapper), `mao_` (MAMA_Superseded), `fr_` (FRAMACore), `frw_` (FRAMA wrapper), `fro_` (FRAMA_Superseded) |
 | 1.4 | `void run()`, not `function run()` | Compile error | — |
 
 **Prefixes in use (do not reuse):**
 `cc_` CyberCycle · `cyc_` CorrelationCycle · `rm_`/`rmo_` RecursiveMedian ·
-`ab_` AlphaBetaFilter · `mstc_` MESAStochastic · `fi_` FisherCore · `fto_` FisherTransform_Superseded · `ift_` Test_Fisher_IFT_COG
+`ab_` AlphaBetaFilter · `mstc_` MESAStochastic · `fi_` FisherCore · `fto_` FisherTransform_Superseded · `ift_` Test_Fisher_IFT_COG ·
+`ma_` MAMACore · `maw_` MAMA wrapper · `mao_` MAMA_Superseded · `fr_` FRAMACore · `frw_` FRAMA wrapper · `fro_` FRAMA_Superseded
 
 ---
 
@@ -311,3 +312,4 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 2026-11-18 | Added §9d.9: `Bar` is global — a per-instance CurrentBar counter for EasyLanguage start-up rules (USE run 1) |
 | 2026-11-20 | §9d.6 addendum (b): FSH run 1 confirms `series()` first-value padding for a caller-built input series read by MaxVal / MinVal (start-up <= 8.9e-16) |
 | 2026-11-20 | §1.3: prefixes `fi_` (FisherCore), `fto_` (FisherTransform_Superseded), `ift_` (Test_Fisher_IFT_COG) added to those in use |
+| 2026-11-20 | §1.3: prefixes `ma_` (MAMACore), `maw_` (MAMA wrapper), `mao_` (MAMA_Superseded), `fr_` (FRAMACore), `frw_` (FRAMA wrapper), `fro_` (FRAMA_Superseded) added to those in use (MAF stage 2) |

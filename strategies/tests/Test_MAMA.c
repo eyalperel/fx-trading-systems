@@ -29,7 +29,9 @@ void run()
 
     // --- Calculate MAMA and FAMA ---
     var fama = 0.0;
-    var mama = MAMA(Price, 0.5, 0.05, &fama);
+    var tm_fl = 1;  tm_fl = tm_fl/2;     // FastLimit .5 from integers (gotchas 9d.1)
+    var tm_sl = 1;  tm_sl = tm_sl/20;    // SlowLimit .05 from integers
+    var mama = MAMA(Price, tm_fl, tm_sl, &fama);
 
     // --- Sequential bar counter ---
     static int barCount = 0;

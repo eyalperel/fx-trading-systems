@@ -13,12 +13,11 @@
 #include "../../indicators/ehlers/MAMA.c"
 #include "../../indicators/ehlers/FRAMA.c"
 
-// --- MAMA parameters (Ehlers defaults) ---
-#define FAST_LIMIT  0.5
-#define SLOW_LIMIT  0.05
+// --- MAMA parameters (Ehlers defaults .5 / .05): built from integers at run time in run() (gotchas 9d.1:
+//     a decimal literal such as 0.05 would be float32 at the call) ---
 
 // --- FRAMA parameter ---
-#define FRAMA_T     16     // half-period, full window = 32 bars
+#define FRAMA_N     32     // full window (source N); was T = 16 (half window) = the same 32 bars
 
 void run() {
 
@@ -34,9 +33,18 @@ void run() {
     // --- FAMA output pointer ---
     var fama_val = 0;
 
+    // --- MAMA limits from integers: FastLimit 1/2, SlowLimit 1/20 ---
+    var fvm_fl = 1;  fvm_fl = fvm_fl/2;
+    var fvm_sl = 1;  fvm_sl = fvm_sl/20;
+
+    // --- FRAMA inputs as the source (Price = (H+L)/2, High, Low); own prefix, unconditional, >= FRAMA_N values ---
+    vars fvm_mid = series((priceHigh() + priceLow())/2, FRAMA_N);
+    vars fvm_hi  = series(priceHigh(), FRAMA_N);
+    vars fvm_lo  = series(priceLow(), FRAMA_N);
+
     // --- Compute indicators on every bar including lookback ---
-    var mama_val = MAMA(Price, FAST_LIMIT, SLOW_LIMIT, &fama_val);
-    var frama_val = FRAMA(FRAMA_T);
+    var mama_val = MAMA(Price, fvm_fl, fvm_sl, &fama_val);
+    var frama_val = FRAMA(fvm_mid, fvm_hi, fvm_lo, FRAMA_N);
 
     if(is(LOOKBACK)) return;
 
