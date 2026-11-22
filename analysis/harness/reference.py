@@ -1414,6 +1414,7 @@ def simulate_frama_shared(Ts, xs, Hs, Ls):
 
 _MAMA_ARTICLE_RE = re.compile(r"mama_article\((\d{1,3})/(\d{1,4}),(\d{1,3})/(\d{1,4})\)")
 _FRAMA_ARTICLE_RE = re.compile(r"frama_article\((\d{1,3})\)")
+_ATR_ARTICLE_RE = re.compile(r"atr_mt4\((\d{1,3})\)")
 
 
 def adaptive_article_model(name):
@@ -1430,6 +1431,9 @@ def adaptive_article_model(name):
     m = _FRAMA_ARTICLE_RE.fullmatch(name)
     if m and int(m.group(1)) >= 2 and int(m.group(1)) % 2 == 0:
         return frama_article(int(m.group(1)))
+    m = _ATR_ARTICLE_RE.fullmatch(name)
+    if m and int(m.group(1)) >= 1:
+        return atr_mt4(int(m.group(1)))
     return None
 
 
@@ -1439,6 +1443,8 @@ def adaptive_simulate(model, x, H=None, L=None):
         return simulate_mama(model, x)
     if isinstance(model, FramaModel):
         return simulate_frama(model, x, H, L)
+    if isinstance(model, AtrModel):
+        return simulate_atr(model, x, H, L)
     raise TypeError("not an adaptive model: %r" % (model,))
 
 
@@ -1481,6 +1487,131 @@ IMP_MODELS["frama_article(16,literals=float32)"] = lambda: frama_article(16, lit
 IMP_MODELS["frama_article(16,startup=old)"] = lambda: frama_article(16, startup="old")                           # NCT
 IMP_MODELS["frama_superseded(8,8)[0]"] = lambda: frama_superseded((8, 8), 0)                                     # NCS
 IMP_MODELS["frama_superseded(8,8)[1]"] = lambda: frama_superseded((8, 8), 1)                                     # NCS2
+
+
+# ---------------------------------------------------------------------------------------------------
+# ATR (ATR stage 1; HARNESS_DESIGN D7 applied, docs/harness/ATR_SOURCE_REVIEW.md, brief docs/harness/ATR_STAGE1_PROMPT.md).
+# (a) MetaQuotes ATR.mq4 (installed copy, review section 2): TR[0] = 0, ATR[0] = 0; TR[i] = max(H[i], C[i-1]) - min(L[i], C[i-1]);
+#     ATR[1..P-1] = 0, ATR[P] = sum(TR[1..P]) / P; ATR[i] = ATR[i-1] + (TR[i] - TR[i-P]) / P for i > P. Per instance: row 0 = its first call.
+# The model mirrors the PRE-REGISTERED corrected code's operation order (brief, code block): TR as th - tl with th = max(High[0], Close[1]) and
+# tl = min(Low[0], Close[1]); the first window summed NEWEST TO OLDEST (at_TR[0..P-1] = rows P..1), then / P; the running update
+# A[1] + (TR[0] - TR[P])/P. (The planning chat's script follows ATR.mq4's order: oldest to newest; the difference is rounding, ~1e-16.)
+# Price = Close = x; High / Low default to x (point bars). Hooks (controls): P (NCW: 15 against the P = 14 table), tr_kind "hl" (NCR: TR = H - L,
+# row 0 still 0), avg "wilder" (NCWi: (A[1]*(P - 1) + TR)/P, Zorro's ATR() form, same seed), first "with_tr0" (NC0: the first window sums
+# TR rows P-1..0 i.e. includes row 0's TR = 0), startup "tr" (NCZ: rows 1..P-1 output the mean of the TRs so far instead of 0).
+# ---------------------------------------------------------------------------------------------------
+AtrModel = namedtuple("AtrModel", "P tr_kind avg first startup")
+AtrOut = namedtuple("AtrOut", "tr atr")
+AtrShared = namedtuple("AtrShared", "Ps index")        # NCS: the correct body with ONE file static (ats_prev) shared by the listed calls
+ATR_TR_KINDS = ("mt4", "hl")
+ATR_AVGS = ("sma", "wilder")
+ATR_FIRSTS = ("mt4", "with_tr0")
+ATR_STARTUPS = ("mt4", "tr")
+ATR_COLUMNS = AtrOut._fields
+
+
+def atr_mt4(P, tr_kind="mt4", avg="sma", first="mt4", startup="mt4"):
+    """The MT4 ATR as a model (defaults = the corrected code). P = Length (integer >= 1)."""
+    if not isinstance(P, int) or isinstance(P, bool) or P < 1:
+        raise ValueError("P must be an integer >= 1, got %r" % (P,))
+    for v, ok, nm in ((tr_kind, ATR_TR_KINDS, "tr_kind"), (avg, ATR_AVGS, "avg"), (first, ATR_FIRSTS, "first"),
+                      (startup, ATR_STARTUPS, "startup")):
+        if v not in ok:
+            raise ValueError("%s must be one of %s, got %r" % (nm, ok, v))
+    return AtrModel(P, tr_kind, avg, first, startup)
+
+
+def _atr_tr(H, L, x, tr_kind):
+    """TR array: row 0 = 0; row r >= 1: th - tl (mt4) or H - L (hl), the code's order of operations."""
+    n = len(x)
+    tr = np.zeros(n)
+    for r in range(1, n):
+        if tr_kind == "mt4":
+            th = H[r]
+            if x[r - 1] > th:
+                th = x[r - 1]
+            tl = L[r]
+            if x[r - 1] < tl:
+                tl = x[r - 1]
+            tr[r] = th - tl
+        else:
+            tr[r] = H[r] - L[r]
+    return tr
+
+
+def _atr_window_sum(tr, r, P, first):
+    """The first window at row r = P, summed in the code's order (index i = 0, 1, ...: newest first)."""
+    s = 0.0
+    if first == "mt4":
+        for i in range(P):                    # at_TR[0..P-1] = rows P .. 1
+            s = s + tr[r - i]
+    else:
+        for i in range(1, P + 1):             # NC0: TR[1..P] = rows P-1 .. 0
+            s = s + tr[r - i]
+    return s
+
+
+def simulate_atr(m, x, H=None, L=None):
+    """Run an AtrModel on Close = x with High / Low series H, L (default point bars H = L = x). Returns AtrOut(tr, atr) arrays."""
+    xs = np.asarray(x, dtype=float)
+    H = xs if H is None else np.asarray(H, dtype=float)
+    L = xs if L is None else np.asarray(L, dtype=float)
+    n, P = len(xs), m.P
+    tr = _atr_tr(H, L, xs, m.tr_kind)
+    a = np.zeros(n)
+    for r in range(n):
+        cnt = r + 1                            # the instance's call counter (at_n[0])
+        if cnt == P + 1:
+            a[r] = _atr_window_sum(tr, r, P, m.first) / P
+        elif cnt > P + 1:
+            if m.avg == "sma":
+                a[r] = a[r - 1] + (tr[r] - tr[r - P]) / P
+            else:
+                a[r] = (a[r - 1] * (P - 1) + tr[r]) / P
+        elif m.startup == "tr" and cnt > 1:
+            s = 0.0
+            for i in range(cnt - 1):           # TR[0 .. cnt-2] = rows r .. 1
+                s = s + tr[r - i]
+            a[r] = s / (cnt - 1)
+    return AtrOut(tr, a)
+
+
+def atr_shared(Ps, index=0):
+    """Model handle for [imp]: NCS, the correct body with the running ATR in ONE file static (ats_prev) shared by every call; one slot per
+    (instance, input) of the listed Lengths Ps; index = which instance."""
+    return AtrShared(Ps=tuple(int(P) for P in Ps), index=index)
+
+
+def simulate_atr_shared(Ps, xs, Hs, Ls):
+    """NCS: per call slot (in the generator's ACTUAL call order) its own call counter and TR series; SHARED by every slot: ats_prev (initial
+    0), read as the previous ATR and written at the end of every call (rows < P write 0). Returns [AtrOut] per slot (tr: the slot's own TR)."""
+    nb, ns = len(xs[0]), len(xs)
+    xs = [np.asarray(x, dtype=float) for x in xs]
+    trs = [_atr_tr(np.asarray(Hs[s], dtype=float), np.asarray(Ls[s], dtype=float), xs[s], "mt4") for s in range(ns)]
+    outs = [np.zeros(nb) for _ in range(ns)]
+    prev = 0.0
+    for t in range(nb):
+        for s in range(ns):
+            P, cnt = Ps[s], t + 1
+            a = 0.0
+            if cnt == P + 1:
+                a = _atr_window_sum(trs[s], t, P, "mt4") / P
+            elif cnt > P + 1:
+                a = prev + (trs[s][t] - trs[s][t - P]) / P
+            prev = a
+            outs[s][t] = a
+    return [AtrOut(trs[s], outs[s]) for s in range(ns)]
+
+
+IMP_MODELS["atr_mt4(14)"] = lambda: atr_mt4(14)                                                  # AT14
+IMP_MODELS["atr_mt4(20)"] = lambda: atr_mt4(20)                                                  # AT20
+IMP_MODELS["atr_mt4(15)"] = lambda: atr_mt4(15)                                                  # NCW (window 15)
+IMP_MODELS["atr_mt4(14,first=with_tr0)"] = lambda: atr_mt4(14, first="with_tr0")                 # NC0
+IMP_MODELS["atr_mt4(14,avg=wilder)"] = lambda: atr_mt4(14, avg="wilder")                         # NCWi
+IMP_MODELS["atr_mt4(14,tr_kind=hl)"] = lambda: atr_mt4(14, tr_kind="hl")                         # NCR
+IMP_MODELS["atr_mt4(14,startup=tr)"] = lambda: atr_mt4(14, startup="tr")                         # NCZ
+IMP_MODELS["atr_shared(14,14)[0]"] = lambda: atr_shared((14, 14), 0)                             # NCS (instance 1)
+IMP_MODELS["atr_shared(14,14)[1]"] = lambda: atr_shared((14, 14), 1)                             # NCS2 (instance 2)
 
 
 def bump3(v, units=1):

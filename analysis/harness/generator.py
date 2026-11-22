@@ -76,9 +76,10 @@ DETECT_KINDS = ("flat", "gain", "lag", "phase", "resid", "startup", "trace", "bo
 #                                                                                  FSH two, MAF two)
 OUTPUT_NAMES = ("sum", "ms", "r", "roof", "stoc", "out", "l0", "l3", "den",
                 "raw", "v1", "rng", "trig")  # variant outputs (RFX, MST, LRSI: l0 / l3 / den / out; FSH: raw / v1 / rng / trig / out)
-ADAPTIVE_COLUMNS = ("mama", "fama", "period", "alpha", "phase", "out", "dim")   # MAF (D7): MAMACore / FRAMACore columns
-ADAPTIVE_RETURNS = ("mama", "out")
-ADAPTIVE_KINDS = ("trace", "bound", "hull", "equivariance", "ramp_exact", "lag", "flat")
+ADAPTIVE_COLUMNS = ("mama", "fama", "period", "alpha", "phase", "out", "dim", "tr", "atr")   # MAF (D7): MAMACore / FRAMACore; ATR: tr, atr
+ADAPTIVE_RETURNS = ("mama", "out", "atr")
+ADAPTIVE_KINDS = ("trace", "bound", "hull", "equivariance", "ramp_exact", "lag", "flat", "window_hull", "known_value")   # ATR adds two
+BAR_ARGS = ("phl", "hlc")                    # order of the three series a bars call passes: (Price, High, Low) [default] or (High, Low, Close) [ATR]
 TRACE_GATES = ("range", "clamp")             # FSH: per-output trace gates (range / amplitude; clamp distance of the pre-clamp v1)
 LINEAR_ONLY_TOLS = ("flat", "gain", "lag", "phase", "resid")      # tolerances of the v1 checks (refused with linear_stage = false)
 LINEAR_ONLY_KEYS = ("flat", "gains", "lag", "phases", "resid", "gain_alt", "phase_alt")   # expected-table keys of the v1 checks
@@ -1343,8 +1344,9 @@ def adaptive_of(spec):
 
 
 def adaptive_base_ids(spec):
-    """flat, the sines, ramp (point bars)."""
-    return ["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]] + ["ramp"]
+    """flat, the sines, ramp (point bars), then rampdn when [inputs].ramp_down = true (ATR stage 1; off by default)."""
+    return (["flat"] + ["s%d" % t for t in spec["inputs"]["sine_periods"]] + ["ramp"]
+            + (["rampdn"] if ramp_down_of(spec) else []))
 
 
 def band_ids(spec):
@@ -1397,7 +1399,8 @@ def adaptive_kinds_on(spec):
         k.append("hull")
     if eq_copies(spec):
         k.append("equivariance")
-    for q, key in (("ramp_exact", "ramp_exact"), ("lag", "ramp_lag"), ("flat", "flat")):
+    for q, key in (("ramp_exact", "ramp_exact"), ("lag", "ramp_lag"), ("flat", "flat"), ("window_hull", "window_hull"),
+                   ("known_value", "known_value")):
         if chk.get(key):
             k.append(q)
     return k
@@ -1431,12 +1434,17 @@ def validate_adaptive(spec):
     if not isinstance(ts, list) or not ts or any(not isinstance(t, int) or isinstance(t, bool) or t <= 0 for t in ts):
         err.append(("ID_NOT_C", "[inputs].sine_periods %r must be positive integers" % (ts,)))
         return err, info
+    if "ramp_down" in inp and not isinstance(inp["ramp_down"], bool):
+        err.append(("ADAPTIVE_BAD", "[inputs].ramp_down %r must be true or false" % (inp["ramp_down"],)))
+    if err:
+        return err, info
     base = adaptive_base_ids(spec)
     if "band_inputs" in inp or "band_half" in inp:
         bi, bh = inp.get("band_inputs"), inp.get("band_half")
-        if (not isinstance(bi, list) or not bi or len(set(bi)) != len(bi) or any(i not in base or i == "flat" for i in bi)
+        if (not isinstance(bi, list) or not bi or len(set(bi)) != len(bi) or any(i not in base or (i == "flat" and inp.get("band_flat") is not True) for i in bi)
                 or not _is_pair(bh)):
-            err.append(("BARS_BAD", "[inputs].band_inputs %r must be distinct non-flat base ids and band_half %r a positive pair [n, d]"
+            err.append(("BARS_BAD", "[inputs].band_inputs %r must be distinct base ids (flat only with [inputs].band_flat = true) and band_half %r "
+                        "a positive pair [n, d]"
                         % (bi, bh)))
             return err, info
     ids = adaptive_base_ids(spec) + band_ids(spec)
@@ -1491,6 +1499,24 @@ def validate_adaptive(spec):
         err.append(("BARS_BAD", "[checks].bars %r must be true or false" % (chk["bars"],)))
     if band_ids(spec) and chk.get("bars") is not True:
         err.append(("BARS_BAD", "band inputs need [checks].bars = true (the calls pass High / Low)"))
+    if "bar_args" in chk and chk["bar_args"] not in BAR_ARGS:
+        err.append(("BARS_BAD", "[checks].bar_args %r must be one of %s" % (chk["bar_args"], "/".join(BAR_ARGS))))
+    sc = chk.get("scale_columns")                               # ATR stage 1: equivariance role 'scale' (copy = |k| x base, offset ignored)
+    if sc is not None and (not isinstance(sc, list) or not sc or len(set(sc)) != len(sc) or any(c not in cols for c in sc)
+                           or any(c in lv for c in sc)):
+        err.append(("ADAPTIVE_BAD", "[checks].scale_columns %r must be distinct columns, none of them also in level_columns %r (a column "
+                    "has one equivariance role)" % (sc, lv)))
+    rb = chk.get("range_bound")                                 # ATR stage 1: column >= High - Low on rows >= 1
+    if rb is not None and (not isinstance(rb, list) or not rb or len(set(rb)) != len(rb) or any(c not in cols for c in rb)):
+        err.append(("ADAPTIVE_BAD", "[checks].range_bound %r must be a non-empty list of distinct columns" % (rb,)))
+    wh = chk.get("window_hull")                                 # ATR stage 1: {column = of-column}: column within [min, max] of `of` over the window
+    if wh is not None and (not isinstance(wh, dict) or not wh or any(c not in cols or o not in cols or c == o for c, o in wh.items())):
+        err.append(("ADAPTIVE_BAD", "[checks].window_hull %r must map columns to another exported column (the window source)" % (wh,)))
+    kv = chk.get("known_value")                                 # ATR stage 1: {column = {input = [n, d]}}: column == n/d on rows >= the table's window
+    if kv is not None and (not isinstance(kv, dict) or not kv or any(
+            c not in cols or not isinstance(m_, dict) or not m_ or any(i not in all_ids or not _pair_any(pr) for i, pr in m_.items())
+            for c, m_ in kv.items())):
+        err.append(("ADAPTIVE_BAD", "[checks].known_value %r must map columns to {input = [n, d]} (inputs of the spec, d > 0)" % (kv,)))
     if err:
         return err, info
     # tolerances
@@ -1503,6 +1529,8 @@ def validate_adaptive(spec):
             err.append(("SOURCE_MISSING", "tolerance %s has no (a)/(b)/(c) source label" % q))
         elif any(c not in cols or not _is_num(val) or val <= 0 for c, val in _tol_cols(t).items()):
             err.append(("TOL_COLUMNS_BAD", "[tolerances.%s].columns %r must map columns to positive numbers" % (q, t.get("columns"))))
+        elif "abs" in t and (q not in ("bound", "window_hull") or not _is_num(t["abs"]) or t["abs"] <= 0):
+            err.append(("STRUCT", "[tolerances.%s].abs %r: only bound / window_hull take a positive absolute allowance" % (q, t["abs"])))
     # conditioning (D7 rule 3)
     cd = spec["conditioning"]
     traced = adaptive_base_ids(spec) + band_ids(spec)
@@ -1538,6 +1566,9 @@ def validate_adaptive(spec):
                     err.append(("BOUNDS_BAD", "expected table %s: bound %s = %r" % (name, c, s)))
         if chk.get("ramp_lag") and not _is_num(t.get("ramp_lag")):
             err.append(("STRUCT", "expected table %s: ramp_lag (bars) missing ([checks].ramp_lag is on)" % name))
+        if (chk.get("window_hull") or chk.get("known_value")) and (not isinstance(t.get("window"), int) or isinstance(t.get("window"), bool)
+                                                                   or t["window"] < 1):
+            err.append(("STRUCT", "expected table %s: window (integer >= 1: the first row of the window / known-value checks) missing" % name))
         cc = t.get("conditioning")
         if (not isinstance(cc, dict) or not isinstance(cc.get("info"), dict) or not isinstance(cc.get("values"), dict)
                 or any(i not in all_ids or not isinstance(l, list) or any(c not in cols for c in l) for i, l in cc["info"].items())
@@ -1621,7 +1652,7 @@ def validate_adaptive(spec):
     # INFO: D2 floor x 10 <= tolerance per quantity (and per column override); per-control 10x margin
     fl = spec.get("floor") or {}
     for q in kinds:
-        if q in ("bound", "hull"):
+        if q in ("bound", "hull", "window_hull"):
             continue
         t = tols[q]
         for c, tv in [(None, t["value"])] + sorted(_tol_cols(t).items()):
@@ -1667,7 +1698,7 @@ def to_checker_spec_adaptive(spec):
         cc = e["conditioning"]
         variants.append(dict(id=v["id"], params=v["label"], role=v["role"], expected=(None, [], None), table=v["expected"],
                              article=e["article"], outputs=list(v["outputs"]), equivariance=bool(v.get("equivariance")),
-                             bounds={c: dict(s) for c, s in e["bounds"].items()}, ramp_lag=e.get("ramp_lag"),
+                             bounds={c: dict(s) for c, s in e["bounds"].items()}, ramp_lag=e.get("ramp_lag"), window=e.get("window"),
                              info_pairs=sorted((i, c) for i, l in cc["info"].items() for c in l)))
     ad = dict(columns=list(chk["columns"]), level_columns=list(chk.get("level_columns", [])), bars=chk.get("bars") is True,
               base=adaptive_base_ids(spec), band=band_ids(spec),
@@ -1678,6 +1709,10 @@ def to_checker_spec_adaptive(spec):
               hull=list(chk.get("hull") or []), ramp_exact=dict(chk.get("ramp_exact") or {}), ramp_lag=dict(chk.get("ramp_lag") or {}),
               flat=list(chk.get("flat") or []), flat_info=dict(chk["flat_info"]) if chk.get("flat_info") else None,
               kinds=adaptive_kinds_on(spec))
+    ad.update(scale_columns=list(chk.get("scale_columns") or []), range_bound=list(chk.get("range_bound") or []),
+              window_hull=dict(chk.get("window_hull") or {}),
+              known_value={c: {i: _frac(pr) for i, pr in m_.items()} for c, m_ in (chk.get("known_value") or {}).items()},
+              bar_args=chk.get("bar_args", "phl"))
     cd = spec["conditioning"]
     ad["conditioning"] = dict(seed=cd["seed"], draws=cd["draws"], skip_draws=cd.get("skip_draws", 0), order=list(cd["order"]),
                               bound=dict(cd["bound"]))
@@ -1698,6 +1733,8 @@ def to_checker_spec_adaptive(spec):
     d["imp"] = dict(must_pass=dict(spec["imp"]["must_pass"]), must_fail=dict(spec["imp"]["must_fail"]), tol=t["imp"]["value"],
                     cols=_tol_cols(t["imp"]))
     d["tol_imp"], d["tolcols_imp"] = t["imp"]["value"], _tol_cols(t["imp"])
+    d["tol_bound_abs"] = t.get("bound", {}).get("abs", 0.0)                 # ATR stage 1: absolute allowance next to the relative one
+    d["tol_window_hull_abs"] = t.get("window_hull", {}).get("abs", 0.0)
     d["info_lines"] = list(infos)
     if "lint" in spec:
         d["info_lines"] += no_static_lines(no_static_report(spec))
@@ -1748,12 +1785,15 @@ def build_script_adaptive(spec):
     a("// PREREG:   %s" % b["prereg"])
     a("// INPUTS:   Synthetic only, from the bar counter n: flat | level+amp*sin(2*pi*n/T), T=%s | ramp level+slope*n"
       % ",".join(str(t) for t in ts))
+    if ramp_down_of(spec):
+        a("//           plus rampdn level-slope*n (falling ramp).")
     a("//           level=%d/%d amp=%d/%d slope=%d/%d. (b, H1 run 1) Decimal literals are float32 in this Zorro"
       % (inp["level"][0], inp["level"][1], inp["amp"][0], inp["amp"][1], inp["slope"][0], inp["slope"][1]))
     a("//           build and the PI macro is 3.14159, so every constant is built at run time from integers.")
     if bands:
-        a("//           band bars %s: the same x with High = x + h, Low = x - h, h = %d/%d; point bars pass x as Price, High and Low."
-          % (", ".join(bands), inp["band_half"][0], inp["band_half"][1]))
+        a("//           band bars %s: the same x with High = x + h, Low = x - h, h = %d/%d; point bars pass x as %s."
+          % (", ".join(bands), inp["band_half"][0], inp["band_half"][1],
+             "High, Low and Close" if chk.get("bar_args") == "hlc" else "Price, High and Low"))
     for c, tid, i in copies:
         tr = tr_of[tid]
         a("//           copy %s = %d/%d * %s %s %d/%d (x, High and Low mapped together)"
@@ -1851,6 +1891,8 @@ def build_script_adaptive(spec):
             return "lvl"
         if bid == "ramp":
             return "lvl + slp * n"
+        if bid == "rampdn":
+            return "lvl - slp * n"
         return "lvl + amp * sin(2 * pi_x * n / %d)" % int(bid[1:])
     for k, iid in enumerate(ids):
         cp = [(tid, bi) for c, tid, bi in copies if c == iid]
@@ -1887,7 +1929,7 @@ def build_script_adaptive(spec):
             if bars:
                 if ids[k] in bar_ids:
                     jb = bar_ids.index(ids[k])
-                    series_args = "S%d, SHi%d, SLo%d" % (k, jb, jb)
+                    series_args = ("SHi%d, SLo%d, S%d" % (jb, jb, k)) if chk.get("bar_args") == "hlc" else ("S%d, SHi%d, SLo%d" % (k, jb, jb))
                 else:
                     series_args = "S%d, S%d, S%d" % (k, k, k)
             else:
