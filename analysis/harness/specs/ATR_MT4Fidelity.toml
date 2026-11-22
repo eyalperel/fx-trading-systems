@@ -1,0 +1,784 @@
+# ATR_MT4Fidelity.toml -- Average True Range, MetaTrader 4 definition (NNFX "ATR 14, default settings"), SOURCE FIDELITY + IMPLEMENTATION
+# (HARNESS_DESIGN section 1, both questions), the THIRD spec of the D7 family (MAMA_ArticleFidelity, FRAMA_ArticleFidelity first); D7 APPLIED
+# with the tooling additions of ATR stage 1: the three of the brief (a column role `scale` for equivariance, the `window_hull` bound, the `rampdn`
+# bars input) and the ones they needed ([tolerances.bound].abs, the `range_bound` check, the `known_value` kind, [inputs].band_flat, [checks].bar_args).
+# Pre-registration: this file, committed BEFORE indicators/nnfx/ATR.c / the controls are written and BEFORE the generated script is run
+# (CLAUDE.md section 4.2). Amendments are dated and appended at the end of the file, never edited in place.
+# DRAFT of ATR stage 1 (planning chat 2026-11-21; review docs/harness/ATR_SOURCE_REVIEW.md (e11270a) AT-1..AT-7, decisions S1..S8 accepted by the
+# user; brief docs/harness/ATR_STAGE1_PROMPT.md; planning numbers docs/harness/ATR_STAGE1_NUMBERS.py + _output.txt). Tooling: the D7 path of
+# generator.py / checker.py ([checks].adaptive = true, bars inputs, bar_args = "hlc") and the reference models atr_mt4 / atr_shared (reference.py).
+# Labels: (a) source states, (b) measured / computed here, (c) inference. Ids must not contain '-'. Rows are numbered n = 0, 1, ... (0-based):
+# "row 1" of the brief / D7 = n 0; ATR[P] of the source = n P. Row 0 of an instance = its first call.
+#
+# What D7 changes against the oscillator specs (D6), as mapped to ATR:
+#   * Bars inputs: ATRMT4Core(High, Low, Close, Length, &tr). Point bars pass x as High, Low and Close (H = L = C = x); band bars
+#     (flatB, rampB, rampdnB, s5B .. s100B) pass the same x as Close with High = x + h, Low = x - h, h = 2/10000 (S3: with h above every per-bar
+#     move TR is constant and the averaging is blind, review section 3 item 4; here h = 2e-4 is below the largest per-bar move of every sine, 6.3e-4 at
+#     T = 100 (amplitude x 2 pi / T), so TR varies on every sine; on the ramps and flat TR is constant by construction).
+#   * The output is a price-DIFFERENCE level: copies sc = 10 x - 9.9 and of = x + 1.1 of s40B (x, High and Low mapped together) are checked
+#     for equivariance with the role `scale`: copy = |k| x base column for tr and atr, the offset has no effect, from n = 1 (S1).
+#   * Trace of tr and atr on all 16 inputs from n >= 0 (D7 row 1), start-up included (rows 0..P-1 of atr are 0, row P is the mean of TR[1..P]).
+#     Conditioning (D7 rule 3): every (input, column) pair is CHECKED, none is INFO (no division by a data-dependent quantity).
+#   * Known answers: flat 0; flatB, rampB, rampdnB 2h = 4e-4; ramp, rampdn the slope 1e-4, rows n >= P. Bounds: atr >= 0, tr >= High - Low
+#     (rows n >= 1), and the window hull min TR[r-P+1..r] <= atr[r] <= max TR[r-P+1..r] (rows n >= P), absolute allowance 1e-15.
+#   * Two variants: Length 14 (the template) and Length 20 (the window is a parameter, not a constant).
+#   * NCS / NCS2 are an INLINE control body (the correct body with the running ATR in ONE file static, ats_prev) called as two instances on
+#     the 16 inputs; the shared state is the IIR state (D7 rule 7). Restart Zorro before a rerun (see [run_notes]).
+
+
+[batch]
+name = "ATR_MT4Fidelity"
+id_prefix = "ATR"
+indicator = "ATRMT4Core"                 # Light-C function called by the `param` variants (corrected indicators/nnfx/ATR.c, stage 2)
+asset_label = "synthetic (EURUSD D1 bar clock)"
+prereg = "analysis/harness/specs/ATR_MT4Fidelity.toml (this file)"
+script_name = "GEN_ATR_MT4"              # generated Light-C file; the generator never overwrites
+
+[source]
+article = "(a) MetaQuotes ATR.mq4, installed copy (MQL4/Indicators, 3900 bytes), sha256 prefixes 134da529e0382b89 (two copies, 2000-2026) and c5c680c466e7d87f (two copies, 2000-2025); the two differ only in the copyright year, the code is identical (docs/harness/ATR_SOURCE_REVIEW.md section 2). NNFX: ATR period 14, default settings (docs/sources/NNFX_Sources.md, review section 1)."
+formula = """
+(a) InpAtrPeriod = 14 (line 16); TR[0] = 0, ATR[0] = 0 (lines 76-77);
+    TR[i] = max(high[i], close[i-1]) - min(low[i], close[i-1]), i = 1 .. (lines 79-80);
+    ATR[1..P] = 0 while the sum is formed, ATR[P] = sum(TR[1..P]) / P (lines 83-90); TR[0] never enters;
+    ATR[i] = ATR[i-1] + (TR[i] - TR[i-P]) / P for i = P + 1 .. (line 99, the running form).
+(a) Per indicator instance: row 0 of the instance = its first call. There is no literal other than the integer period, no PI, no trig.
+(b) Exported here: tr = TR, atr = ATR (the return value). ATR is the simple P-bar mean of TR (not Wilder's recursive form; Zorro's own ATR() is
+    Wilder's, ATRS() is this definition: review section 2).
+"""
+reference = "analysis/harness/reference.py atr_mt4(P, tr_kind, avg, first, startup) (simulate_atr: per-instance state, the corrected code's operation order: TR as th - tl, the first window summed newest to oldest, the running update A[1] + (TR[0] - TR[P])/P), atr_shared(Ps, index) (simulate_atr_shared: NCS, ONE shared ats_prev over every call in the generator's ACTUAL call order, parsed from the generated script)"
+d1 = "(b) D1 rule 2: the only constant of the source is the integer period; there is no replacement and no 'as printed' INFO variant. The band half-width h = 2/10000 and the sc / of copies are built at run time from integers (gotchas 9d.1)."
+review_only = "(b) Checked by CODE REVIEW only: (1) the Close[1] read on the instance's first call is unreachable by construction (the corrected code reads it only when the call counter is > 1; stage 2's pre-run item (i) asserts the guard line verbatim); (2) the running form against the direct P-bar mean (AT-4): measured <= 5.6e-17 over 3000 rows in the review (finding 3), not re-measured by a run."
+other_forms = "(c) Wilder's recursive ATR (Zorro ATR()) is not the template default; if ever used it is a named, counted, pre-registered variant. The compiled iATR of MT4 is not proven identical to the published ATR.mq4 (review AT-7, recorded only)."
+
+
+# Pre-registered corrected indicators/nnfx/ATR.c (the brief's code block, verbatim). Written in stage 2 AFTER this file is committed; a test
+# then asserts the function bodies equal these lines (whitespace-normalised, comments stripped). reference.atr_mt4 implements exactly these
+# lines (same operations in the same order; IMP must pass).
+[corrected_code]
+file = "indicators/nnfx/ATR.c"
+function = "var ATRMT4Core(vars High, vars Low, vars Close, int Length, var* pTR)"
+lines = """
+    vars at_n  = series(0, 2);            // per-instance CurrentBar (9d.9); row r = at_n[0] - 1
+    vars at_TR = series(0, Length + 2);   // explicit length (9d.10): reads at_TR[Length]
+    vars at_A  = series(0, 2);
+    var at_th = 0;
+    var at_tl = 0;
+    var at_s  = 0;
+    int at_i;
+    at_n[0] = at_n[1] + 1;
+    at_TR[0] = 0;                         // row 0: no previous close (ATR.mq4 line 76)
+    at_A[0] = 0;                          // rows 0..Length-1: 0 (lines 77, 85)
+    if(at_n[0] > 1) {
+        at_th = High[0];
+        if(Close[1] > at_th) at_th = Close[1];
+        at_tl = Low[0];
+        if(Close[1] < at_tl) at_tl = Close[1];
+        at_TR[0] = at_th - at_tl;         // line 80 / 98
+    }
+    if(at_n[0] == Length + 1) {           // row Length: mean of TR[1..Length] (lines 83-90)
+        for(at_i = 0; at_i < Length; at_i++)
+            at_s = at_s + at_TR[at_i];
+        at_A[0] = at_s/Length;
+    }
+    if(at_n[0] > Length + 1)              // line 99, running form kept (AT-4)
+        at_A[0] = at_A[1] + (at_TR[0] - at_TR[Length])/Length;
+    *pTR = at_TR[0];
+    return at_A[0];"""
+wrapper_function = "var ATRMT4(vars High, vars Low, vars Close, int Length)"
+wrapper_lines = """
+    var atw_1;
+    return ATRMT4Core(High, Low, Close, Length, &atw_1);"""
+notes = """(b) New file (AT-1): the library has no ATR indicator (review header). Names ATRMT4Core / ATRMT4 because Zorro has built-in ATR() overloads (manual ta.htm); (b) grep of C:/Zorro/include for ATRMT4: no hit (ATR stage 1 report). Prefixes at_ (core), atw_ (wrapper), ats_ (NCS body), ax0_ / axi_ / axr_ / axz_ (NC0 / NCWi / NCR / NCZ): a repo grep found none in use (ATR stage 1 report); stage 2 adds them to gotchas 1.3.
+(b) Every series() call is unconditional and first (gotchas 3.1) and has an explicit length (9d.10): the per-instance counter and ATR series length 2, the TR series Length + 2 (it reads at_TR[Length]); no static (lint); no decimal literal; every expression starts with a variable (9d.8).
+(b) The sum loop reads at_TR[0..Length-1] = rows Length .. 1: the source's TR[1..Length], newest first. Callers: none today (grep ATRMT4); the template (step 4) passes series(priceHigh()), series(priceLow()), series(priceClose()).
+(c) Stage 2 must check that a series() whose length depends on a parameter (series(0, Length + 2)) compiles and allocates per call in Light-C; if it is refused, STOP and report (fallback: a fixed upper bound, e.g. 64, with a Length <= 62 guard).
+(c) The caller's High / Low / Close series must hold >= Length + 1 values ([zorro].series_len = 22 >= 21): the core reads only High[0], Low[0] and Close[1], the rule keeps the margin of the other harness specs."""
+
+
+[zorro]
+include = ["../../indicators/nnfx/ATR.c"]   # resolved from strategies/tests/; written in stage 2 (lint reports it missing until then, as FRAMA stage 1)
+raw_file = "Data/GEN_ATR_raw.csv"
+marker_file = "Data/GEN_ATR_exit_marker.txt"       # gotchas 9d.4: never fires; NOT a check on the run card
+clock_asset = "EUR/USD"
+bar_period = 1440
+start_date = 20080101
+end_date = 20240101
+series_len = 22           # (c) >= Length + 1 for the largest Length (AT20: 21), made 22; the core reads High[0], Low[0], Close[1] only
+
+[inputs]
+n_bars = 3000
+warmup = 0                # D7 rule 2: no W cut; every check reads rows n >= 0 (trace from row 1)
+level = [11, 10]          # 1.1, built at run time from integers (gotchas 9d.1)
+amp = [1, 100]            # 0.01
+slope = [1, 10000]        # 0.0001
+sine_periods = [5, 10, 20, 40, 100]
+ramp_down = true          # ATR stage 1 (tooling): adds 'rampdn' = level - slope*n after 'ramp'
+band_flat = true          # ATR stage 1 (tooling): allows the band copy flatB (older specs refuse a flat band input)
+band_half = [2, 10000]    # S3: h = 2e-4 built at run time from integers; below the largest per-bar move of every sine (6.3e-4 at T = 100), so TR varies
+band_inputs = ["flat", "ramp", "rampdn", "s5", "s10", "s20", "s40", "s100"]   # band copies flatB, rampB, rampdnB, s5B .. s100B (High = x + h, Low = x - h)
+
+[inputs.equivariance]     # D7 rule 5: affine copies of s40B only: sc = 10 x - 9.9, of = x + 1.1; High / Low mapped the same way (h -> 10 h for sc)
+inputs = ["s40B"]
+transforms = [{ id = "sc", scale = [10, 1], offset = [-99, 10] }, { id = "of", scale = [1, 1], offset = [11, 10] }]
+
+[clock]
+lo = 0.8
+hi = 1.7
+source = "(b) h1_check.py CLOCK_LO/CLOCK_HI: EUR/USD D1 closes lie inside; magnitude guard against a wrong asset"
+
+[checks]                  # HARNESS_DESIGN D7 (rules 1-8) as mapped here
+adaptive = true
+bars = true                                          # calls pass three series
+bar_args = "hlc"                                     # ... in the order (High, Low, Close): ATRMT4Core(High, Low, Close, Length, &tr)
+columns = ["tr", "atr"]
+level_columns = []                                   # no level column: ATR is a difference, not a price level
+scale_columns = ["tr", "atr"]                        # equivariance role `scale`: copy = |k| x base, the offset has no effect
+equivariance_from_n = 1                              # rows >= 1 (brief S1); at n = 0 tr = atr = 0 on every input, so n >= 0 would add nothing
+range_bound = ["tr"]                                 # tr >= High - Low, rows n >= 1, absolute allowance [tolerances.bound].abs
+window_hull = { atr = "tr" }                         # min TR[r-P+1..r] <= atr[r] <= max TR[r-P+1..r], rows n >= P (P = the table's window)
+source = """(a)/(b) D7 mapped to ATR: rule 1 tr and atr exported; rule 2 trace of every column from n >= 0 against atr_mt4, start-up included; rule 3
+per (input, column) classification ([conditioning]; none is INFO); rule 4 bounds (atr >= 0, tr >= High - Low, window hull); rule 5
+equivariance on s40B, copies sc and of, role `scale`; rule 6 known answers (flat 0, band 2h, ramp slope); rule 7 NCS / NCS2; rule 8 no
+linear checks. The TR window of the hull is the model's TR where a variant exports no tr column (NCS / NCS2)."""
+
+[checks.known_value]      # column = { input = [n, d] }: the column equals n/d on every row n >= the expected table's window
+atr = { flat = [0, 1], flatB = [4, 10000], ramp = [1, 10000], rampdn = [1, 10000], rampB = [4, 10000], rampdnB = [4, 10000] }
+
+
+[conditioning]            # D7 rule 3, the pre-run classifier (checker.conditioning_table), deterministic
+seed = 20261121
+draws = 5
+skip_draws = 0
+order = ["flat", "flatB", "ramp", "rampB", "rampdn", "rampdnB", "s5", "s5B", "s10", "s10B", "s20", "s20B", "s40", "s40B", "s100", "s100B"]
+bound = { tr = 1e-13, atr = 1e-13 }
+source = """(b) S7: bound = trace tolerance / 10 = 1e-13. One numpy default_rng(20261121), never re-seeded; per real expected table (AT14, then AT20),
+per input in `order` (the planning chat's order: flat, flatB, ramp, rampB, ... point then band per base input), then per table the copies
+(sc40B, of40B): 5 perturbations x(1 + 2^-52 u), u = rng.integers(-1, 2, 3000), and the max over ALL rows of |column(perturbed) - column(x)| of the
+MODEL (reference.atr_mt4). Band inputs: High / Low = y +- h built from the perturbed y (a copy of a band input with h x 10 (sc) / h (of)).
+A pair above its bound is INFO. A recomputed classification that differs from the lists below is a pre-run STOP (pass condition, pre-run
+(vii))."""
+
+[tolerances.x]
+value = 1e-12
+source = "(a) STEP2_HANDOFF Stage 3 G4 (= h1_check.TOL_X). Covers the band inputs' exported High / Low (xh_ / xl_ columns) and the copies."
+[tolerances.trace]
+value = 1e-12
+source = "(c) S6 (user, 2026-11-21): trace 1e-12 for tr and atr, every checked (input, column) pair, every row n >= 0. Window: [floor] x10 <= tolerance (D2 rule 3); the smallest required control effect (NCWi, 1.870e-4 on s40) / 10 = 1.9e-5 >= 1e-12."
+[tolerances.bound]
+value = 1e-12
+abs = 1e-15
+source = "(c) S6: atr >= 0 and tr >= High - Low with an ABSOLUTE allowance 1e-15 (the bound is 0, so the D6 relative allowance |bound| x 1e-12 would be 0); the relative part (|bound| x 1e-12) is kept for any non-zero bound. Tolerance of a bound row = |bound| x value + abs."
+[tolerances.window_hull]
+value = 1e-12
+abs = 1e-15
+source = "(c) S6: the window hull's net excess (violation minus the relative allowance |violated bound| x 1e-12) must be <= the absolute 1e-15. At the ATR scale (4e-4 .. 9e-3) the relative part is 4e-16 .. 9e-15, so a 1e-12-RELATIVE excess (4e-16) is inside the allowance; a 1e-12 ABSOLUTE excess fires (ATR stage 1 report)."
+[tolerances.equivariance]
+value = 1e-12
+source = "(c) S6: copy = |k| x base for tr and atr, rows n >= 1, as the trace (1e-12). Zorro-internal, no model. (b) Model floor [floor].equivariance."
+[tolerances.known_value]
+value = 1e-12
+source = "(c) S6: flat 0, band 2h, ramp slope as values, rows n >= P. (b) The model's own residual is the floor ([floor].known_value, <= 4.5e-17)."
+[tolerances.imp]
+value = 1e-12
+source = "(c) S6: as the trace. (b) Expected residual: [floor] imp_estimate (the %.15f rounding of the exported x, High, Low through the model)."
+
+[lint]
+no_static = ["indicators/nnfx/ATR.c"]
+source = "(b) As LRSI / FSH / FRAMA: the corrected ATR.c must contain no `static` token (comments and strings excluded): the structural check for AT-3. generator.lint_no_static; seen to fire on the NCS body (1 hit, ats_prev: test_generator_atr). Until stage 2 the file does not exist: lint reports it, as it reports the missing include."
+
+
+# D2 floor per quantity (see source).
+[floor]
+trace = 8.881784197001252e-16
+equivariance = 1.7763568394002505e-15
+known_value = 4.4072818311535755e-17
+imp_estimate = 8.881784197001252e-16
+source = """(b) 2026-11-21, tests/atr_support.numbers(). trace = the largest of the conditioning values on the checked pairs and the IMP estimate (the model on x, High, Low printed with %.15f vs exact); x10 = 8.88e-15 <= 1e-12 (window holds). equivariance = the model's own residual on s40B, copies sc and of, rows n >= 1 (planning item 4: sc tr 1.998e-15). known_value = |model - known| on rows n >= P. No trig, no PI, no literal. (c) Zorro vs the model is expected at rounding level; pass item 7 guards the run value."""
+
+
+[expected.AT14]
+article = "atr_mt4(14)"
+window = 14
+bounds = { atr = { lo = 0.0 } }
+source = "(b) reference.atr_mt4(14): ATR.mq4 (review section 2): TR[0] = 0, ATR rows 0..13 = 0, row 14 = mean TR[1..14], then the running update; TR = max(H, C1) - min(L, C1). Bounds: atr >= 0 (a mean of non-negative TR). window = 14: the first row of the known-value and window-hull checks."
+
+[expected.AT14.conditioning]
+info = {}
+values = { flat = { tr = 4.440892098500626e-16, atr = 3.9650822308041297e-16 }, flatB = { tr = 0.0, atr = 0.0 }, ramp = { tr = 4.440892098500626e-16, atr = 3.218725199566341e-17 }, rampB = { tr = 0.0, atr = 0.0 }, rampdn = { tr = 4.440892098500626e-16, atr = 3.2146594414195206e-17 }, rampdnB = { tr = 0.0, atr = 0.0 }, s5 = { tr = 4.440892098500626e-16, atr = 2.255140518769849e-16 }, s5B = { tr = 4.440892098500626e-16, atr = 2.1684043449710089e-16 }, s10 = { tr = 4.440892098500626e-16, atr = 1.5178830414797062e-16 }, s10B = { tr = 4.440892098500626e-16, atr = 1.240327285323417e-16 }, s20 = { tr = 4.440892098500626e-16, atr = 1.0646865333807654e-16 }, s20B = { tr = 4.440892098500626e-16, atr = 1.218643241873707e-16 }, s40 = { tr = 4.440892098500626e-16, atr = 6.906367838732663e-17 }, s40B = { tr = 4.440892098500626e-16, atr = 7.35089072945172e-17 }, s100 = { tr = 4.440892098500626e-16, atr = 6.540449605518805e-17 }, s100B = { tr = 4.440892098500626e-16, atr = 6.516055056637882e-17 }, sc40B = { tr = 4.440892098500626e-16, atr = 1.1275702593849246e-16 }, of40B = { tr = 8.881784197001252e-16, atr = 1.3075478200175183e-16 } }
+
+
+[expected.AT20]
+article = "atr_mt4(20)"
+window = 20
+bounds = { atr = { lo = 0.0 } }
+source = "(b) reference.atr_mt4(20): ATR.mq4 (review section 2): TR[0] = 0, ATR rows 0..19 = 0, row 20 = mean TR[1..20], then the running update; TR = max(H, C1) - min(L, C1). Bounds: atr >= 0 (a mean of non-negative TR). window = 20: the first row of the known-value and window-hull checks."
+
+[expected.AT20.conditioning]
+info = {}
+values = { flat = { tr = 4.440892098500626e-16, atr = 3.441691376337987e-16 }, flatB = { tr = 0.0, atr = 0.0 }, ramp = { tr = 4.440892098500626e-16, atr = 2.256495771485456e-17 }, rampB = { tr = 0.0, atr = 0.0 }, rampdn = { tr = 4.440892098500626e-16, atr = 2.25920627691667e-17 }, rampdnB = { tr = 0.0, atr = 0.0 }, s5 = { tr = 4.440892098500626e-16, atr = 1.7520707107365752e-16 }, s5B = { tr = 4.440892098500626e-16, atr = 1.7694179454963432e-16 }, s10 = { tr = 4.440892098500626e-16, atr = 1.227316859253591e-16 }, s10B = { tr = 4.440892098500626e-16, atr = 1.0581813203458523e-16 }, s20 = { tr = 4.440892098500626e-16, atr = 7.806255641895632e-17 }, s20B = { tr = 4.440892098500626e-16, atr = 7.45931094670027e-17 }, s40 = { tr = 4.440892098500626e-16, atr = 5.095750210681871e-17 }, s40B = { tr = 4.440892098500626e-16, atr = 4.7704895589362195e-17 }, s100 = { tr = 4.440892098500626e-16, atr = 4.6891743959998067e-17 }, s100B = { tr = 4.440892098500626e-16, atr = 4.765068548073792e-17 }, sc40B = { tr = 4.440892098500626e-16, atr = 1.1275702593849246e-16 }, of40B = { tr = 8.881784197001252e-16, atr = 9.562663161322149e-17 } }
+
+
+# ----------------------------------------------------------------------------- variants
+[[variants]]
+id = "AT14"
+role = "real"
+label = "Length=14 (the template)"
+kind = "param"
+params = [14]
+expected = "AT14"
+outputs = ["tr", "atr"]
+equivariance = true
+
+[[variants]]
+id = "AT20"
+role = "real"
+label = "Length=20"
+kind = "param"
+params = [20]
+expected = "AT20"
+outputs = ["tr", "atr"]
+equivariance = true
+
+[[variants]]
+id = "NCW"
+role = "neg_control"
+label = "NCW: Length 15 vs AT14"
+kind = "param"
+params = [15]
+expected = "AT14"
+outputs = ["tr", "atr"]
+comment = "NCW: the window-length error (review finding 5): the corrected ATRMT4Core called with Length 15, compared against the AT14 model."
+[variants.effect]
+trace = 0.007672586913747551
+bound = 0.0
+window_hull = 3.83271264002277
+known_value = 0.0004
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NC0"
+role = "neg_control"
+label = "NC0: first window TR[0..P-1] at row P vs AT14"
+kind = "inline"
+function = "atr_nc0"
+params = [14]
+expected = "AT14"
+outputs = ["tr", "atr"]
+comment = "NC0: off-by-one first window (review finding 2): the first mean sums TR[1..Length] of the series, i.e. TR rows Length-1 .. 0 (row 0's TR = 0 included); the running update is unchanged, so the error persists (the dropped TR is never restored)."
+body = '''
+var atr_nc0(vars High, vars Low, vars Close, int Length, var* pTR)
+{
+    vars ax0_n  = series(0, 2);            // per-instance CurrentBar (9d.9); row r = ax0_n[0] - 1
+    vars ax0_TR = series(0, Length + 2);   // explicit length (9d.10): reads ax0_TR[Length]
+    vars ax0_A  = series(0, 2);
+    var ax0_th = 0;
+    var ax0_tl = 0;
+    var ax0_s  = 0;
+    int ax0_i;
+    ax0_n[0] = ax0_n[1] + 1;
+    ax0_TR[0] = 0;                         // row 0: no previous close (ATR.mq4 line 76)
+    ax0_A[0] = 0;                          // rows 0..Length-1: 0 (lines 77, 85)
+    if(ax0_n[0] > 1) {
+        ax0_th = High[0];
+        if(Close[1] > ax0_th) ax0_th = Close[1];
+        ax0_tl = Low[0];
+        if(Close[1] < ax0_tl) ax0_tl = Close[1];
+        ax0_TR[0] = ax0_th - ax0_tl;         // line 80 / 98
+    }
+    if(ax0_n[0] == Length + 1) {           // row Length: mean of TR[1..Length] (lines 83-90)
+        for(ax0_i = 1; ax0_i <= Length; ax0_i++)
+            ax0_s = ax0_s + ax0_TR[ax0_i];
+        ax0_A[0] = ax0_s/Length;
+    }
+    if(ax0_n[0] > Length + 1)              // line 99, running form kept (AT-4)
+        ax0_A[0] = ax0_A[1] + (ax0_TR[0] - ax0_TR[Length])/Length;
+    *pTR = ax0_TR[0];
+    return ax0_A[0];
+}'''
+[variants.effect]
+trace = 0.0002737651885733358
+bound = 0.0
+window_hull = 0.035061205496833614
+known_value = 2.8571428571469513e-05
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NCWi"
+role = "neg_control"
+label = "NCWi: Wilder averaging vs AT14"
+kind = "inline"
+function = "atr_ncwi"
+params = [14]
+expected = "AT14"
+outputs = ["tr", "atr"]
+comment = "NCWi: Wilder averaging (the Zorro ATR() form, review finding 4): A = (A[1]*(Length - 1) + TR)/Length from row Length + 1; same seed."
+body = '''
+var atr_ncwi(vars High, vars Low, vars Close, int Length, var* pTR)
+{
+    vars axi_n  = series(0, 2);            // per-instance CurrentBar (9d.9); row r = axi_n[0] - 1
+    vars axi_TR = series(0, Length + 2);   // explicit length (9d.10): reads axi_TR[Length]
+    vars axi_A  = series(0, 2);
+    var axi_th = 0;
+    var axi_tl = 0;
+    var axi_s  = 0;
+    int axi_i;
+    axi_n[0] = axi_n[1] + 1;
+    axi_TR[0] = 0;                         // row 0: no previous close (ATR.mq4 line 76)
+    axi_A[0] = 0;                          // rows 0..Length-1: 0 (lines 77, 85)
+    if(axi_n[0] > 1) {
+        axi_th = High[0];
+        if(Close[1] > axi_th) axi_th = Close[1];
+        axi_tl = Low[0];
+        if(Close[1] < axi_tl) axi_tl = Close[1];
+        axi_TR[0] = axi_th - axi_tl;         // line 80 / 98
+    }
+    if(axi_n[0] == Length + 1) {           // row Length: mean of TR[1..Length] (lines 83-90)
+        for(axi_i = 0; axi_i < Length; axi_i++)
+            axi_s = axi_s + axi_TR[axi_i];
+        axi_A[0] = axi_s/Length;
+    }
+    if(axi_n[0] > Length + 1)              // line 99, running form kept (AT-4)
+        axi_A[0] = (axi_A[1]*(Length - 1) + axi_TR[0])/Length;
+    *pTR = axi_TR[0];
+    return axi_A[0];
+}'''
+[variants.effect]
+trace = 0.0001870053855561963
+bound = 0.0
+window_hull = 0.06097674015562388
+known_value = 4.4072818311535755e-17
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NCR"
+role = "neg_control"
+label = "NCR: TR = H - L vs AT14"
+kind = "inline"
+function = "atr_ncr"
+params = [14]
+expected = "AT14"
+outputs = ["tr", "atr"]
+comment = "NCR: TR = High - Low (no previous close); row 0 still 0."
+body = '''
+var atr_ncr(vars High, vars Low, vars Close, int Length, var* pTR)
+{
+    vars axr_n  = series(0, 2);            // per-instance CurrentBar (9d.9); row r = axr_n[0] - 1
+    vars axr_TR = series(0, Length + 2);   // explicit length (9d.10): reads axr_TR[Length]
+    vars axr_A  = series(0, 2);
+    var axr_th = 0;
+    var axr_tl = 0;
+    var axr_s  = 0;
+    int axr_i;
+    axr_n[0] = axr_n[1] + 1;
+    axr_TR[0] = 0;                         // row 0: no previous close (ATR.mq4 line 76)
+    axr_A[0] = 0;                          // rows 0..Length-1: 0 (lines 77, 85)
+    if(axr_n[0] > 1) {
+        axr_th = High[0];
+        if(Close[1] > axr_th) axr_th = Close[1];
+        axr_tl = Low[0];
+        if(Close[1] < axr_tl) axr_tl = Close[1];
+        axr_TR[0] = High[0] - Low[0];         // line 80 / 98
+    }
+    if(axr_n[0] == Length + 1) {           // row Length: mean of TR[1..Length] (lines 83-90)
+        for(axr_i = 0; axr_i < Length; axr_i++)
+            axr_s = axr_s + axr_TR[axr_i];
+        axr_A[0] = axr_s/Length;
+    }
+    if(axr_n[0] > Length + 1)              // line 99, running form kept (AT-4)
+        axr_A[0] = axr_A[1] + (axr_TR[0] - axr_TR[Length])/Length;
+    *pTR = axr_TR[0];
+    return axr_A[0];
+}'''
+[variants.effect]
+trace = 0.011755705045852771
+bound = 0.0
+window_hull = 0.0
+known_value = 0.0001
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NCZ"
+role = "neg_control"
+label = "NCZ: start-up mean instead of 0 vs AT14"
+kind = "inline"
+function = "atr_ncz"
+params = [14]
+expected = "AT14"
+outputs = ["tr", "atr"]
+comment = "NCZ: start-up: rows 1 .. Length-1 output the mean of the TRs so far instead of 0."
+body = '''
+var atr_ncz(vars High, vars Low, vars Close, int Length, var* pTR)
+{
+    vars axz_n  = series(0, 2);            // per-instance CurrentBar (9d.9); row r = axz_n[0] - 1
+    vars axz_TR = series(0, Length + 2);   // explicit length (9d.10): reads axz_TR[Length]
+    vars axz_A  = series(0, 2);
+    var axz_th = 0;
+    var axz_tl = 0;
+    var axz_s  = 0;
+    int axz_i;
+    axz_n[0] = axz_n[1] + 1;
+    axz_TR[0] = 0;                         // row 0: no previous close (ATR.mq4 line 76)
+    axz_A[0] = 0;                          // rows 0..Length-1: 0 (lines 77, 85)
+    if(axz_n[0] > 1) {
+        axz_th = High[0];
+        if(Close[1] > axz_th) axz_th = Close[1];
+        axz_tl = Low[0];
+        if(Close[1] < axz_tl) axz_tl = Close[1];
+        axz_TR[0] = axz_th - axz_tl;         // line 80 / 98
+    }
+    if(axz_n[0] == Length + 1) {           // row Length: mean of TR[1..Length] (lines 83-90)
+        for(axz_i = 0; axz_i < Length; axz_i++)
+            axz_s = axz_s + axz_TR[axz_i];
+        axz_A[0] = axz_s/Length;
+    }
+    if(axz_n[0] > 1 && axz_n[0] <= Length) {   // NCZ: start-up rows output the mean of the TRs so far
+        for(axz_i = 0; axz_i < axz_n[0] - 1; axz_i++)
+            axz_s = axz_s + axz_TR[axz_i];
+        axz_A[0] = axz_s/(axz_n[0] - 1);
+    }
+    if(axz_n[0] > Length + 1)              // line 99, running form kept (AT-4)
+        axz_A[0] = axz_A[1] + (axz_TR[0] - axz_TR[Length])/Length;
+    *pTR = axz_TR[0];
+    return axz_A[0];
+}'''
+[variants.effect]
+trace = 0.009710565162951434
+bound = 0.0
+window_hull = 0.0
+known_value = 4.4072818311535755e-17
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NCS"
+role = "neg_control"
+label = "NCS: the correct body with ONE file static (ats_prev), instance 1 vs AT14"
+kind = "inline"
+function = "atr_ncs"
+params = [14]
+expected = "AT14"
+outputs = ["atr"]
+comment = "NCS: the correct body with the running ATR value (at_A) replaced by ONE file static ats_prev (read as the previous value, written at the end of every call); counter and TR per instance. Called as two instances per bar, NCS then NCS2 (both Length 14), each on the 16 base and band inputs in the generator's variant-major order (32 calls per bar); the static is shared by all 32 calls. Exports atr only. Restart Zorro before a rerun."
+body = '''
+static var ats_prev = 0;         // NCS: the running ATR in ONE file static shared by every call (restart Zorro before a rerun)
+var atr_ncs(vars High, vars Low, vars Close, int Length)
+{
+    vars ats_n  = series(0, 2);            // per-instance CurrentBar (9d.9)
+    vars ats_TR = series(0, Length + 2);   // explicit length (9d.10)
+    var ats_a = 0;
+    var ats_th = 0;
+    var ats_tl = 0;
+    var ats_s  = 0;
+    int ats_i;
+    ats_n[0] = ats_n[1] + 1;
+    ats_TR[0] = 0;
+    if(ats_n[0] > 1) {
+        ats_th = High[0];
+        if(Close[1] > ats_th) ats_th = Close[1];
+        ats_tl = Low[0];
+        if(Close[1] < ats_tl) ats_tl = Close[1];
+        ats_TR[0] = ats_th - ats_tl;
+    }
+    if(ats_n[0] == Length + 1) {
+        for(ats_i = 0; ats_i < Length; ats_i++)
+            ats_s = ats_s + ats_TR[ats_i];
+        ats_a = ats_s/Length;
+    }
+    if(ats_n[0] > Length + 1)
+        ats_a = ats_prev + (ats_TR[0] - ats_TR[Length])/Length;
+    ats_prev = ats_a;                      // the shared state
+    return ats_a;
+}'''
+[variants.effect]
+trace = 0.009044766946306704
+bound = 1.5721800325597395
+window_hull = 5.204892672581457
+known_value = 0.004490046396599041
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+[[variants]]
+id = "NCS2"
+role = "neg_control"
+label = "NCS2: the same body, instance 2 vs AT14"
+kind = "param"
+function = "atr_ncs"
+params = [14]
+expected = "AT14"
+outputs = ["atr"]
+comment = "NCS2: the second instance of the NCS body (D7 rule 7)."
+[variants.effect]
+trace = 0.009259101256852854
+bound = 1.7468814775982449
+window_hull = 5.4635044250378035
+known_value = 0.004008076320420531
+source = "(b) simulated 3000 bars with the variant's own [imp].must_pass model (NCS / NCS2: the shared-state replay over every superseded call in the generator's actual call order), measured with checker.evaluate on the own-model raw file vs the AT14 (atr_mt4(14)) model; per kind the max over that kind's rows of abs_diff x (kind tolerance / row tolerance), i.e. the detection ratio in units of the kind's base tolerance; computed 2026-11-21 (tests/atr_support.numbers)"
+
+
+[detect]
+source = "(b) Each listed kind has a detection ratio (max abs_diff / row tolerance on the own-model raw file) >= 10 (the brief: every kind where the effect is >= 10x tolerance). Ratios: NCW trace 7.67e+09x, window_hull 3.83e+12x, known_value 4e+08x; NC0 trace 2.74e+08x, window_hull 3.51e+10x, known_value 2.86e+07x; NCWi trace 1.87e+08x, window_hull 6.1e+10x; NCR trace 1.18e+10x, known_value 1e+08x; NCZ trace 9.71e+09x; NCS trace 9.04e+09x, bound 1.57e+12x, window_hull 5.2e+12x, known_value 4.49e+09x; NCS2 trace 9.26e+09x, bound 1.75e+12x, window_hull 5.46e+12x, known_value 4.01e+09x. Non-zero kinds below 10x, not required: NCWi known_value 4.41e-05x; NCZ known_value 4.41e-05x. Kinds with ratio 0 (the control satisfies them; cannot discriminate): NCW bound, equivariance; NC0 bound, equivariance; NCWi bound, equivariance; NCR bound, window_hull, equivariance; NCZ bound, window_hull, equivariance; NCS equivariance; NCS2 equivariance. Equivariance is checked on the real variants only (controls are not called on the copies)."
+rule = "A kind is detected for a control if at least one of that control's checks of that kind (trace-* | bound-* | whull-* | known-* | equiv-*) has result FAIL. Every listed kind must be detected; otherwise the control counts as NOT failing as required and the run is FAIL."
+[detect.required]
+NCW = ["trace", "window_hull", "known_value"]
+NC0 = ["trace", "window_hull", "known_value"]
+NCWi = ["trace", "window_hull"]
+NCR = ["trace", "known_value"]
+NCZ = ["trace"]
+NCS = ["trace", "bound", "window_hull", "known_value"]
+NCS2 = ["trace", "bound", "window_hull", "known_value"]
+
+# ----------------------------------------------------------------------------- IMP
+[imp]
+what = """Implementation check (HARNESS_DESIGN section 1, first question). Replay the model named per variant on the x, High and Low columns
+EXPORTED by Zorro (x_, and xh_ / xl_ for the band inputs and band copies; reference.IMP_MODELS); residual per (input, column) = max |Zorro -
+replay| over every row n >= 0, on every input the variant is called on (point flat, ramp, rampdn, s5 .. s100; band flatB .. s100B; AT14 / AT20
+also the copies sc40B, of40B). On the checked pairs residual / 1e-12 decides. NCS / NCS2 are replayed with atr_shared: the NCS body over ALL its
+calls in the generator's ACTUAL call order (checker.adaptive_shared_slots: NCS on the 16 inputs, then NCS2; the order is parsed from the
+generated script in the test)."""
+tolerance = "[tolerances.imp] 1e-12"
+must_pass = { AT14 = "atr_mt4(14)", AT20 = "atr_mt4(20)", NCW = "atr_mt4(15)", NC0 = "atr_mt4(14,first=with_tr0)", NCWi = "atr_mt4(14,avg=wilder)", NCR = "atr_mt4(14,tr_kind=hl)", NCZ = "atr_mt4(14,startup=tr)", NCS = "atr_shared(14,14)[0]", NCS2 = "atr_shared(14,14)[1]" }
+must_fail = { AT14 = "atr_mt4(14,avg=wilder)", NCS = "atr_mt4(14)" }
+diagnosis = """FIDELITY PASS + IMP PASS: verified on both questions. FIDELITY FAIL + IMP PASS: copying difference (.c lines vs the source). IMP FAIL on
+any real variant: Zorro / implementation problem; the fidelity result is not interpretable. AT14 must_fail = the NCWi (Wilder) model is absent
+from the run output; NCS must_fail = the shared-static calls do not behave as the source."""
+
+[imp.fire_test]
+at14_vs_ncwi_model = 0.0018306291425544303
+ncs_vs_at14_model = 0.009044766946306704
+source = "(b) 2026-11-21: checker.imp_rows on the synthetic own-model raw file of this spec (tests/maf_support.synth_raw; exact x, so these are model-vs-model discriminations, not run values), worst checked (input:column) pair; ratio = residual / column tolerance (1e-12)"
+[imp.fire_test.must_fail_ratio]
+at14_vs_ncwi_model = 1830629142.5544305
+ncs_vs_at14_model = 9044766946.306704
+[imp.fire_test.must_pass_own_model]
+AT14 = 0.0
+AT20 = 0.0
+NCW = 0.0
+NC0 = 0.0
+NCWi = 0.0
+NCR = 0.0
+NCZ = 0.0
+NCS = 0.0
+NCS2 = 0.0
+[imp.fire_test.discrimination]   # variant own-model output replayed with the AT14 model: worst residual (pair in the comment)
+AT14 = 0.0   # flat:tr, ratio 0.000e+00
+AT20 = 0.010616854905823711   # sc40B:atr, ratio 1.062e+10
+NCW = 0.007672586913747551   # s5B:atr, ratio 7.673e+09
+NC0 = 0.0002737651885733358   # s10B:atr, ratio 2.738e+08
+NCWi = 0.0001870053855561963   # s40:atr, ratio 1.870e+08
+NCR = 0.011755705045852771   # s5:tr, ratio 1.176e+10
+NCZ = 0.009710565162951434   # s5B:atr, ratio 9.711e+09
+NCS = 0.009044766946306704   # s5:atr, ratio 9.045e+09
+NCS2 = 0.009259101256852854   # s5B:atr, ratio 9.259e+09
+[imp.fire_test.exported_x_15f]   # (b) the expected IMP must_pass residual of a perfect run: the own-model raw file with every x / High / Low printed with %.15f (as Zorro exports them), worst checked pair (comment: pair, ratio)
+AT14 = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+AT20 = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+NCW = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+NC0 = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+NCWi = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+NCR = 8.881784197001252e-16   # s5B:tr, ratio 8.882e-04
+NCZ = 8.881784197001252e-16   # s5:tr, ratio 8.882e-04
+NCS = 2.207001942311493e-15   # s5:atr, ratio 2.207e-03
+NCS2 = 2.127638343285554e-15   # s100B:atr, ratio 2.128e-03
+
+# ----------------------------------------------------------------------------- findings (reproduced with reference.py, ATR stage 1)
+[findings]
+atr_min_every_input_AT14 = 0.0
+atr_min_every_input_AT20 = 0.0
+effect_NC0_atr = { flat = 0.0, s5 = 0.00025947947428761695, s10 = 0.0002594794742876161, s20 = 0.00010145680137157217, s40 = 5.856394986672854e-05, s100 = 2.967472525312279e-05, ramp = 7.1428571428563465e-06, rampdn = 7.1428571428563465e-06, flatB = 2.857142857142544e-05, rampB = 2.857142857142544e-05, rampdnB = 2.857142857142544e-05, s5B = 0.0002737651885733293, s10B = 0.0002737651885733358, s20B = 0.00011574251565729362, s40B = 7.284966415244251e-05, s100B = 4.3960439538837136e-05 }
+effect_NC0_tr = { flat = 0.0, s5 = 0.0, s10 = 0.0, s20 = 0.0, s40 = 0.0, s100 = 0.0, ramp = 0.0, rampdn = 0.0, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.0, s10B = 0.0, s20B = 0.0, s40B = 0.0, s100B = 0.0 }
+effect_NCR_atr = { flat = 0.0, s5 = 0.007892433522528624, s10 = 0.004075956498408051, s20 = 0.0022682646461322006, s40 = 0.0012728664631262653, s100 = 0.0006082561308072682, ramp = 0.00010000000000000484, rampdn = 0.00010000000000000484, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.007692433522528646, s10B = 0.0039045279269794234, s20B = 0.002068264646132239, s40B = 0.00107286646312629, s100B = 0.0004082561308072904 }
+effect_NCR_tr = { flat = 0.0, s5 = 0.011755705045852771, s10 = 0.00587785252292683, s20 = 0.0030901699437506647, s40 = 0.0015643446504030045, s100 = 0.0006279051952935433, ramp = 0.00010000000000021103, rampdn = 0.00010000000000021103, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.011555705045852793, s10B = 0.005677852522926852, s20B = 0.0028901699437506867, s40B = 0.0013643446504030265, s100B = 0.0004279051952935653 }
+effect_NCS2_atr = { flat = 0.0037403919585277186, s5 = 0.008649091879761895, s10 = 0.0050846389628610746, s20 = 0.0032542916101816134, s40 = 0.003050056946144934, s100 = 0.0035189296744673744, ramp = 0.004008076320420527, rampdn = 0.004008076320420527, flatB = 0.0037080763204205757, rampB = 0.0037080763204205757, rampdnB = 0.0037080763204205757, s5B = 0.009259101256852854, s10B = 0.005690125951993639, s20B = 0.0037048516428927775, s40B = 0.003240039964304644, s100B = 0.0037008997506459054 }
+effect_NCS_atr = { flat = 0.004490046396599041, s5 = 0.009044766946306704, s10 = 0.005228289922187273, s20 = 0.003494310750863343, s40 = 0.0031630509538209035, s100 = 0.003543876077924766, ramp = 0.004022362034705484, rampdn = 0.004022362034705492, flatB = 0.0037223620347055326, rampB = 0.0037223620347055326, rampdnB = 0.0037223620347055326, s5B = 0.009032757320429517, s10B = 0.005259137439167085, s20B = 0.0034823011249861748, s40B = 0.0025700975339346807, s100B = 0.002961906001745853 }
+effect_NCW_atr = { flat = 0.0, s5 = 0.007472586913747573, s10 = 0.003656109889627422, s20 = 0.002107897511639391, s40 = 0.0008507021468750407, s100 = 0.0005503666019827103, ramp = 0.00010000000000000484, rampdn = 0.00010000000000000484, flatB = 0.00039999999999995595, rampB = 0.00039999999999995595, rampdnB = 0.00039999999999995595, s5B = 0.007672586913747551, s10B = 0.003898967032484538, s20B = 0.002307897511639369, s40B = 0.0010616854905823394, s100B = 0.0007503666019826882 }
+effect_NCW_tr = { flat = 0.0, s5 = 0.0, s10 = 0.0, s20 = 0.0, s40 = 0.0, s100 = 0.0, ramp = 0.0, rampdn = 0.0, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.0, s10B = 0.0, s20B = 0.0, s40B = 0.0, s100B = 0.0 }
+effect_NCWi_atr = { flat = 0.0, s5 = 0.0001467793093547047, s10 = 0.0001605270455798534, s20 = 0.00015035952689109117, s40 = 0.0001870053855561963, s100 = 0.000128900947665955, ramp = 9.41900637346782e-18, rampdn = 8.578749689791554e-18, flatB = 0.0, rampB = 0.0, rampdnB = 4.824699667560495e-18, s5B = 0.00014677930935470297, s10B = 0.00015724743311817382, s20B = 0.00015035952689109095, s40B = 0.00018306291425543406, s100B = 0.000103943687576512 }
+effect_NCWi_tr = { flat = 0.0, s5 = 0.0, s10 = 0.0, s20 = 0.0, s40 = 0.0, s100 = 0.0, ramp = 0.0, rampdn = 0.0, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.0, s10B = 0.0, s20B = 0.0, s40B = 0.0, s100B = 0.0 }
+effect_NCZ_atr = { flat = 0.0, s5 = 0.009510565162951456, s10 = 0.005877852522924831, s20 = 0.0030901699437495544, s40 = 0.0015643446504023384, s100 = 0.0006279051952930992, ramp = 0.00010000000000000917, rampdn = 0.00010000000000000917, flatB = 0.00039999999999995595, rampB = 0.00039999999999995595, rampdnB = 0.00039999999999995595, s5B = 0.009710565162951434, s10B = 0.006077852522924809, s20B = 0.0032901699437495324, s40B = 0.0017643446504023164, s100B = 0.0008279051952930772 }
+effect_NCZ_tr = { flat = 0.0, s5 = 0.0, s10 = 0.0, s20 = 0.0, s40 = 0.0, s100 = 0.0, ramp = 0.0, rampdn = 0.0, flatB = 0.0, rampB = 0.0, rampdnB = 0.0, s5B = 0.0, s10B = 0.0, s20B = 0.0, s40B = 0.0, s100B = 0.0 }
+equiv_model_AT14_of_atr = 2.938187887435717e-16
+equiv_model_AT14_of_tr = 4.440892098500626e-16
+equiv_model_AT14_sc_atr = 6.74807432154978e-16
+equiv_model_AT14_sc_tr = 1.7763568394002505e-15
+equiv_model_AT20_of_atr = 2.218277644905342e-16
+equiv_model_AT20_of_tr = 4.440892098500626e-16
+equiv_model_AT20_sc_atr = 5.793976409762536e-16
+equiv_model_AT20_sc_tr = 1.7763568394002505e-15
+first_row_gt_10tol_NC0_atr = { flat = -1, s5 = 14, s10 = 14, s20 = 14, s40 = 14, s100 = 14, ramp = 14, rampdn = 14, flatB = 14, rampB = 14, rampdnB = 14, s5B = 14, s10B = 14, s20B = 14, s40B = 14, s100B = 14 }
+first_row_gt_10tol_NC0_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+first_row_gt_10tol_NCR_atr = { flat = -1, s5 = 14, s10 = 14, s20 = 14, s40 = 14, s100 = 14, ramp = 14, rampdn = 14, flatB = -1, rampB = -1, rampdnB = -1, s5B = 14, s10B = 14, s20B = 14, s40B = 14, s100B = 14 }
+first_row_gt_10tol_NCR_tr = { flat = -1, s5 = 1, s10 = 1, s20 = 1, s40 = 1, s100 = 1, ramp = 1, rampdn = 1, flatB = -1, rampB = -1, rampdnB = -1, s5B = 1, s10B = 1, s20B = 1, s40B = 1, s100B = 1 }
+first_row_gt_10tol_NCS2_atr = { flat = 15, s5 = 15, s10 = 15, s20 = 15, s40 = 15, s100 = 15, ramp = 15, rampdn = 15, flatB = 15, rampB = 15, rampdnB = 15, s5B = 15, s10B = 15, s20B = 15, s40B = 15, s100B = 15 }
+first_row_gt_10tol_NCS_atr = { flat = 15, s5 = 15, s10 = 15, s20 = 15, s40 = 15, s100 = 15, ramp = 15, rampdn = 15, flatB = 15, rampB = 15, rampdnB = 15, s5B = 15, s10B = 15, s20B = 15, s40B = 15, s100B = 15 }
+first_row_gt_10tol_NCW_atr = { flat = -1, s5 = 14, s10 = 14, s20 = 14, s40 = 14, s100 = 14, ramp = 14, rampdn = 14, flatB = 14, rampB = 14, rampdnB = 14, s5B = 14, s10B = 14, s20B = 14, s40B = 14, s100B = 14 }
+first_row_gt_10tol_NCW_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+first_row_gt_10tol_NCWi_atr = { flat = -1, s5 = 15, s10 = 15, s20 = 15, s40 = 15, s100 = 15, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = 15, s10B = 15, s20B = 15, s40B = 15, s100B = 15 }
+first_row_gt_10tol_NCWi_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+first_row_gt_10tol_NCZ_atr = { flat = -1, s5 = 1, s10 = 1, s20 = 1, s40 = 1, s100 = 1, ramp = 1, rampdn = 1, flatB = 1, rampB = 1, rampdnB = 1, s5B = 1, s10B = 1, s20B = 1, s40B = 1, s100B = 1 }
+first_row_gt_10tol_NCZ_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+imp_est_AT14_flatB_atr = 0.0
+imp_est_AT14_flatB_tr = 0.0
+imp_est_AT14_flat_atr = 0.0
+imp_est_AT14_flat_tr = 0.0
+imp_est_AT14_of40B_atr = 3.198396408832238e-16
+imp_est_AT14_of40B_tr = 8.881784197001252e-16
+imp_est_AT14_rampB_atr = 6.353424730765056e-17
+imp_est_AT14_rampB_tr = 2.220446049250313e-16
+imp_est_AT14_ramp_atr = 1.5856456772600502e-17
+imp_est_AT14_ramp_tr = 2.220446049250313e-16
+imp_est_AT14_rampdnB_atr = 6.342582709040201e-17
+imp_est_AT14_rampdnB_tr = 2.220446049250313e-16
+imp_est_AT14_rampdn_atr = 1.5856456772600502e-17
+imp_est_AT14_rampdn_tr = 2.220446049250313e-16
+imp_est_AT14_s100B_atr = 1.9060274192295168e-16
+imp_est_AT14_s100B_tr = 8.881784197001252e-16
+imp_est_AT14_s100_atr = 6.461844948013606e-17
+imp_est_AT14_s100_tr = 8.881784197001252e-16
+imp_est_AT14_s10B_atr = 2.3722343533982837e-16
+imp_est_AT14_s10B_tr = 8.881784197001252e-16
+imp_est_AT14_s10_atr = 3.391384395534658e-16
+imp_est_AT14_s10_tr = 8.881784197001252e-16
+imp_est_AT14_s20B_atr = 1.4094628242311558e-16
+imp_est_AT14_s20B_tr = 8.881784197001252e-16
+imp_est_AT14_s20_atr = 7.24247051220317e-17
+imp_est_AT14_s20_tr = 8.881784197001252e-16
+imp_est_AT14_s40B_atr = 1.7499023063916042e-16
+imp_est_AT14_s40B_tr = 8.881784197001252e-16
+imp_est_AT14_s40_atr = 6.776263578034403e-17
+imp_est_AT14_s40_tr = 8.881784197001252e-16
+imp_est_AT14_s5B_atr = 3.5214886562329184e-16
+imp_est_AT14_s5B_tr = 8.881784197001252e-16
+imp_est_AT14_s5_atr = 3.7816971776294395e-16
+imp_est_AT14_s5_tr = 8.881784197001252e-16
+imp_est_AT14_sc40B_atr = 3.2959746043559335e-16
+imp_est_AT14_sc40B_tr = 8.881784197001252e-16
+imp_est_AT20_flatB_atr = 0.0
+imp_est_AT20_flatB_tr = 0.0
+imp_est_AT20_flat_atr = 0.0
+imp_est_AT20_flat_tr = 0.0
+imp_est_AT20_of40B_atr = 2.441623292437356e-16
+imp_est_AT20_of40B_tr = 8.881784197001252e-16
+imp_est_AT20_rampB_atr = 4.4398078963281407e-17
+imp_est_AT20_rampB_tr = 2.220446049250313e-16
+imp_est_AT20_ramp_atr = 1.1099519740820352e-17
+imp_est_AT20_ramp_tr = 2.220446049250313e-16
+imp_est_AT20_rampdnB_atr = 6.098637220230962e-17
+imp_est_AT20_rampdnB_tr = 2.220446049250313e-16
+imp_est_AT20_rampdn_atr = 1.1099519740820352e-17
+imp_est_AT20_rampdn_tr = 2.220446049250313e-16
+imp_est_AT20_s100B_atr = 1.3227266504323154e-16
+imp_est_AT20_s100B_tr = 8.881784197001252e-16
+imp_est_AT20_s100_atr = 4.5997277167697526e-17
+imp_est_AT20_s100_tr = 8.881784197001252e-16
+imp_est_AT20_s10B_atr = 1.4137996329210978e-16
+imp_est_AT20_s10B_tr = 8.881784197001252e-16
+imp_est_AT20_s10_atr = 2.190088388420719e-16
+imp_est_AT20_s10_tr = 8.881784197001252e-16
+imp_est_AT20_s20B_atr = 9.237402509576498e-17
+imp_est_AT20_s20B_tr = 8.881784197001252e-16
+imp_est_AT20_s20_atr = 4.85722573273506e-17
+imp_est_AT20_s20_tr = 8.881784197001252e-16
+imp_est_AT20_s40B_atr = 1.222980050563649e-16
+imp_est_AT20_s40B_tr = 8.881784197001252e-16
+imp_est_AT20_s40_atr = 4.597017211338539e-17
+imp_est_AT20_s40_tr = 8.881784197001252e-16
+imp_est_AT20_s5B_atr = 3.209238430557093e-16
+imp_est_AT20_s5B_tr = 8.881784197001252e-16
+imp_est_AT20_s5_atr = 3.651592916931179e-16
+imp_est_AT20_s5_tr = 8.881784197001252e-16
+imp_est_AT20_sc40B_atr = 2.654126918244515e-16
+imp_est_AT20_sc40B_tr = 8.881784197001252e-16
+known_diff_AT14_flat = 0.0
+known_diff_AT14_flatB = 4.4072818311535755e-17
+known_diff_AT14_ramp = 1.1018204577883939e-17
+known_diff_AT14_rampB = 4.4072818311535755e-17
+known_diff_AT14_rampdn = 1.1018204577883939e-17
+known_diff_AT14_rampdnB = 4.4072818311535755e-17
+known_diff_AT20_flat = 0.0
+known_diff_AT20_flatB = 4.4072818311535755e-17
+known_diff_AT20_ramp = 1.1180834903756764e-17
+known_diff_AT20_rampB = 4.4072818311535755e-17
+known_diff_AT20_rampdn = 1.1180834903756764e-17
+known_diff_AT20_rampdnB = 4.4072818311535755e-17
+last_row_gt_10tol_NC0_atr = { flat = -1, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 2999, rampdn = 2999, flatB = 2999, rampB = 2999, rampdnB = 2999, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NC0_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+last_row_gt_10tol_NCR_atr = { flat = -1, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 2999, rampdn = 2999, flatB = -1, rampB = -1, rampdnB = -1, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCR_tr = { flat = -1, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 2999, rampdn = 2999, flatB = -1, rampB = -1, rampdnB = -1, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCS2_atr = { flat = 2999, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 2999, rampdn = 2999, flatB = 2999, rampB = 2999, rampdnB = 2999, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCS_atr = { flat = 2999, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 2999, rampdn = 2999, flatB = 2999, rampB = 2999, rampdnB = 2999, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCW_atr = { flat = -1, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = 14, rampdn = 14, flatB = 14, rampB = 14, rampdnB = 14, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCW_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+last_row_gt_10tol_NCWi_atr = { flat = -1, s5 = 2999, s10 = 2999, s20 = 2999, s40 = 2999, s100 = 2999, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = 2999, s10B = 2999, s20B = 2999, s40B = 2999, s100B = 2999 }
+last_row_gt_10tol_NCWi_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+last_row_gt_10tol_NCZ_atr = { flat = -1, s5 = 13, s10 = 13, s20 = 13, s40 = 13, s100 = 13, ramp = 13, rampdn = 13, flatB = 13, rampB = 13, rampdnB = 13, s5B = 13, s10B = 13, s20B = 13, s40B = 13, s100B = 13 }
+last_row_gt_10tol_NCZ_tr = { flat = -1, s5 = -1, s10 = -1, s20 = -1, s40 = -1, s100 = -1, ramp = -1, rampdn = -1, flatB = -1, rampB = -1, rampdnB = -1, s5B = -1, s10B = -1, s20B = -1, s40B = -1, s100B = -1 }
+startup_s20_AT14 = 0.002107897511639391
+startup_s20_AT20 = 0.0020000000000000018
+tr_minus_range_min_AT14 = 0.0
+tr_minus_range_min_AT20 = 0.0
+window_hull_rel_violation_max_AT14 = 0.0
+window_hull_rel_violation_max_AT20 = 0.0
+zero_rows_max_AT14 = 0.0
+zero_rows_max_AT20 = 0.0
+
+[pass_condition]
+text = """ATR source fidelity and implementation PASS only if ALL of the following hold; any other outcome is FAIL, recorded and kept
+(CLAUDE.md section 4.8), and its cause found before anything is changed:
+1. All 90 real checks PASS: 2 variants (AT14, AT20) x 45 checks = trace 32 (tr and atr on the 16 inputs: point flat, ramp, rampdn, s5 .. s100; band
+   flatB, rampB, rampdnB, s5B .. s100B; every row n >= 0, start-up included; none is INFO) + bound 3 (atr >= 0; tr >= High - Low, rows n >= 1;
+   window hull of atr against the TR window of length P, rows n >= P; every input incl. the copies; absolute allowance 1e-15) + known answers 6
+   (atr on flat 0, flatB / rampB / rampdnB 4e-4, ramp / rampdn 1e-4, rows n >= P) + equivariance 4 (s40B, copies sc and of, tr and atr = |k| x base,
+   rows n >= 1). The brief expected 45 / 90: no difference. Rows 0..P-1 of atr are 0 on every input (covered by the trace; the known answers
+   start at row P).
+2. Each of the 7 negative controls (NCW, NC0, NCWi, NCR, NCZ, NCS, NCS2) FAILS on every kind listed in [detect.required]. A control that passes =
+   harness broken.
+3. No input guard fires (x[n] incl. the band inputs and the copies, and the exported High / Low of the band inputs and band copies (xh_ / xl_),
+   vs recomputed, tol 1e-12; clock range), no row is ERROR in ANY variant, no NaN / infinite value.
+4. No line starting with 'Error' in the Zorro window (gotchas 9d.3). The EXITRUN marker / EXIT line is NOT a check (gotchas 9d.4: it never fires).
+5. The results file reports the variant count: 2 real + 7 negative controls = 9 variants.
+6. IMP: every [imp].must_pass replay <= 1e-12 on every CHECKED pair of every input the variant is called on (9 variants), and both [imp].must_fail
+   replays exceed it (AT14 vs the NCWi model; NCS vs the AT14 model; guard seen to fire).
+7. Floor guard: for every real variant, max |Zorro - model| <= tolerance / 10 for trace (1e-13), equivariance (1e-13) and known_value (1e-13)
+   (D2 rule 3 floor side). If exceeded, the window is invalid: the result is NOT accepted until explained, even if items 1-6 hold.
+Pre-run (not run-time) conditions, done before the [Test] click and recorded in Amendment 1 (stage 2):
+   (i) the corrected ATR.c contains [corrected_code].lines and wrapper_lines verbatim (whitespace-normalised, comments stripped; function body EQUALS);
+   (ii) the file is new: no old blob exists; the callers of ATRMT4 are none (grep); the Zorro include folder has no ATRMT4 (grep, recorded);
+   (iii) reference.py reproduces this file's conditioning values, floors, effects, [findings] and IMP fire-test numbers to <= 1e-9 relative (an
+        absolute 1e-15 for values below 1e-6). Every number is stored at full precision. Each inline control body is checked at run time, not by
+        reading: IMP must_pass replays every variant with its own model (pass item 6);
+   (iv) generator --lint-only passes on this file (D2 windows ok, every required margin >= 10x; after stage 2 also the include resolves and the
+        no-static check passes);
+   (v) no-static lint: indicators/nnfx/ATR.c contains no `static` token (comments excluded); the check is seen to fire on the NCS body (1 hit:
+        ats_prev). Recorded here and in the results header (INFO L_NO_STATIC line);
+   (vi) a series() whose length is an expression (series(0, Length + 2)) compiles in Light-C and allocates one slot per call (stage 2; STOP
+        if refused: fixed-bound fallback in [corrected_code].notes);
+   (vii) the conditioning classification recomputed by the tooling (checker.conditioning_table: same seed, draw order and bound) equals the INFO
+        lists of [expected.AT14.conditioning] and [expected.AT20.conditioning] (both empty: checker.conditioning_mismatches = []); a mismatch is a STOP;
+   (viii) the NCS replay order is taken from the generated script (the call lines in text order), not from the input list (MAF lesson 1)."""
+
+# ----------------------------------------------------------------------------- observations (INFO only)
+[observations]
+O_MARGIN = "Report the generator's D2 INFO lines (floor x10 vs tolerance per kind; per-control margin) in the results header."
+O_CONDITIONING = "(b) Rule 3 classification ([expected.*.conditioning], both variants): every (input, column) pair CHECKED, none INFO. Largest: tr 4.441e-16 (every point sine, ramp and flat), atr 3.965e-16 (AT14 flat) / 3.442e-16 (AT20 flat); bound 1e-13 (planning item 1, reproduced; the copies sc40B / of40B are classified by the tooling only)."
+O_KNOWN = "(b) Known answers (planning item 2, reproduced): flat 0 (diff 0), flatB / rampB / rampdnB 2h = 4e-4 (<= 4.407e-17), ramp / rampdn 1e-4 (<= 1.118e-17), rows >= P; rows 0..P-1 exactly 0 on every input; start-up s20 AT14 ATR[14] = 0.002107897511639391, AT20 ATR[20] = 0.0020000000000000018."
+O_BOUNDS = "(b) Bounds (planning item 3, reproduced): atr >= 0 (min 0), tr - (H - L) >= 0 (min 0), window hull violation 0 on every input and copy."
+O_NCS = "(b) NCS / NCS2 (two instances, 32 shared calls per bar in the generator's variant-major order = per bar NCS on the 16 inputs in the script's order, then NCS2): min over (instance, input) of max |control - AT14| over all rows = 0.0025700975339346807 in the GENERATED order (parsed from the script text; test_generator_atr). For comparison: the input-major order over the same 16 inputs gives 0.0028060272811000647; the planning chat's two ASSUMED orders (its own input-list order, which differs from the script's band_inputs order) gave 2.581e-03 (instance-major) and 3.265e-03 (input-major): the number depends on the order, which is why it is taken from the script. Every (instance, input) is far above 10 x the trace tolerance. Source: tests/atr_support.numbers()[ncs]."
+O_BLIND = "(b) Blind spots (planning item 6, reproduced): NCW and NC0 are blind on flat only; NCWi on every constant-TR input (flat, flatB, ramp, rampB, rampdn, rampdnB: Wilder = SMA there); NCR on flat, flatB, rampB, rampdnB (C[1] inside the bar); NCZ on flat only and only on rows 1..13 (a trace from row 1 sees it, the known answers start at row P)."
+O_IMP_RESIDUAL = "Report the IMP residual per real variant (checked pairs) and the Zorro-vs-model residual per kind per real variant (the measured floor). (b) A perfect run printed with %.15f: see [imp.fire_test.exported_x_15f]."
+O_STATICS_RESET = "(b) The generated script's own statics (atr_n, atr_done, atr_hdr, atr_rows) are reset at INITRUN. The NCS body's static ats_prev is not (it is called only after INITRUN returns): restart Zorro before a rerun ([run_notes])."
+
+# ----------------------------------------------------------------------------- run notes
+[run_notes]
+rerun = "(b)/(c) Restart Zorro before any rerun of the generated script: the NCS body's static ats_prev persists across [Test] presses of a loaded script and the generated script returns at INITRUN before any indicator call, so no INITRUN reset of it can run; a second press would start NCS / NCS2 from the previous run's last state (as RFX A2.4 / LRS A1.3 / FSH A1.3 / MAF A1.3)."
+folder = "Zorro's script folder must point at the repo's strategies/tests/ (Script dropdown, [Change Folder]); the script is GEN_ATR_MT4 (written by the generator in stage 2). Expect no line starting with `Error` in the Zorro window."
+
+# ----------------------------------------------------------------------------- real-data cross-check (S8, AT-5): a separate script, stage 2
+[cross_check]
+script = "strategies/tests/XCHK_ATRMT4_vs_ATRS.c"
+asset = "EUR/USD D1 (dev set), Zorro history, LookBack >= 100"
+per_bar = "ATRMT4(series(priceHigh(), 16), series(priceLow(), 16), series(priceClose(), 16), 14) and ATRS(14), both called unconditionally on every bar"
+export = "date, both values, |diff|, |diff| / ATRS"
+criterion = "(c) On rows >= 100 of the export, max relative |diff| <= 1e-9. Both read the same stored prices; ATRS's internal precision and start-up are not documented (manual), so the threshold is not the 1e-12 trace tolerance; rows < 100 are excluded for the undocumented start-up."
+on_miss = "(c) A miss is a finding to explain (e.g. a different TR at a weekend gap or a float accumulation), reported before the ATR spec's result is accepted; it does not change the synthetic verdict."
+variants = 1
+
+# ----------------------------------------------------------------------------- amendments
+# (none)
