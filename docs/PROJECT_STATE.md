@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-21 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) source review done 2026-11-21; next: ATR(14) for the template stops (UltimateChannelBands / NATR deferred, off critical path))
+**As of:** 2026-11-21 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); next: Phase 1 step 4, the NNFX template)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -37,7 +37,7 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 | Oscillators | CyberCycle, Elegant Oscillator, Inverse Fisher, COG, RSIH, Laguerre Osc | Not reviewed |
 | Zero-lag / noise | InstantTrendline, DominantCycle, Recursive Median, RMO, Alpha-Beta, Correlation Cycle | Not reviewed |
 | Failed | ELI | Documented FAIL |
-| Volatility | ATR(14) (new file; MT4 definition) | **Source review 2026-11-21**, `docs/harness/ATR_SOURCE_REVIEW.md` (model `ATR_REVIEW_MODEL.py`). The NNFX stop and five other template rules use ATR(14) (NNFX_Sources A §2.1, §4; B §1-2); "default settings" read from MetaQuotes' installed `ATR.mq4` (sha256 `134da529…` / `c5c680c4…`, year-only difference): TR = max(H, C[1]) - min(L, C[1]), ATR = simple 14-bar mean of TR (running sum), 0 on rows 0..13, row 14 = mean TR[1..14]. Zorro's `ATR()` is Wilder's form (manual), `ATRS()` = the MT4 SMA. Decided (user): MT4 ATR(14) default, own harness-verified file (AT-1..AT-7); Wilder only as a counted variant. (c) iATR built-in not compared on a chart (recorded). No code, no spec yet |
+| Volatility | ATR(14), MT4 definition (`indicators/nnfx/ATR.c`, `ATRMT4Core` / `ATRMT4`; not Ehlers, new folder) | **Verified 2026-11-22.** Source: MetaQuotes `ATR.mq4`, installed copy (sha256 `134da529…` / `c5c680c4…`, year-only difference), NNFX "ATR 14, default settings" (NNFX_Sources A §2.1, B §1.4; the MT4 identification is (c), review §2): TR = max(H, C[1]) - min(L, C[1]); ATR = simple Length-bar mean of TR as a running sum; 0 on the instance's rows 0..Length-1, row Length = mean TR[1..Length]. Zorro's `ATR()` is Wilder's form (manual) and is NOT this; `ATRS()` is. Review `docs/harness/ATR_SOURCE_REVIEW.md` (`e11270a`, AT-1..AT-7); tooling `2957476`; spec `ATR_MT4Fidelity.toml` (`bd62493`) + Amendment 1 (`5c5d700`, pre-run probe `PROBE_SeriesExprLen` PASS: `series(0, Length + 2)` compiles and allocates per call) + Amendments 2-3. **Run 1 PASS** (`5250bfb`): 90/90 real checks (AT14 the template, AT20), 7/7 controls detected (142 FAIL rows: NCW 21, NC0 21, NCWi 11, NCR 26, NCZ 15, NCS 24, NCS2 24), IMP 9/9 (<= 2.694e-15) + must_fail, floor 6/6; 9 variants. Zorro vs the source model <= 5.0e-16, start-up included; known answers exact. Read twice, AGREE on every item (prediction `348838b`; one prediction-side error disclosed and fixed before it was committed). **Real-data cross-check vs Zorro `ATRS(14)`, EUR/USD D1 2009-2023: PASS**, max relative 1.724e-14 over 3633 bars (pre-registered <= 1e-9; Amendment 3). (b) A 14- vs 15-bar window differs by 2-8% of the ATR level; Wilder vs this up to 2-4% on band sines (0 when TR is constant); the first Length bars are 0: a strategy's LookBack must cover Length + 1 bars (c) |
 | Volatility | NATR, Ultimate Channel/Bands, VolatilityRegime | Not reviewed. **Deferred 2026-11-21, off the first template's critical path:** no channel / band stop in NNFX_Sources; NATR here is `100 * UltimateSmootherE(TR, 20) / Close` (`UltimateChannelBands.c` out-parameter), not ATR(14); possible volume / volatility slot candidates later (ATR review §1) |
 
 ### 1.2 Previous slot decisions — made on indicator-level evidence only
@@ -53,10 +53,10 @@ indicators through the new test harness — not settled answers.
 | Baseline | FAMA (MAMA's second output, (.5, .05)) — verified 2026-11-21 | FRAMA (N = 32; source default 16) — verified 2026-11-21 | Crossover counts, 10y EUR/USD D1 |
 | C1 | Fisher (10) — verified 2026-11-20 (source A; saturates on long cycles) | MESA Stochastic (20,48,10) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | Indicator metrics |
 | C2 | Reflex — flagged; verified 2026-11-18 (not zero-lag at T = L, §1.1) | Laguerre RSI (gamma 0.5) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | C-3b (backtest) never run |
-| Stops / vol | ATR(14), MT4 definition (stop 1.5 x ATR) — source review 2026-11-21, not yet built | same | NNFX_Sources (A §4, B §2); decided 2026-11-21 (was Ultimate Channel, NATR from Week 13: deferred) |
+| Stops / vol | ATR(14), MT4 definition (stop 1.5 x ATR) — verified 2026-11-22 (run 1 PASS + ATRS cross-check) | same | NNFX_Sources (A §4, B §2); decided 2026-11-21 (was Ultimate Channel, NATR from Week 13: deferred) |
 | Exit | — | — | Never defined |
 
-Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochastic 2026-11-19). Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair is fully verified too, as Strategy 2's (MESA Stochastic + Laguerre RSI). The baselines are verified too (FAMA and FRAMA, 2026-11-21), so **every slot indicator of both strategies except ATR(14) for the stops (source review 2026-11-21, not yet built) and the exit is now verified**.
+Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochastic 2026-11-19). Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair is fully verified too, as Strategy 2's (MESA Stochastic + Laguerre RSI). The baselines are verified too (FAMA and FRAMA, 2026-11-21), so **every slot indicator of both strategies except the exit (none defined) is now verified (ATR(14) for the stops verified 2026-11-22)**.
 
 ### 1.3 Infrastructure
 
@@ -283,7 +283,15 @@ file's first rows exactly.
    installed `ATR.mq4` (simple 14-bar mean of TR, defined start-up), not from memory; Zorro's `ATR()` is Wilder's form, `ATRS()` the MT4 SMA. Review
    `docs/harness/ATR_SOURCE_REVIEW.md` + `ATR_REVIEW_MODEL.py` (AT-1..AT-7). (b) Spec-relevant: band bars with h above every per-bar move make TR constant and
    blind the averaging (s100: SMA = Wilder exactly); a 14- vs 15-bar window differs by 2-8% of the ATR level at every tested period.
-   **Next: ATR(14) stage 1** (new `ATR.c` with `(High, Low, Close, Length)` signature, spec, controls; harness family D7 or a small D8, spec decides).
+   **ATR(14): run 1 PASS 2026-11-22** (branch `harness-atr`; details §1.1, HARNESS_DESIGN "D7 applied to ATR"). Review `e11270a`, tooling `2957476`, spec `bd62493`,
+   ATR.c + probe + cross-check scripts + Amendment 1 `5c5d700`, prediction `348838b`, results + Amendment 2 `5250bfb`, cross-check record Amendment 3. New in this spec:
+   D7 on a price-scale output (column role `scale`, `window_hull`, `known_value`, `range_bound`), a planted shared-state control (no superseded file), a pre-run
+   probe for a condition only Zorro can answer, and a pre-registered real-data cross-check against a platform built-in (`ATRS(14)`: PASS, 1.7e-14 relative).
+   Read twice: AGREE on every item. Tooling 950/950 (Git Bash). Raw sha256 `4f22e7c1…a441`, cross-check `8db8141c…16f4` (local copies).
+   **Every slot indicator of both strategies is now verified except the exit, which has never been defined.**
+   **Next: Phase 1 step 4, the generic NNFX template.** Open decisions before building (to take from the sources, not memory): (a) the exit slot (NNFX_Sources
+   A §2.6: with no exit indicator, use an opposite C1 signal [V12]); the volume / volatility slot (none chosen; NATR and VolatilityRegime are unreviewed
+   candidates, §1.1); the source gaps that affect coding (one-candle rule, fill model, TP1 touch vs close: NNFX_Sources "Open gaps" and A §10 / B §11).
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
