@@ -17,6 +17,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | T9 | Continuation trades (C2, reset, after a stop-loss exit) | Decided 2026-11-22 |
 | T10 | Baseline catch-up window; pullback details (A2, A5) | Decided 2026-11-22 |
 | T11 | No magic numbers: parameters and sensitivity | Decided 2026-11-22 |
+| M-D1..M-D4 | Zorro mechanics decisions (from `ZORRO_TRADE_MECHANICS.md`) | All decided 2026-11-22 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
@@ -289,3 +290,72 @@ value of ~12 parameters would be a multi-dimensional optimisation on dev (overfi
    next candle is checked, all slots re-evaluated incl. volume (c); it must still be
    on the right side and within 1 x ATR, else no trade for that cross; no later
    catch-up for that cross [V28].
+
+## M-D1 — Daily bar close time (decided 2026-11-22, user: accept)
+
+- (a) Daily bars "start and end at BarZone midnight plus BarOffset"; defaults UTC and
+  BarOffset 940 = 15:40 UTC for daily bars; `BarZone = EST` = New York with daylight
+  saving (Zorro 3.11 manual, barperiod.htm, assetzone.htm). VP's daily close: 2 pm
+  Pacific = 17:00 New York (A17).
+- (b) No repo script sets BarOffset / BarZone: every D1 bar used so far closed at
+  15:40 UTC. Indicator verifications unaffected (synthetic inputs; ATR cross-check on
+  identical bars).
+- (c) 17:00 New York bars match VP's and most FX charts; the week starts cleanly at the
+  Sunday open.
+
+**Decision.** Variant 0: `BarZone = EST; BarOffset = 17*60;` as named config parameters
+(T11). Probe P4 checks bar timestamps across a DST change. With T4, entries fall at
+17:00 New York, VP's widened-spread hour, covered by T7's x2 check.
+
+## M-D2 — Slippage (decided 2026-11-22, user: accept)
+
+- (a) `Slippage`: "Simulated slippage in seconds (default = 5)", effective in [Test],
+  "estimated by extrapolation of the next candle"; "recommended to test systems with and
+  without slippage" (Zorro 3.11 manual, spread.htm).
+- (b) Its size on daily bars is not stated; measurable by a run with and without it.
+  With Slippage = 0, costs are exactly the asset-list spread and rollover
+  (hand-calculable: T7 guard, probes P1 / P5).
+- (c) Rough size: with ~70 pips daily movement and random-walk scaling,
+  70 x sqrt(5 / 86400) ~ 0.5 pip, similar to the 0.8-pip spread and ~0.4% of a
+  120-pip stop. Zorro's extrapolation formula is not given, so this is an estimate only.
+
+**Decision.** Variant 0: `Slippage = 0` (named config parameter). The manual default
+of 5 s is a T11 sensitivity level run with every result. T7's x2 spread remains the
+cost stress.
+
+## M-D3 — Breakeven due while the close is already beyond entry (decided 2026-11-22, user: accept)
+
+- (a) VP: after TP1 the remainder's stop goes to entry, at the daily check [M6, C22].
+  Zorro 3.11: "When the Stop is moved inside the price range of the current bar or tick,
+  the trade will be immediately closed" (stop.htm); price and timing under Fill = 3 not
+  stated.
+- (b) Frequency countable per run (needs a > 1 x ATR intrabar reversal). Zorro's
+  behaviour if the stop is set anyway: unknown until probe P2.
+- (c) At a broker, a stop beyond the market is rejected or executes at market: the
+  realistic outcome is "the runner exits now".
+
+**Decision.** Option 1: the template detects the case at the close and exits the runner
+at the next open (same handling as other close-decided exits, T5.5), without relying on
+Zorro's out-of-range stop behaviour. Count of such events reported per run. The trailing
+stop cannot cause it (always 1.5 x ATR behind a close).
+
+## M-D4 — Asset list and account currency (decided 2026-11-22, user: accept)
+
+- (a) Zorro uses `AssetsFix.csv` unless `assetList()` names another file; costs and
+  PIPCost come from the loaded list (Zorro 3.11 manual, spread.htm, asset.htm).
+- (b) EUR/USD row by list: AssetsFix (2026-06-01) 0.8 pip, no EUR/JPY row;
+  AssetsForex (2025-07-28) 1.2 pip, all 28 FX pairs incl. EUR/JPY; AssetsOanda
+  (2026-05-20) 0.5 pip; AssetsDarwinex (2020-07-04) 0.5 pip + commission 0.5. Rollover
+  values differ between lists, sometimes in sign.
+- (c) The default list cannot run the dev set (no EUR/JPY). Account currency inferred
+  from PIPCost: EUR for AssetsFix / AssetsForex / AssetsDarwinex, USD for AssetsOanda.
+
+**Decision.**
+1. Project copy `config/assets/AssetsNNFX_FX.csv` = byte copy of AssetsForex.csv
+   (provenance and sha256 in `config/assets/README.md`), loaded explicitly with
+   `assetList()`; its costs are written into every results header.
+2. Account currency EUR, starting capital 100,000 EUR. This amends T8's wording
+   ("$100,000"), not its substance; comparisons are in R (T8.4).
+3. A cheaper list (Oanda / Darwinex spreads) is a later T11 sensitivity level.
+BTC/USD is not in the list; crypto handled separately later (no daily NNFX BTC run planned;
+BTC data also missing, ZORRO_TRADE_MECHANICS §9).
