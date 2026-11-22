@@ -201,7 +201,7 @@ def own_model_outputs(path):
     out, shared = {}, {}
     for v in cs["variants"]:
         m = ms[v["id"]]
-        if isinstance(m, (R.MamaShared, R.FramaShared)):
+        if isinstance(m, (R.MamaShared, R.FramaShared, R.AtrShared)):
             key = (type(m).__name__, m[0])
             if key not in shared:
                 shared[key] = C.adaptive_shared_outputs(cs, m, x, bars)

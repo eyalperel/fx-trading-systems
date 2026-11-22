@@ -201,6 +201,8 @@ def _adaptive_inputs(spec):
     for t in spec["ts"]:
         x["s%d" % t] = spec["level"] + spec["amp"] * np.sin(2 * math.pi * n / t)
     x["ramp"] = spec["level"] + spec["slope"] * n
+    if "rampdn" in ad["base"]:                                  # ATR stage 1: [inputs].ramp_down
+        x["rampdn"] = spec["level"] - spec["slope"] * n
     for i in ad["band"]:
         x[i] = x[i[:-1]].copy()
     for c in ad["copies"]:
@@ -541,13 +543,17 @@ def _kind(check_id):
         return "equivariance"
     if tail.startswith("hull"):                      # MAF (D7): out within the running [min x, max x]
         return "hull"
+    if tail.startswith("whull"):                     # ATR: column within [min, max] of the TR window of length P
+        return "window_hull"
+    if tail.startswith("known"):                     # ATR: column equals a pre-registered constant on rows >= the window
+        return "known_value"
     return "lag" if tail.startswith("ramp") else "flat"
 
 
 def _extra_kinds(spec):
     """D4 kinds enabled by the spec (tolerance present), in report order."""
     return [k for k in ("phase", "resid", "startup", "trace", "bound", "invariance", "ramp_exact", "trigger", "flat_zero",
-                        "equivariance", "hull")
+                        "equivariance", "hull", "window_hull", "known_value")
             if spec.get("tol_" + k) is not None]
 
 
@@ -1102,12 +1108,15 @@ def adaptive_n_checks(spec, v):
     info = {tuple(p) for p in v["info_pairs"]}
     n = sum((i, c) not in info for i in adaptive_traced(spec) for c in cols)
     n += sum(c in cols for c in v["bounds"])
+    n += sum(c in cols for c in ad.get("range_bound", ()))
+    n += sum(c in cols for c in ad.get("window_hull", {}))
     n += 1 if any(c in cols for c in ad["hull"]) else 0
     if v.get("equivariance"):
         n += sum(1 for cp in ad["copies"] if cp["base"] in ad["eq_inputs"]) * len(cols)
     n += sum(1 for c, i in ad["ramp_exact"].items() if c in cols and i in vin)
     n += sum(1 for c, i in ad["ramp_lag"].items() if c in cols and i in vin)
     n += sum(1 for c in ad["flat"] if c in cols and "flat" in vin)
+    n += sum(1 for c, m_ in ad.get("known_value", {}).items() if c in cols for i in m_ if i in vin)
     return n
 
 
@@ -1166,7 +1175,45 @@ def adaptive_rows(spec, v, x, bars, ov):
         side, bnd, val, exc = max(sides, key=lambda t: t[3] / abs(t[1]) if t[1] else (float("inf") if t[3] else 0.0))
         r = _orow(spec, v, "bound-%s" % c, "%s over rows n>=%d of %d inputs: min %r, max %r vs [%s, %s]; %s side reported (relative "
                   "allowance)" % (c, f0, len(arrs), bot, top, repr(s.get("lo", "-inf")), repr(s.get("hi", "inf")), side),
-                  bnd, val, abs(bnd) * spec["tol_bound"], exc)
+                  bnd, val, abs(bnd) * spec["tol_bound"] + spec.get("tol_bound_abs", 0.0), exc)
+        r["tgroup"] = ""
+        rows.append(r)
+    for c in ad.get("range_bound", ()):                          # ATR: column >= High - Low on rows >= 1 (row 0 has no previous close)
+        if c not in cols:
+            continue
+        bots = []
+        for i in vin:
+            H_, L_ = bars[i]
+            z = ov.get(c, {}).get(i)
+            if z is not None:
+                bots.append(float(np.min(z[1:] - (H_[1:] - L_[1:]))))
+        ok = bool(bots) and len(bots) == len(vin) and all(math.isfinite(b_) for b_ in bots)
+        bot = min(bots) if ok else nan
+        r = _orow(spec, v, "bound-%s-range" % c, "%s - (High - Low) over rows n>=1 of %d inputs: min %r, must be >= 0 (absolute allowance)"
+                  % (c, len(vin), bot), 0.0, bot, spec.get("tol_bound_abs", 0.0), max(0.0, -bot) if ok else nan, res=None if ok else "ERROR")
+        r["tgroup"] = ""
+        rows.append(r)
+    for c, of in ad.get("window_hull", {}).items():              # ATR: column within [min, max] of `of` over the last window rows, rows >= window
+        if c not in cols:
+            continue
+        w0 = v["window"]
+        worst, where, ok = 0.0, "", True
+        for i in vin:
+            t_ = ov[of][i] if of in cols else getattr(adaptive_out(model, x[i], *bars[i]), of)
+            sw = np.lib.stride_tricks.sliding_window_view(t_, w0)          # sw[k] = t_[k .. k+w0-1]: row r = k + w0 - 1
+            lo_, hi_ = sw.min(axis=1)[1:], sw.max(axis=1)[1:]              # rows r = w0 .. N-1
+            a_ = ov[c][i][w0:]
+            e_ = np.maximum(np.maximum(lo_ - a_ - np.abs(lo_) * spec["tol_window_hull"], a_ - hi_ - np.abs(hi_) * spec["tol_window_hull"]),
+                            0.0)
+            if not np.all(np.isfinite(e_)):
+                ok = False
+                break
+            if float(np.max(e_)) > worst or not where:
+                worst, where = max(worst, float(np.max(e_))), "%s n=%d" % (i, w0 + int(np.argmax(e_)))
+        tol_ = spec.get("tol_window_hull_abs") or spec["tol_window_hull"]
+        r = _orow(spec, v, "whull-%s" % c, "%s within [min, max] of %s over the last %d rows, rows n>=%d of %d inputs; largest net excess at "
+                  "%s (relative allowance %g x the violated bound, then absolute)" % (c, of, w0, w0, len(vin), where, spec["tol_window_hull"]),
+                  0.0, worst if ok else nan, tol_, worst if ok else nan, res=None if ok else "ERROR")
         r["tgroup"] = ""
         rows.append(r)
     hc = [c for c in ad["hull"] if c in cols]
@@ -1201,13 +1248,15 @@ def adaptive_rows(spec, v, x, bars, ov):
                     rows.append(_arow(spec, v, cid, "%s: no column" % c, 0.0, nan, "equivariance", c, nan, res="ERROR"))
                     continue
                 lvl = c in ad["level_columns"]
-                ref = tr["scale"] * b_[f0:] + tr["offset"] if lvl else b_[f0:]
+                scl = c in ad.get("scale_columns", ())              # ATR: copy = |k| x base, the offset has no effect
+                ref = tr["scale"] * b_[f0:] + tr["offset"] if lvl else (abs(tr["scale"]) * b_[f0:] if scl else b_[f0:])
                 dev = np.abs(y[f0:] - ref)
                 fin = bool(np.all(np.isfinite(dev)))
                 k = int(np.argmax(dev)) if fin else 0
                 d = float(dev[k]) if fin else nan
                 rows.append(_arow(spec, v, cid, "%s %s vs %s %s, rows n>=%d (max at n=%d)" % (
-                    c, cp["id"], "%r x %s %s + %r" % (tr["scale"], c, cp["base"], tr["offset"]) if lvl else c, "" if lvl else cp["base"],
+                    c, cp["id"], ("%r x %s %s + %r" % (tr["scale"], c, cp["base"], tr["offset"]) if lvl else (
+                        "%r x %s %s (scale role)" % (abs(tr["scale"]), c, cp["base"]) if scl else c)), "" if (lvl or scl) else cp["base"],
                     f0, f0 + k), float(ref[k]) if fin else nan, float(y[f0 + k]) if fin else nan, "equivariance", c, d))
     for c, i in ad["ramp_exact"].items():
         if c in cols and i in vin:
@@ -1227,6 +1276,19 @@ def adaptive_rows(spec, v, x, bars, ov):
             dev = np.abs(ov[c]["flat"] - spec["level"])
             rows.append(_arow(spec, v, "flat-%s" % c, "%s flat: must equal the level on every row" % c, spec["level"],
                               float(ov[c]["flat"][int(np.argmax(dev))]), "flat", None, float(np.max(dev))))
+    for c, m_ in ad.get("known_value", {}).items():              # ATR: column == constant on rows >= the table's window
+        if c not in cols:
+            continue
+        for i, val in m_.items():
+            if i not in vin:
+                continue
+            w0 = v["window"]
+            dev = np.abs(ov[c][i][w0:] - val)
+            fin = bool(np.all(np.isfinite(dev)))
+            k = int(np.argmax(dev)) if fin else 0
+            rows.append(_arow(spec, v, "known-%s-%s" % (c, i), "%s %s must equal %r on every row n>=%d (row furthest from it: n=%d)"
+                              % (c, i, val, w0, w0 + k), val, float(ov[c][i][w0 + k]) if fin else nan, "known_value", None,
+                              float(dev[k]) if fin else nan))
     fi = ad.get("flat_info")
     if fi and v["role"] == "real" and "flat" in vin:
         f0 = fi["from_n"]
@@ -1297,6 +1359,9 @@ def adaptive_shared_outputs(spec, model, xs, bars):
     slots = adaptive_shared_slots(spec, model)
     if isinstance(model, R.MamaShared):
         sims = R.simulate_mama_shared([(_pv(p[0]), _pv(p[1])) for _, _, p in slots], [xs[i] for _, i, _ in slots])
+    elif isinstance(model, R.AtrShared):
+        sims = R.simulate_atr_shared([p for _, _, p in slots], [xs[i] for _, i, _ in slots],
+                                     [bars[i][0] for _, i, _ in slots], [bars[i][1] for _, i, _ in slots])
     else:
         sims = R.simulate_frama_shared([p for _, _, p in slots], [xs[i] for _, i, _ in slots],
                                        [bars[i][0] for _, i, _ in slots], [bars[i][1] for _, i, _ in slots])
@@ -1327,7 +1392,7 @@ def adaptive_imp_rows(spec, raw):
             per, per_info = {}, {}
             if maker is not None:
                 model = maker()
-                if isinstance(model, (R.MamaShared, R.FramaShared)):
+                if isinstance(model, (R.MamaShared, R.FramaShared, R.AtrShared)):
                     key = (type(model).__name__, model[0])
                     if key not in cache:
                         cache[key] = adaptive_shared_outputs(spec, model, xs, bars)
@@ -1362,7 +1427,7 @@ def adaptive_floor_quantities(spec):
     'kind:column' key per column override (e.g. trace:phase)."""
     out = []
     for q in spec["adaptive"]["kinds"]:
-        if q in ("bound", "hull"):
+        if q in ("bound", "hull", "window_hull"):
             continue
         out.append((q, spec["tol_" + q] / 10))
         out += [("%s:%s" % (q, c), t / 10) for c, t in sorted(spec.get("tolcols_" + q, {}).items())]

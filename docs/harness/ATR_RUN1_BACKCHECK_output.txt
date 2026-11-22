@@ -1,0 +1,42 @@
+raw GEN_ATR_raw_run1.csv: 3000 rows, 304 columns; n from 0 to 2999
+INPUT GUARD max |exported - integer-built| = 4.441e-16 (tol 1e-12): PASS
+
+AT14: 45 checks, 45 PASS
+   trace         n=32  max 5.000e-16 (atr:s10B)
+   bound         n= 2  max 6.695e-17 (tr>=H-L)
+   window_hull   n= 1  max 0.000e+00 (atr in TR window)
+   known_value   n= 6  max 0.000e+00 (atr:rampdnB)
+   equivariance  n= 4  max 6.002e-15 (tr:sc)
+
+AT20: 45 checks, 45 PASS
+   trace         n=32  max 4.996e-16 (atr:s5B)
+   bound         n= 2  max 6.695e-17 (tr>=H-L)
+   window_hull   n= 1  max 0.000e+00 (atr in TR window)
+   known_value   n= 6  max 0.000e+00 (atr:rampdnB)
+   equivariance  n= 4  max 6.002e-15 (tr:sc)
+
+REAL CHECKS: 90 / 90 PASS
+
+CONTROLS (vs the AT14 model; FAIL checks per kind; max ratio to tolerance)
+   NCW   FAIL checks  21 | trace 15 (7.67e+09 x)  bound 0 (6.69e-02 x)  window_hull 1 (3.83e+12 x)  known_value 5 (4.00e+08 x)
+   NC0   FAIL checks  21 | trace 15 (2.74e+08 x)  bound 0 (6.69e-02 x)  window_hull 1 (3.51e+10 x)  known_value 5 (2.86e+07 x)
+   NCWi  FAIL checks  11 | trace 10 (1.87e+08 x)  bound 0 (6.69e-02 x)  window_hull 1 (6.10e+10 x)  known_value 0 (0.00e+00 x)
+   NCR   FAIL checks  26 | trace 24 (1.18e+10 x)  bound 0 (6.69e-02 x)  window_hull 0 (0.00e+00 x)  known_value 2 (1.00e+08 x)
+   NCZ   FAIL checks  15 | trace 15 (9.71e+09 x)  bound 0 (6.69e-02 x)  window_hull 0 (0.00e+00 x)  known_value 0 (0.00e+00 x)
+   NCS   FAIL checks  24 | trace 16 (9.04e+09 x)  bound 1 (1.57e+12 x)  window_hull 1 (5.20e+12 x)  known_value 6 (4.49e+09 x)
+   NCS2  FAIL checks  24 | trace 16 (9.26e+09 x)  bound 1 (1.75e+12 x)  window_hull 1 (5.46e+12 x)  known_value 6 (4.01e+09 x)
+
+IMP (own model fed the exported %.15f inputs; must_pass <= 1e-12)
+   AT14  1.380839886877538e-15 (of40B:tr) PASS
+   AT20  1.380839886877538e-15 (of40B:tr) PASS
+   NCW   1.198693921899974e-15 (s20B:tr) PASS
+   NC0   1.198693921899974e-15 (s20B:tr) PASS
+   NCWi  1.198693921899974e-15 (s20B:tr) PASS
+   NCR   9.322512380116610e-16 (s5B:tr) PASS
+   NCZ   1.198693921899974e-15 (s20B:tr) PASS
+   NCS   2.694242398626479e-15 (s5:atr) PASS
+   NCS2  2.620082970028470e-15 (s100B:atr) PASS
+   must_fail AT14 vs Wilder model 1.830629142554713e-03 (detected);  NCS vs AT14 model 9.044766946307133e-03 (detected)
+
+NCS generated-order replay (integer-built inputs) vs raw: max 5.000e-16 (NCS2 s5)
+FLOOR Zorro vs integer-built model, real variants, every column and input: 5.000e-16 (x10 = 5.0e-15 vs tol 1e-12)

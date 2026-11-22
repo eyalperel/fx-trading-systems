@@ -1,0 +1,25 @@
+{
+ "_note": "Baseline taken before the ATR stage 1 tooling edits (code at ddf9776 + e11270a, 2026-11-21): sha256 of every existing spec's generated script text, and of the MAMA / FRAMA own-model evaluation (check_id, result, abs_diff %.3e) and conditioning table. test_generator_atr asserts the current tooling reproduces them.",
+ "conditioning": {
+  "FRAMA_ArticleFidelity.toml": "429252cc70c36564f6adcb7957af2b77bd805aa4a6e32fd79955d507cb39061c",
+  "MAMA_ArticleFidelity.toml": "be626d47c2afa5757192e780541a077f8e84da9de84eff9c323be6e458f4fc27"
+ },
+ "eval": {
+  "FRAMA_ArticleFidelity.toml": "3bc3e920bf32b6be951babba663ab9704b7c1f2bda014e314ea0e13bc142eb7e",
+  "MAMA_ArticleFidelity.toml": "e6b326d628281a6e4457c427369eefb3db0ffe6f6d1afe73cfa6f96c2e80c15c"
+ },
+ "scripts": {
+  "FRAMA_ArticleFidelity.toml": "afa733e2cc186eeb5161ed2fbdbd3c96d5c9524aa6d7ef05ad114942b40db6c3",
+  "FSH_ArticleFidelity.toml": "4429d87d9154778dac10aa160605a9b66e655d69b04462284f3cd9e119526f19",
+  "H1_SuperSmoother2Pole.toml": "8a7069aad05a4b5d4cc186e400ee6f038ae669d55ad9fa03dd90faf697c27244",
+  "HP_ArticleFidelity.toml": "742c7c812f52ecdb7c90dde29fd9920b251bcf2800575d9f085090f562f7c71a",
+  "LRSI_ArticleFidelity.toml": "ef8255712751b0f59db1ce0edcd83052ce7dac80e2c2694b315b453e0d46b443",
+  "MAMA_ArticleFidelity.toml": "ec9296175107826d632a49de330e2f08e6d68c7c0c1e80890c858303b5954adf",
+  "MESA_ArticleFidelity.toml": "623754b7a5ebdd14c08e01b4a3f73c8c217c3048cdf63530e8368a2c9dbd2d7d",
+  "RFF_ArticleFidelity.toml": "17d9009555dfb39b4ac289bcd71a162add3871d19d770dba694cd193a23a0853",
+  "RFX_ArticleFidelity.toml": "bbf9680c9c4739fa087102b0a89888fad1dc4a4a54ef9537b28a59c16c1d83cd",
+  "SS2_ArticleFidelity.toml": "16d9503ccd7fb794faa369239fd26335f9211ad2348474c0ad4add5bf89b1c3b",
+  "SS3_ArticleFidelity.toml": "4b6fbfbf25f754881371ba6f453aa9e3f9880dc2f593cd3b07e54a25659fe54f",
+  "USE_ArticleFidelity.toml": "9e5069e1d3e7b030ef72c40a9c079abaef1bac50dafe27dcb2358be0d0eae47e"
+ }
+}

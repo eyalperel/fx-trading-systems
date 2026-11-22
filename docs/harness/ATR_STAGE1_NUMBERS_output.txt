@@ -1,0 +1,89 @@
+Inputs (16 + 2 copies): flat, flatB, ramp, rampB, rampdn, rampdnB, s5, s5B, s10, s10B, s20, s20B, s40, s40B, s100, s100B; copies sc40B, of40B
+
+===== AT14
+1. Conditioning, all rows, 5 draws, max |perturbed - ref| (bound 1e-13)
+   flat     tr 4.441e-16  atr 3.965e-16  -> checked
+   flatB    tr 0.000e+00  atr 0.000e+00  -> checked
+   ramp     tr 4.441e-16  atr 3.219e-17  -> checked
+   rampB    tr 0.000e+00  atr 0.000e+00  -> checked
+   rampdn   tr 4.441e-16  atr 3.215e-17  -> checked
+   rampdnB  tr 0.000e+00  atr 0.000e+00  -> checked
+   s5       tr 4.441e-16  atr 2.255e-16  -> checked
+   s5B      tr 4.441e-16  atr 2.168e-16  -> checked
+   s10      tr 4.441e-16  atr 1.518e-16  -> checked
+   s10B     tr 4.441e-16  atr 1.240e-16  -> checked
+   s20      tr 4.441e-16  atr 1.065e-16  -> checked
+   s20B     tr 4.441e-16  atr 1.219e-16  -> checked
+   s40      tr 4.441e-16  atr 6.906e-17  -> checked
+   s40B     tr 4.441e-16  atr 7.351e-17  -> checked
+   s100     tr 4.441e-16  atr 6.540e-17  -> checked
+   s100B    tr 4.441e-16  atr 6.516e-17  -> checked
+   max over inputs: tr 4.441e-16, atr 3.965e-16
+2. Known answers, rows >= P (max |diff|); rows 0..P-1 zero
+   flat     expected 0.0                      max diff 0.000e+00  zero rows True
+   flatB    expected 0.0004                   max diff 4.407e-17  zero rows True
+   ramp     expected 0.0001                   max diff 1.102e-17  zero rows True
+   rampdn   expected 0.0001                   max diff 1.102e-17  zero rows True
+   rampB    expected 0.0004                   max diff 4.407e-17  zero rows True
+   rampdnB  expected 0.0004                   max diff 4.407e-17  zero rows True
+   start-up s20 ATR[14] = np.float64(0.002107897511639391) (mean TR[1..14])
+3. Bounds (worst over all inputs): ATR min, TR - (H-L) min, hull violation max (relative)
+   ATR min 0.000e+00; TR-(H-L) min 0.000e+00; hull rel. violation max 0.000e+00
+4. Equivariance s40B, all rows: sc |tr - 10 tr|, |atr - 10 atr|; of |tr - tr|, |atr - atr|
+   sc tr 1.998e-15 atr 4.701e-16; of tr 4.441e-16 atr 6.332e-17
+5. IMP estimate (rounded inputs), max |diff| over every input incl. copies
+   tr 8.882e-16  atr 3.782e-16  (tolerance 1e-12: floor x10 = 8.9e-15)
+6. Control effects vs AT14, max |diff| over all rows (tr | atr)
+   NCW   atr  flat:0.00e+00  flatB:4.00e-04  ramp:1.00e-04  rampB:4.00e-04  rampdn:1.00e-04  rampdnB:4.00e-04  s5:7.47e-03  s5B:7.67e-03  s10:3.66e-03  s10B:3.90e-03  s20:2.11e-03  s20B:2.31e-03  s40:8.51e-04  s40B:1.06e-03  s100:5.50e-04  s100B:7.50e-04
+         tr max 0.000e+00; atr max 7.673e-03 (s5B, 7.7e+09 x tol); blind (<= 10 tol): ['flat']
+         differing rows (first, last) over inputs: [(14, 14), (14, 2999)]
+   NC0   atr  flat:0.00e+00  flatB:2.86e-05  ramp:7.14e-06  rampB:2.86e-05  rampdn:7.14e-06  rampdnB:2.86e-05  s5:2.59e-04  s5B:2.74e-04  s10:2.59e-04  s10B:2.74e-04  s20:1.01e-04  s20B:1.16e-04  s40:5.86e-05  s40B:7.28e-05  s100:2.97e-05  s100B:4.40e-05
+         tr max 0.000e+00; atr max 2.738e-04 (s10B, 2.7e+08 x tol); blind (<= 10 tol): ['flat']
+         differing rows (first, last) over inputs: [(14, 2999)]
+   NCWi  atr  flat:0.00e+00  flatB:0.00e+00  ramp:9.42e-18  rampB:0.00e+00  rampdn:8.58e-18  rampdnB:4.82e-18  s5:1.47e-04  s5B:1.47e-04  s10:1.61e-04  s10B:1.57e-04  s20:1.50e-04  s20B:1.50e-04  s40:1.87e-04  s40B:1.83e-04  s100:1.29e-04  s100B:1.04e-04
+         tr max 0.000e+00; atr max 1.870e-04 (s40, 1.9e+08 x tol); blind (<= 10 tol): ['flat', 'flatB', 'ramp', 'rampB', 'rampdn', 'rampdnB']
+         differing rows (first, last) over inputs: [(15, 2999)]
+   NCR   atr  flat:0.00e+00  flatB:0.00e+00  ramp:1.00e-04  rampB:0.00e+00  rampdn:1.00e-04  rampdnB:0.00e+00  s5:7.89e-03  s5B:7.69e-03  s10:4.08e-03  s10B:3.90e-03  s20:2.27e-03  s20B:2.07e-03  s40:1.27e-03  s40B:1.07e-03  s100:6.08e-04  s100B:4.08e-04
+         tr max 1.176e-02; atr max 7.892e-03 (s5, 7.9e+09 x tol); blind (<= 10 tol): ['flat', 'flatB', 'rampB', 'rampdnB']
+         differing rows (first, last) over inputs: [(14, 2999)]
+   NCZ   atr  flat:0.00e+00  flatB:4.00e-04  ramp:1.00e-04  rampB:4.00e-04  rampdn:1.00e-04  rampdnB:4.00e-04  s5:9.51e-03  s5B:9.71e-03  s10:5.88e-03  s10B:6.08e-03  s20:3.09e-03  s20B:3.29e-03  s40:1.56e-03  s40B:1.76e-03  s100:6.28e-04  s100B:8.28e-04
+         tr max 0.000e+00; atr max 9.711e-03 (s5B, 9.7e+09 x tol); blind (<= 10 tol): ['flat']
+         differing rows (first, last) over inputs: [(1, 13)]
+   NCS (input_major) atr  flat#1:4.49e-03  flat#2:4.49e-03  flatB#2:4.09e-03  ramp#2:4.39e-03  rampB#2:4.09e-03  rampdn#2:4.39e-03  rampdnB#2:4.09e-03  s5#2:9.04e-03  s5B#2:9.77e-03  s10#2:5.82e-03  s10B#2:6.16e-03  s20#1:4.02e-03  s20#2:3.86e-03  s20B#2:3.73e-03  s40#2:3.64e-03  s40B#2:3.27e-03  s100#2:3.92e-03  s100B#2:3.70e-03
+         min over (instance, input) = 3.265e-03
+   NCS (instance_major) atr  flat#1:4.49e-03  s20#1:3.49e-03  flat#2:3.74e-03  flatB#2:3.34e-03  ramp#2:3.64e-03  rampB#2:3.34e-03  rampdn#2:3.64e-03  rampdnB#2:3.34e-03  s5#2:8.65e-03  s5B#2:9.36e-03  s10#2:5.66e-03  s10B#2:5.82e-03  s20#2:3.68e-03  s20B#2:3.71e-03  s40#2:3.54e-03  s40B#2:3.25e-03  s100#2:3.91e-03  s100B#2:3.70e-03
+         min over (instance, input) = 2.581e-03
+
+===== AT20
+1. Conditioning, all rows, 5 draws, max |perturbed - ref| (bound 1e-13)
+   flat     tr 4.441e-16  atr 3.442e-16  -> checked
+   flatB    tr 0.000e+00  atr 0.000e+00  -> checked
+   ramp     tr 4.441e-16  atr 2.256e-17  -> checked
+   rampB    tr 0.000e+00  atr 0.000e+00  -> checked
+   rampdn   tr 4.441e-16  atr 2.259e-17  -> checked
+   rampdnB  tr 0.000e+00  atr 0.000e+00  -> checked
+   s5       tr 4.441e-16  atr 1.752e-16  -> checked
+   s5B      tr 4.441e-16  atr 1.769e-16  -> checked
+   s10      tr 4.441e-16  atr 1.227e-16  -> checked
+   s10B     tr 4.441e-16  atr 1.058e-16  -> checked
+   s20      tr 4.441e-16  atr 7.806e-17  -> checked
+   s20B     tr 4.441e-16  atr 7.459e-17  -> checked
+   s40      tr 4.441e-16  atr 5.096e-17  -> checked
+   s40B     tr 4.441e-16  atr 4.770e-17  -> checked
+   s100     tr 4.441e-16  atr 4.689e-17  -> checked
+   s100B    tr 4.441e-16  atr 4.765e-17  -> checked
+   max over inputs: tr 4.441e-16, atr 3.442e-16
+2. Known answers, rows >= P (max |diff|); rows 0..P-1 zero
+   flat     expected 0.0                      max diff 0.000e+00  zero rows True
+   flatB    expected 0.0004                   max diff 4.407e-17  zero rows True
+   ramp     expected 0.0001                   max diff 1.118e-17  zero rows True
+   rampdn   expected 0.0001                   max diff 1.118e-17  zero rows True
+   rampB    expected 0.0004                   max diff 4.407e-17  zero rows True
+   rampdnB  expected 0.0004                   max diff 4.407e-17  zero rows True
+   start-up s20 ATR[20] = np.float64(0.0020000000000000018) (mean TR[1..20])
+3. Bounds (worst over all inputs): ATR min, TR - (H-L) min, hull violation max (relative)
+   ATR min 0.000e+00; TR-(H-L) min 0.000e+00; hull rel. violation max 0.000e+00
+4. Equivariance s40B, all rows: sc |tr - 10 tr|, |atr - 10 atr|; of |tr - tr|, |atr - atr|
+   sc tr 1.998e-15 atr 4.406e-16; of tr 4.441e-16 atr 4.510e-17
+5. IMP estimate (rounded inputs), max |diff| over every input incl. copies
+   tr 8.882e-16  atr 3.652e-16  (tolerance 1e-12: floor x10 = 8.9e-15)
