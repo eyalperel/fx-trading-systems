@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -132,11 +133,19 @@ class GeneratedScript(unittest.TestCase):
         cls.sp = spec()
         cls.text, cls.bodies = G.build_script(cls.sp)
 
-    def test_lint_issues_are_exactly_the_two_stage2_ones(self):
+    def test_lint_is_clean_now_that_atr_c_exists(self):
+        """Stage 2 (A1.1): indicators/nnfx/ATR.c exists, so L_INCLUDE and L_NO_STATIC (the two stage 1 issues) no longer fire."""
+        self.assertTrue(os.path.exists(os.path.join(A.ROOT, "indicators", "nnfx", "ATR.c")))
         issues = G.lint_script(self.text, self.bodies, allow=G.lint_allowances(self.sp)) + G.no_static_issues(G.no_static_report(self.sp))
+        self.assertEqual(issues, [])
+
+    def test_lint_fires_when_atr_c_is_missing(self):
+        """The two lint rules are seen to fire: the include resolved from an empty folder, the no-static file looked up in an empty root."""
+        with tempfile.TemporaryDirectory() as d:
+            issues = G.lint_script(self.text, self.bodies, include_base=d, allow=G.lint_allowances(self.sp)) \
+                + G.no_static_issues(G.no_static_report(self.sp, root=d))
         self.assertEqual(sorted(r for r, _ in issues), ["L_INCLUDE", "L_NO_STATIC"])
         self.assertTrue(all("ATR.c" in m for _, m in issues))
-        self.assertFalse(os.path.exists(os.path.join(A.ROOT, "indicators", "nnfx", "ATR.c")))        # stage 1 writes no .c file
 
     def test_include_is_the_nnfx_path_and_script_name(self):
         self.assertIn('#include "../../indicators/nnfx/ATR.c"', self.text)
