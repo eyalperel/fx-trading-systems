@@ -10,7 +10,7 @@
 //   .t6 history, dataset load of scripted states (dataParse "%w"), and breakeven set by
 //   TradeStopLimit at a close (first half of P2).
 // Prediction: docs/template/TPL_Probe_Prediction.md, committed before the run.
-// Inputs: History/SYN_A2.t6, SYN_A3.t6, SYN_A2_states.csv, SYN_A3_states.csv
+// Inputs: History/SYN_A2_2024.t6, SYN_A3_2024.t6, SYN_A2_states.csv, SYN_A3_states.csv
 //         (tools/make_scenarios.py --start 2024-03-06 A2 A3); EUR/USD M1 history.
 // Output: Data/TPL_Probe_raw.csv (deleted at INITRUN). After the run copy it to
 //         TPL_Probe_raw_run1.csv. Expect no line starting with "Error" in the window.
@@ -31,7 +31,7 @@ void tp_line(string s)
 // One synthetic scenario on the current bar. Handle = dataset with its states.
 void tp_scen(string name, int handle)
 {
-	asset(name);
+	if(!asset(name)) { tp_line(strf("ASSETFAIL,%s,%i", name, Bar)); return; }
 	int r = dataFind(handle, wdate(0));
 	var c1 = 0;
 	var c1prev = 0;
@@ -77,7 +77,7 @@ function run()
 	Fill = nx_FillMode;
 	Slippage = nx_SlippageSec;
 	LookBack = 0;
-	StartDate = 20240305;
+	StartDate = 20240228;   // 5 warm-up bars before the scenario (Amendment 1)
 	EndDate = 20240315;
 	set(LOGFILE);
 
@@ -105,8 +105,8 @@ function run()
 	tp_scen("SYN_A2", 2);
 	tp_scen("SYN_A3", 3);
 
-	asset("EUR/USD");
-	tp_line(strf("BAR,EUR/USD,%i,%.8f,%.8f,%.15f,%.15f,%.15f,%.15f,0,0,0,0,%i,%i",
+	if(!asset("EUR/USD")) tp_line(strf("ASSETFAIL,EUR/USD,%i", Bar));
+	else tp_line(strf("BAR,EUR/USD,%i,%.8f,%.8f,%.15f,%.15f,%.15f,%.15f,0,0,0,0,%i,%i",
 		Bar, wdate(0), ldate(EST, 0), priceOpen(), priceHigh(), priceLow(), priceClose(), NumOpenLong, NumPendingLong));
 
 	for(all_trades)

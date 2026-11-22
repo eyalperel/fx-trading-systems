@@ -24,3 +24,38 @@ decided on, not argued away.
 Unknowns (recorded, not predicted): whether Zorro creates bars for SYN_A2 / SYN_A3 on days
 without a record (Mar 12-15); whether `TradePriceClose` / `TradeProfit` include anything
 beyond price difference with spread 0; Zorro log warnings about the synthetic assets.
+
+---
+
+## Run 1 — 2026-11-22 18:53 (setup failure; predictions not reached)
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run1.csv` (sha256 `3360997c87aeaeb0…`).
+- (b) Compiled with no compile error. `INFO` row as predicted (item 1): assetList_rc=29,
+  rows_A2=4, rows_A3=3, BarOffset=1020, Fill=3.
+- (b) `Error 047: EUR/USD no 2024 history (History\EURUSD_2024.t6)` and
+  `Error 047: EUR/USD 2024..2024 no data`, although the file is intact (371,157 records,
+  strictly descending, ~1,440 records on 2024-03-06). (a) Zorro 3.11 errors.htm, Error 047:
+  "Don't use ... a part of the data split into years and another part not." The synthetic
+  files were named `SYN_A2.t6` (not year-split): **cause attributed to the generator**
+  (c, confirmed only if run 2 loads EUR/USD).
+- (b) Zorro's first bar is a partial bar ending at the first record (bar 0 stamped
+  03-06 20:59 UTC); the 03-06 and 03-07 records fell into it, so the first full daily bar
+  was 03-08 and the C1 signal (03-07) was never seen: no ENTER, no trades. Items 4-9 not
+  tested.
+- (b) Bars 1 and 2 were stamped Fri 03-08 22:00 UTC and Mon 03-11 21:00 UTC = 17:00
+  New York on both sides of the DST change (item 2's mechanism, seen on synthetic bars).
+- (b) With EUR/USD not loaded, `asset("EUR/USD")` left the previous asset selected and its
+  rows repeated SYN_A3 prices: the probe did not check the return value.
+
+## Amendment 1 — 2026-11-22 (before run 2)
+
+Changes (generator and probe only; rules, expected trades and items 0-9 unchanged):
+1. Synthetic history year-split: `SYN_A2_2024.t6`, `SYN_A3_2024.t6`. The old unsplit files
+   were moved to `History/_to_delete/` (deletion is not enabled from the session).
+2. Five neutral warm-up bars before each scenario (2024-02-28 .. 03-05): close 0.9990 above
+   the baseline, C1 = -1, C2 = +1; they cannot signal. Scenario days unchanged (PRE 03-06,
+   signal 03-07, entry 03-08, A2 runner exit 03-11).
+3. `StartDate = 20240228`.
+4. The probe logs `ASSETFAIL` when `asset()` returns 0.
+Added prediction for run 2: no `ASSETFAIL` rows; EUR/USD bar rows carry EUR/USD prices
+(around 1.08-1.09 in March 2024), not synthetic ones.

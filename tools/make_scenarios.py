@@ -33,6 +33,11 @@ import test_reference_engine as T  # noqa: E402
 NY = ZoneInfo("America/New_York")
 OLE0 = dt.datetime(1899, 12, 30, tzinfo=dt.timezone.utc)
 STAMP_HOUR_NY = 16  # one hour inside the 17:00 New York bar end (M-D1, barperiod.htm)
+# Zorro's first bar is a partial bar ending at the first record (probe run 1, 2026-11-22):
+# neutral warm-up bars before each scenario absorb it. They cannot signal: price flat above
+# the baseline, C1 = -1 (a short would need price below the baseline), C2 = +1.
+PAD_BARS = 5
+PAD = dict(o=0.9990, h=0.9995, l=0.9985, c=0.9990, c1=-1, c2=1, vol=True, ex=0)
 
 
 def f32(x):
@@ -53,18 +58,32 @@ def ole(day):
     return (local.astimezone(dt.timezone.utc) - OLE0).total_seconds() / 86400.0
 
 
+def pad(s):
+    """Prepend PAD_BARS neutral bars; baseline / atr repeat the scenario's first value."""
+    out = dict(s)
+    for k in ("o", "h", "l", "c", "c1", "c2", "vol", "ex"):
+        out[k] = [PAD[k]] * PAD_BARS + list(s[k])
+    for k in ("baseline", "atr"):
+        out[k] = [s[k][0]] * PAD_BARS + list(s[k])
+    return out
+
+
 def build(name, start):
-    s = getattr(T, "s_" + name)()
+    s = pad(getattr(T, "s_" + name)())
     for k in ("o", "h", "l", "c", "baseline", "atr"):
         s[k] = [f32(x) for x in s[k]]
-    days = weekdays(start, len(s["o"]))
+    days = weekdays(start - dt.timedelta(days=7), PAD_BARS + 7)
+    days = [d for d in days if d < start][-PAD_BARS:] + weekdays(start, len(s["o"]) - PAD_BARS)
     return s, days
 
 
 def write(name, s, days, zorro, out):
     hist = os.path.join(zorro, "History")
     n = len(days)
-    with open(os.path.join(hist, f"SYN_{name}.t6"), "wb") as f:
+    # year-split name: Zorro rejects a mix of year-split and unsplit history (errors.htm, Error 047)
+    years = sorted({d.year for d in days})
+    assert len(years) == 1, "a scenario must stay inside one calendar year"
+    with open(os.path.join(hist, f"SYN_{name}_{years[0]}.t6"), "wb") as f:
         for i in reversed(range(n)):
             f.write(struct.pack("<d6f", ole(days[i]), s["h"][i], s["l"][i], s["o"][i], s["c"][i], 0.0, 0.0))
     with open(os.path.join(hist, f"SYN_{name}_states.csv"), "w", newline="") as f:
