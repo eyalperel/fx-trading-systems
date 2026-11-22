@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-21 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; next: stops UltimateChannelBands / NATR)
+**As of:** 2026-11-21 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) source review done 2026-11-21; next: ATR(14) for the template stops (UltimateChannelBands / NATR deferred, off critical path))
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -37,7 +37,8 @@ it does **not** mean the same thing across the library (Week 13/14 finding).
 | Oscillators | CyberCycle, Elegant Oscillator, Inverse Fisher, COG, RSIH, Laguerre Osc | Not reviewed |
 | Zero-lag / noise | InstantTrendline, DominantCycle, Recursive Median, RMO, Alpha-Beta, Correlation Cycle | Not reviewed |
 | Failed | ELI | Documented FAIL |
-| Volatility | NATR, Ultimate Channel/Bands, VolatilityRegime | Not reviewed |
+| Volatility | ATR(14) (new file; MT4 definition) | **Source review 2026-11-21**, `docs/harness/ATR_SOURCE_REVIEW.md` (model `ATR_REVIEW_MODEL.py`). The NNFX stop and five other template rules use ATR(14) (NNFX_Sources A §2.1, §4; B §1-2); "default settings" read from MetaQuotes' installed `ATR.mq4` (sha256 `134da529…` / `c5c680c4…`, year-only difference): TR = max(H, C[1]) - min(L, C[1]), ATR = simple 14-bar mean of TR (running sum), 0 on rows 0..13, row 14 = mean TR[1..14]. Zorro's `ATR()` is Wilder's form (manual), `ATRS()` = the MT4 SMA. Decided (user): MT4 ATR(14) default, own harness-verified file (AT-1..AT-7); Wilder only as a counted variant. (c) iATR built-in not compared on a chart (recorded). No code, no spec yet |
+| Volatility | NATR, Ultimate Channel/Bands, VolatilityRegime | Not reviewed. **Deferred 2026-11-21, off the first template's critical path:** no channel / band stop in NNFX_Sources; NATR here is `100 * UltimateSmootherE(TR, 20) / Close` (`UltimateChannelBands.c` out-parameter), not ATR(14); possible volume / volatility slot candidates later (ATR review §1) |
 
 ### 1.2 Previous slot decisions — made on indicator-level evidence only
 
@@ -52,10 +53,10 @@ indicators through the new test harness — not settled answers.
 | Baseline | FAMA (MAMA's second output, (.5, .05)) — verified 2026-11-21 | FRAMA (N = 32; source default 16) — verified 2026-11-21 | Crossover counts, 10y EUR/USD D1 |
 | C1 | Fisher (10) — verified 2026-11-20 (source A; saturates on long cycles) | MESA Stochastic (20,48,10) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | Indicator metrics |
 | C2 | Reflex — flagged; verified 2026-11-18 (not zero-lag at T = L, §1.1) | Laguerre RSI (gamma 0.5) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | C-3b (backtest) never run |
-| Stops / vol | Ultimate Channel, NATR | same | Week 13 |
+| Stops / vol | ATR(14), MT4 definition (stop 1.5 x ATR) — source review 2026-11-21, not yet built | same | NNFX_Sources (A §4, B §2); decided 2026-11-21 (was Ultimate Channel, NATR from Week 13: deferred) |
 | Exit | — | — | Never defined |
 
-Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochastic 2026-11-19). Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair is fully verified too, as Strategy 2's (MESA Stochastic + Laguerre RSI). The baselines are verified too (FAMA and FRAMA, 2026-11-21), so **every slot indicator of both strategies except stops / volatility (UltimateChannelBands, NATR) and the exit is now verified**.
+Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochastic 2026-11-19). Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair is fully verified too, as Strategy 2's (MESA Stochastic + Laguerre RSI). The baselines are verified too (FAMA and FRAMA, 2026-11-21), so **every slot indicator of both strategies except ATR(14) for the stops (source review 2026-11-21, not yet built) and the exit is now verified**.
 
 ### 1.3 Infrastructure
 
@@ -276,7 +277,13 @@ file's first rows exactly.
    (local copy). Strategy 2's entry pair (MESA C1 + Laguerre RSI C2) is now fully verified.
    **Fisher Transform: run 1 PASS 2026-11-20** (branch `harness-fisher`; details §1.1). Review `bdc83da`, tooling `c1c222e`, spec `258b24a`, corrected .c + superseded control + callers + test `800c797`, Amendment 1 + script `cb93b65`, prediction `6e79c16`, results + Amendment 2 `a6debe0`; merged to main `a9e2ea4` (pushed). New in this spec: no linear stage (the normalisation divides by the range), three exported stages (raw, v1, out) each with an exact bound, a second gate on the clamp distance, kinds trigger and flat_zero, series_len 21, the shared statics are the IIR state so NCT is a real control. Read twice: the checker agreed with the prediction on verdict, counts and every FAIL row; two differences, both explained in Amendment 2 by one prediction-side omission (the back-check's IMP and must_fail loops left out the offset / scale inputs: FR20 IMP 5.262e-12, not 1.474e-12; FR10 must_fail 1.3044958329186862 at of100, not 1.304495832918544 at s100). Raw sha256 `8b8b61a0…9857a` (local copy). Both strategies' C1 indicators are now verified (Fisher, MESA Stochastic); Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair (Fisher C1 + Reflex C2) is fully verified too, as Strategy 2's.
    **MAMA / FAMA and FRAMA: run 1 PASS 2026-11-21** (branch `harness-mama-frama`; details §1.1). Review `b7bdd69`, tooling + specs `7713f5b`, corrected .c + superseded controls + callers + Amendment 1 `d0c9a23`, prediction `8c1e648`, results + Amendment 2 `3f7832f`; merged to main `ddcf11d` (pushed). New in these specs: the D7 family (adaptation variables exported next to the outputs, trace from row 1 with no warm-up cut, equivariance out(kx + c) = k out(x) + c, the hull bound, a conditioning classifier that sets which inputs are INFO), bars inputs for FRAMA (point bars and band bars x +- h), exact pi under D3 (MAMA, S1), explicit `series()` lengths for length-less series under `LookBack = 0` (gotchas 9d.10, open). MAMA: 66/66, 7/7 controls (71 FAIL rows), IMP 11/11 (<= 1.124e-10), floor 8/8, 9 variants. FRAMA: 98/98, 6/6 controls (129 FAIL rows), IMP 10/10 (<= 1.934e-12), floor 10/10, 8 variants. Read twice: the checker agreed with the prediction on verdict, counts, detections and IMP values; only ulp-level trace-maximum differences (<= 4e-15 absolute, MAMA phase / fama, FRAMA FR32 out / alpha), explained in each Amendment 2 A2.2. Raw sha256 MAMA `7c86c370…471e`, FRAMA `12c0e3bf…1d27` (local copies).
-   **Next: stops (UltimateChannelBands, NATR).**
+   **Stops re-scoped to ATR(14), 2026-11-21** (planning chat, user: as recommended). `NNFX_Sources.md` gives ATR-based stops (1.5 x ATR(14), A §4 / B §2.1) and five more
+   ATR rules (TP1, trailing activation and distance, sizing, 1 x ATR baseline distance); no channel / band stop. UltimateChannelBands and NATR are deferred, off the
+   critical path (NATR as coded = 100 x UltimateSmootherE(TR, 20) / Close, not ATR(14)). The averaging behind "ATR 14, default settings" was settled from MetaQuotes'
+   installed `ATR.mq4` (simple 14-bar mean of TR, defined start-up), not from memory; Zorro's `ATR()` is Wilder's form, `ATRS()` the MT4 SMA. Review
+   `docs/harness/ATR_SOURCE_REVIEW.md` + `ATR_REVIEW_MODEL.py` (AT-1..AT-7). (b) Spec-relevant: band bars with h above every per-bar move make TR constant and
+   blind the averaging (s100: SMA = Wilder exactly); a 14- vs 15-bar window differs by 2-8% of the ATR level at every tested period.
+   **Next: ATR(14) stage 1** (new `ATR.c` with `(High, Low, Close, Length)` signature, spec, controls; harness family D7 or a small D8, spec decides).
 4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
