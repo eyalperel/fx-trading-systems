@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); next: Phase 1 step 4, the NNFX template)
+**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); Phase 1 step 4 in progress: template decisions T1-T11 taken 2026-11-22, next the template code)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -54,7 +54,7 @@ indicators through the new test harness — not settled answers.
 | C1 | Fisher (10) — verified 2026-11-20 (source A; saturates on long cycles) | MESA Stochastic (20,48,10) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | Indicator metrics |
 | C2 | Reflex — flagged; verified 2026-11-18 (not zero-lag at T = L, §1.1) | Laguerre RSI (gamma 0.5) — verified 2026-11-19 (0–1 scale; source lines .2 / .8) | C-3b (backtest) never run |
 | Stops / vol | ATR(14), MT4 definition (stop 1.5 x ATR) — verified 2026-11-22 (run 1 PASS + ATRS cross-check) | same | NNFX_Sources (A §4, B §2); decided 2026-11-21 (was Ultimate Channel, NATR from Week 13: deferred) |
-| Exit | — | — | Never defined |
+| Exit | None: opposite C1 signal [V12] (template decision T1, variant 0) | same | Decided 2026-11-22 (`docs/template/NNFX_TEMPLATE_DECISIONS.md`) |
 
 Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochastic 2026-11-19). Strategy 1's C2 (Reflex) was verified 2026-11-18, so Strategy 1's entry pair is fully verified too, as Strategy 2's (MESA Stochastic + Laguerre RSI). The baselines are verified too (FAMA and FRAMA, 2026-11-21), so **every slot indicator of both strategies except the exit (none defined) is now verified (ATR(14) for the stops verified 2026-11-22)**.
 
@@ -292,7 +292,13 @@ file's first rows exactly.
    **Next: Phase 1 step 4, the generic NNFX template.** Open decisions before building (to take from the sources, not memory): (a) the exit slot (NNFX_Sources
    A §2.6: with no exit indicator, use an opposite C1 signal [V12]); the volume / volatility slot (none chosen; NATR and VolatilityRegime are unreviewed
    candidates, §1.1); the source gaps that affect coding (one-candle rule, fill model, TP1 touch vs close: NNFX_Sources "Open gaps" and A §10 / B §11).
-4. Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
+4. [ ] **In progress.** Generic NNFX template with swappable slots and configurable defaults from `NNFX_Sources.md`.
+   **Decisions T1-T11 taken 2026-11-22** (planning chat, one at a time): `docs/template/NNFX_TEMPLATE_DECISIONS.md` (`e1c0cb8`);
+   plain-language summary `docs/template/NNFX_Template_Rules_Plain.md` + printable PDF (`0fad653`). Variant 0: exit slot NONE (opposite
+   C1 [V12]); volume ALWAYS_YES (+ ALWAYS_NO guard stub); next-open fill; stop / TP1 intrabar, same-bar stop first; strict same-candle
+   agreement; costs from the asset list at spread x1 and x2; 2% in two 1% halves, results in R; continuation with C2; catch-up with no
+   day limit; T11 no magic numbers (one-at-a-time pre-registered sensitivity, every level counted). Open: NNFX Podcast Ep 39
+   (one-candle rule) not among the 336 fetched videos, to fetch (T6); Strategy 2's C1 / C2 are both midline crosses, against V20 (T3).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
 
