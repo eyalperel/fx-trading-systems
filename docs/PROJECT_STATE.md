@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-21 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); next: Phase 1 step 4, the NNFX template)
+**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); next: Phase 1 step 4, the NNFX template)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
