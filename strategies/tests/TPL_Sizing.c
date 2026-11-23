@@ -22,7 +22,7 @@
 #include "../template/NNFX_Template.h"
 #include "TPL_Sizing_Scenarios.h"
 
-int tsz_CompileOnly = 1;   // 1: compile check; set 0 for run 1 after the criteria commit
+int tsz_CompileOnly = 0;   // run 1 (criteria committed before the run); compile check done 2026-11-23, clean
 
 void run()
 {
