@@ -181,3 +181,21 @@ Log copied to `C:/Zorro/Data/TPL_Equivalence_log_run3.csv`; checker output to
 Runs of S4 so far: 2 (run 1 FAIL setup, run 2 PASS). This is run 3, a regression run. Variants unchanged
 (5 configurations, 2 mutants on 4 assets).
 
+
+## Run 3 — 2026-11-23 15:08 — PASS, all predictions met (regression after P5)
+
+Commit `3b3d3dd` (Amendment 2). Log `C:/Zorro/Data/TPL_Equivalence_log_run3.csv` (sha256
+`51407d9b0dfda1f4…`); checker output `analysis/template/equivalence/results/TPL_Equivalence_run3.csv`.
+Zorro: `Test: TPL_Equivalence (TICKS) 2024`, `Trades 116`, no Error line.
+
+| # | Prediction | Result (b) |
+|---|---|---|
+| 1 | Verdict as run 2 | RUN PASS: 60/60 real scenarios; 40 ENTRY_ONLY; 4 DOC; controls A6_CM3 / A6M_CM3 2 FAIL rows each, R1_CMF / R1M_CMF 1 each; 0 ERROR / ASSETFAIL rows; Trades 116 |
+| 2 | Checker output byte-identical to run 2 | Byte-identical (`cmp`) |
+| 3 | Log identical to run 2 without HALF columns 15-19 | IDENTICAL; 116 HALF rows, all with 19 columns |
+| 4 | Cost columns (observation) | On all 116 halves: TradeRoll 0, TradeCommission 0, TradeSpread 0, TradeUnits 1000; largest TradeProfit − dir x (exit − entry) x 1000 = 4.8e-7 (tolerance 1e-5) |
+
+(b) The Zorro summary line (Loss -153$, Capital 4671$) is the synthetic batch's P&L and has no meaning.
+
+**Verdict: S4 still PASS after the P5 template changes.** Runs of S4: 3 (run 1 FAIL setup, run 2 PASS,
+run 3 regression PASS). Variants unchanged (5 configurations, 2 mutants on 4 assets).
