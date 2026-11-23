@@ -146,3 +146,38 @@ Observations:
 
 **Verdict: S4 engine equivalence PASS** (2 runs; run 1 FAIL from setup, recorded above).
 Variants: 5 template configurations, 2 planted mutants on 4 assets.
+
+## Amendment 2 — 2026-11-23 (regression run 3, after P5; before the run)
+
+**Why:** the template changed after run 2 (commits after `b3f31f9`, P5): `NNFX_Template.h` gained
+`nx_costs_apply()` (spread level, T7) with two per-asset arrays, and every HALF row gained 5 cost
+columns (TradeProfit, TradeRoll, TradeCommission, TradeSpread, TradeUnits). `TPL_Equivalence.c`
+does not call `nx_costs_apply()` and still sets `Spread = 0`, so (c) no trade should change.
+
+**Inputs checked unchanged (b, 2026-11-23):** `make_scenarios.py ... ALL` regenerated into a scratch
+folder: all 128 `History/SYN_*` files (`.t6` and states) byte-identical to those in `C:/Zorro/History`,
+and the expected folder identical to `analysis/template/equivalence/expected/`. The regenerated header
+differs from the committed `TPL_Equivalence_Scenarios.h` only by two added functions
+(`tple_stem`, `tple_costed`) that this script does not call; the committed header is kept as is.
+
+**Run:** script unchanged except the `tpe_CompileOnly` comment; criteria C0-C7 and tolerance unchanged.
+Log copied to `C:/Zorro/Data/TPL_Equivalence_log_run3.csv`; checker output to
+`analysis/template/equivalence/results/TPL_Equivalence_run3.csv`.
+
+**Prediction (c), written before the click:**
+1. Verdict PASS, identical to run 2: C0 met; 64 INFO rows as in run 2; 60/60 real scenarios PASS;
+   40 ENTRY_ONLY rows; 4 DOC rows; 4/4 controls detected with the same FAIL rows (A6_CM3 / A6M_CM3
+   2 each; R1_CMF / R1M_CMF 1 each, 2 halves for 4); Zorro `Trades 116`, no Error line; largest
+   compared price difference 1.4e-8.
+2. **Checker output byte-identical to run 2's** (`TPL_Equivalence_run3.csv` = `TPL_Equivalence_run2.csv`):
+   the checker reads only the first 12 HALF columns.
+3. **Log identical to run 2's except the 5 new HALF columns:** run 3's log with HALF columns 15-19
+   removed is byte-identical to `TPL_Equivalence_log_run2.csv`. Check:
+   `python -c "import csv,sys; a=[r[:14] if r and r[0]=='HALF' else r for r in csv.reader(open(sys.argv[1]))]; b=list(csv.reader(open(sys.argv[2]))); print('IDENTICAL' if a==b else 'DIFF')" C:/Zorro/Data/TPL_Equivalence_log_run3.csv C:/Zorro/Data/TPL_Equivalence_log_run2.csv`
+4. Observations only (not part of the verdict): on every HALF row TradeRoll = 0, TradeCommission = 0,
+   TradeSpread = 0, TradeUnits = 1000 (LotAmount 1000, 1 lot); TradeProfit = dir x (exit − entry) x 1000
+   (PIPCost 0.1 per 0.0001) within 1e-5 (TradeProfit is a float, gotchas 9d.11).
+
+Runs of S4 so far: 2 (run 1 FAIL setup, run 2 PASS). This is run 3, a regression run. Variants unchanged
+(5 configurations, 2 mutants on 4 assets).
+

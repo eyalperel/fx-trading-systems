@@ -22,7 +22,7 @@
 #include "../template/NNFX_Template.h"
 #include "TPL_Equivalence_Scenarios.h"
 
-int tpe_CompileOnly = 0;   // run 2 (Amendment 1 committed before the run)
+int tpe_CompileOnly = 0;   // run 3 (Amendment 2: regression after P5; committed before the run)
 
 void run()
 {
