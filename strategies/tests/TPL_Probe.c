@@ -79,7 +79,7 @@ function run()
 	Slippage = nx_SlippageSec;
 	LookBack = 0;
 	StartDate = 20240228;   // 5 warm-up bars before the scenario (Amendment 1)
-	EndDate = 20240315;
+	EndDate = 20240322;     // 5 trailing bars after the scenarios (Amendment 5)
 	set(LOGFILE);
 
 	if(is(INITRUN)) {

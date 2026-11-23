@@ -165,3 +165,32 @@ stop / TP fill within **1e-5** of its level, and Zorro trade results = price dif
 (no extra cost). Expected Zorro summary: 8 trades; A2 +10.0 / 0.0; A3 -15.0 / -15.0;
 A3HF +10.0 / -15.0; P1 two trades closed by the end of the test (last scenario close 1.0025,
 about +1.5 each, recorded not predicted).
+
+## Run 5 — 2026-11-22 19:17 (spread fixed; end-of-history close found)
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run5.csv` (sha256 `79cc361459cf8a4a…`).
+Zorro: `Trades 8 Win 50.0% Avg +20.0p`, PF inf, no Error line.
+- (b) Spread fixed: every entry "Risk 15" = 0.0150 x 1000.
+- (b) **Item 6 passed:** A2 half 1 closed at 1.010000 (TP1), profit 10.000.
+- (b) **Item 7, first half passed:** A2 runner stop moved to 1.000000 at the 03-08 close.
+- (b) Item 5 again: P1 filled at 1.001000.
+- (b) Every other exit fell on the **first tick of the asset's last day of history**: A3 / A3HF
+  (history ends 03-08) both halves closed 12-16 s after entry at 0.99999 / 1.00001; A2 runner
+  and both P1 halves (history ends 03-11) closed on the first Monday tick (Sun 22:00 UTC) at
+  1.004 / 1.002. The same pattern accounts for the unexplained run 4 exits (spread aside).
+  (c) Zorro closes an asset's open trades at the start of its final history bar. Items 7
+  (second half), 8, 8b, 10 not tested.
+
+## Amendment 5 — 2026-11-22 (before run 6)
+
+1. Five flat trailing bars after each scenario (at its last close, last states unchanged):
+   nothing new can trigger; the scenario's own days complete. `EndDate = 20240322`.
+2. Expected trades regenerated: unchanged except P1's "end" date (03-18).
+3. For the S4 criteria (to be written): trades still open when the history ends (reason
+   "end") are compared on entry only; Zorro and the engine close them at different moments.
+
+Predictions for run 6: the run 4 table, fills within 1e-5, results = price difference x 1000.
+Expected Zorro trades: A2 +10.0 (TP1 03-08) and 0.0 (runner stop 1.0000 during 03-11, not at
+the open); A3 -15.0 / -15.0 (03-08); A3HF +10.0 (TP1) / -15.0 (runner stop, 03-08);
+P1 two trades closed at the end of its history (about +1.5 each, recorded not predicted).
+Summary: 8 trades, 4 wins counting P1 (A2 runner 0.0 is not a win).

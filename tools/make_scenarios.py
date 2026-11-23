@@ -38,6 +38,7 @@ STAMP_HOUR_NY = 16  # one hour inside the 17:00 New York bar end (M-D1, barperio
 # neutral warm-up bars before each scenario absorb it. They cannot signal: price flat above
 # the baseline, C1 = -1 (a short would need price below the baseline), C2 = +1.
 PAD_BARS = 5
+TAIL_BARS = 5
 PAD = dict(o=0.9990, h=0.9995, l=0.9985, c=0.9990, c1=-1, c2=1, vol=True, ex=0)
 
 
@@ -60,12 +61,22 @@ def ole(day):
 
 
 def pad(s):
-    """Prepend PAD_BARS neutral bars; baseline / atr repeat the scenario's first value."""
+    """PAD_BARS neutral bars before the scenario; TAIL_BARS flat bars after it.
+
+    Lead: baseline / atr repeat the scenario's first value. Tail (Amendment 5): Zorro closes
+    an asset's open trades at the first tick of its last day of history (TPL_Probe runs 3-5),
+    so each scenario is followed by flat bars at its last close with its last states; nothing
+    new can trigger and the scenario's own days run to completion.
+    """
     out = dict(s)
-    for k in ("o", "h", "l", "c", "c1", "c2", "vol", "ex"):
-        out[k] = [PAD[k]] * PAD_BARS + list(s[k])
+    last_c = s["c"][-1]
+    tail = dict(o=last_c, h=last_c, l=last_c, c=last_c)
+    for k in ("o", "h", "l", "c"):
+        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [tail[k]] * TAIL_BARS
+    for k in ("c1", "c2", "vol", "ex"):
+        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [s[k][-1]] * TAIL_BARS
     for k in ("baseline", "atr"):
-        out[k] = [s[k][0]] * PAD_BARS + list(s[k])
+        out[k] = [s[k][0]] * PAD_BARS + list(s[k]) + [s[k][-1]] * TAIL_BARS
     return out
 
 
