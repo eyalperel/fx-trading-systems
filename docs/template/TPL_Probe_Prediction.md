@@ -194,3 +194,28 @@ Expected Zorro trades: A2 +10.0 (TP1 03-08) and 0.0 (runner stop 1.0000 during 0
 the open); A3 -15.0 / -15.0 (03-08); A3HF +10.0 (TP1) / -15.0 (runner stop, 03-08);
 P1 two trades closed at the end of its history (about +1.5 each, recorded not predicted).
 Summary: 8 trades, 4 wins counting P1 (A2 runner 0.0 is not a win).
+
+## Run 6 — 2026-11-22 19:19 — ALL PREDICTIONS MET
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run6.csv` (sha256 `8aa68c81286bb98c…`).
+Zorro: `Trades 8 Win 50.0% Avg -27.5p`, total -22.00, no Error line (predicted: 8 trades,
+4 wins, +10 + 0 - 15 - 15 + 10 - 15 + 1.5 + 1.5 = -22).
+
+| # | Result (b) |
+|---|---|
+| 0, 1 | no Error; INFO as predicted, TICKS=1 |
+| 2b | all 12 full bars `ldate_est` 17:00; UTC 22:00 on 03-08, 21:00 on 03-11 (DST) |
+| 4, 5 | ENTER on 03-07; fills at the 03-08 first tick: 1.000000, SYN_P1 **1.001000** (next open, not the 1.0000 close) |
+| 6 | A2 half 1 "Target 1@1.01000 +10.00" (|d| 9.3e-9 vs expected) |
+| 7 | A2 runner stop 1.000000 from the 03-08 close; "Stop 1@1.00000: 0 at 08:08:39 Mon" (inside 03-11, not at the open) |
+| 8 | A3: both halves "Stop 1@0.985000: -15.00" on 03-08 (|d| 1.4e-8) |
+| 8b | A3HF: half 1 "Target 1@1.01000 +10.00 at 03:32:45", runner "Stop 1@0.985000 -15.00 at 09:53:13": the predicted TICKS-order difference from the engine (engine: both stop, T5.2) |
+| 9 | stop / TP levels as predicted |
+| 10 | P1 both halves closed at the end of history at 1.002500 (+1.50 each) |
+
+Probe complete. Mechanics confirmed for the template: next-open fill (Fill 3), TICKS
+entry-bar exits, stop / TP fills at the level on fine paths, breakeven by `TradeStopLimit`
+at a close, 17:00 New York bars across DST, `assetList` of the project list, dataset states
+(`%w`), unsplit synthetic history, `Spread = 0` by script. Constraints learned: gotchas
+9d.11-9d.14 plus the end-of-history close (Zorro closes an asset's trades at the first tick
+of its last history day; synthetic scenarios carry 5 trailing bars).
