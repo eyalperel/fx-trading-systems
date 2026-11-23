@@ -121,6 +121,128 @@ def s_C3():
     return scen(rows, c1=[-1, 1, 1, 0, 0])
 
 
+# D / E scenarios as named functions (2026-11-23, S4 coverage set d): the same bars, states and
+# parameters as the former inline test helpers, so every expected value is unchanged. Named so
+# that tools/make_scenarios.py can write each one as a Zorro scenario.
+def _d1(c2v):
+    return scen([(1.0000, 1.0020, 0.9990, 1.0010)], c2=[1, c2v, 1])
+
+
+def s_D1a():
+    return _d1(-1)
+
+
+def s_D1b():
+    return _d1(0)
+
+
+def s_D1d():
+    return scen([(1.0000, 1.0020, 0.9990, 1.0010), (1.0010, 1.0020, 1.0000, 1.0010)], baseline=[0.9880] * 4)
+
+
+def s_D2():
+    return scen([(1.0000, 1.0020, 0.9990, 1.0010)], volume_mode="ALWAYS_NO")
+
+
+def _cross(c3, c2_3=1):
+    bars = [(0.9935, 0.9945, 0.9925, 0.9930), (0.9930, 0.9945, 0.9925, 0.9940),
+            (0.9940, 0.9995, 0.9935, 0.9990), (0.9990, 1.0035, 0.9985, c3),
+            (1.0030, 1.0040, 1.0020, 1.0035)]
+    return scen(bars, prefix=False, c1=[-1, 1, 1, 1, 1], c2=[1, 1, -1, c2_3, 1])
+
+
+def s_D5():
+    return _cross(1.0030)
+
+
+def s_D6():
+    return _cross(0.9940)
+
+
+def _btf(age, btf_on):
+    below = (0.9935, 0.9945, 0.9925, 0.9940)
+    bars = [below] * (1 + age) + [(0.9940, 0.9995, 0.9935, 0.9990), (0.9990, 1.0000, 0.9980, 0.9995)]
+    n = len(bars)
+    return scen(bars, prefix=False, c1=[-1] + [1] * (n - 1), btf_on=btf_on)
+
+
+def s_D7a():
+    return _btf(7, True)
+
+
+def s_D7b():
+    return _btf(6, True)
+
+
+def s_D7c():
+    return _btf(7, False)
+
+
+def _pull(c3, c4):
+    bars = [(0.9935, 0.9945, 0.9925, 0.9940), (0.9940, 0.9950, 0.9935, 0.9945),
+            (0.9945, 1.0085, 0.9940, 1.0080), (1.0080, 1.0085, 1.0000, c3),
+            (1.0040, 1.0070, 1.0020, c4), (1.0030, 1.0040, 1.0020, 1.0030)]
+    return scen(bars, prefix=False, c1=[-1, 1, 1, 1, 1, 1])
+
+
+def s_D8():
+    return _pull(1.0040, 1.0050)
+
+
+def s_D9():
+    return _pull(1.0060, 1.0030)
+
+
+def _cont(c2_5=1, dip=False):
+    rows = [(1.0000, 1.0020, 0.9990, 1.0010), (1.0010, 1.0030, 1.0000, 1.0020),
+            (1.0015, 1.0025, 0.9930 if dip else 1.0005, 0.9940 if dip else 1.0020),
+            (1.0020, 1.0105, 1.0015, 1.0100), (1.0100, 1.0110, 1.0090, 1.0100)]
+    c1 = [-1, 1, 1, -1, -1, 1, 1]
+    c2 = [1, 1, 1, 1, 1, c2_5, 1]
+    vol = [True, True, False, False, False, False, False]
+    return scen(rows, c1=c1, c2=c2, vol=vol, volume_mode="INDICATOR")
+
+
+def s_E1():
+    return _cont()
+
+
+def s_E2():
+    return _cont(dip=True)
+
+
+def s_E3():
+    return _cont(c2_5=-1)
+
+
+def _after_stop(cont_after_stop):
+    rows = [(1.0000, 1.0010, 0.9840, 0.9960), (0.9960, 1.0000, 0.9955, 0.9990),
+            (0.9990, 1.0010, 0.9985, 1.0000), (1.0000, 1.0105, 0.9995, 1.0100),
+            (1.0100, 1.0110, 1.0090, 1.0100)]
+    c1 = [-1, 1, 1, 1, -1, 1, 1]
+    vol = [True, True] + [False] * 5
+    return scen(rows, c1=c1, vol=vol, volume_mode="INDICATOR", cont_after_stop=cont_after_stop)
+
+
+def s_E4a():
+    return _after_stop(True)
+
+
+def s_E4b():
+    return _after_stop(False)
+
+
+def s_R1():
+    """Reversal (2026-11-23, S4 set d): C1 flips short at a close below the baseline while long.
+    Bar 3 closes 0.9930 (< baseline 0.9950, within 1 ATR), C1 -> -1, C2 -1: exit the long (c1_flip)
+    and enter short, both at bar 4's open 0.9935 (the only scenario where an exit and an opposite
+    entry share one close: Hedge mode M-D5 and order sequence)."""
+    rows = [(1.0000, 1.0040, 0.9990, 1.0020), (1.0020, 1.0025, 0.9925, 0.9930),
+            (0.9935, 0.9945, 0.9915, 0.9920), (0.9920, 0.9925, 0.9830, 0.9850)]
+    return scen(rows, c1=[-1, 1, 1, -1, -1, -1], c2=[1, 1, 1, -1, -1, -1])
+
+
+
 class StopsTargetsGaps(Base):
     def test_A1_stop(self):
         r = run(s_A1())
@@ -214,106 +336,90 @@ class SignalDefinition(unittest.TestCase):
 
 class EntriesAndBlocks(Base):
     def test_D1_c2_against_or_zero_blocks(self):
-        for c2v in (-1, 0):
-            s = scen([(1.0000, 1.0020, 0.9990, 1.0010)], c2=[1, c2v, 1])
-            self.assertEqual(run(s).halves, [], c2v)
+        for f in (s_D1a, s_D1b):
+            self.assertEqual(run(f()).halves, [], f.__name__)
 
     def test_D1_distance_over_one_atr_blocks_without_pullback(self):
-        s = scen([(1.0000, 1.0020, 0.9990, 1.0010), (1.0010, 1.0020, 1.0000, 1.0010)], baseline=[0.9880] * 4)
-        self.assertEqual(run(s).halves, [])
+        self.assertEqual(run(s_D1d()).halves, [])
 
     def test_D2_volume_always_no_blocks(self):
-        s = scen([(1.0000, 1.0020, 0.9990, 1.0010)], volume_mode="ALWAYS_NO")
-        self.assertEqual(run(s).halves, [])
-
-    def _cross(self, c3, c2_3=1):
-        bars = [(0.9935, 0.9945, 0.9925, 0.9930), (0.9930, 0.9945, 0.9925, 0.9940),
-                (0.9940, 0.9995, 0.9935, 0.9990), (0.9990, 1.0035, 0.9985, c3),
-                (1.0030, 1.0040, 1.0020, 1.0035)]
-        return scen(bars, prefix=False, c1=[-1, 1, 1, 1, 1], c2=[1, 1, -1, c2_3, 1])
+        self.assertEqual(run(s_D2()).halves, [])
 
     def test_D5_baseline_cross_with_catch_up(self):
-        r = run(self._cross(1.0030))
+        r = run(s_D5())
         self.assertEqual(len(r.halves), 2)
         self.assertEqual(r.halves[0].entry_bar, 4)
         self.assertEqual(r.halves[0].kind, "baseline")
         self.assertAlmostEqual(r.halves[0].entry, 1.0030, EPS)
 
     def test_D6_close_back_across_kills_catch_up(self):
-        r = run(self._cross(0.9940))
-        self.assertEqual(r.halves, [])
-
-    def _btf(self, age, btf_on):
-        below = (0.9935, 0.9945, 0.9925, 0.9940)
-        bars = [below] * (1 + age) + [(0.9940, 0.9995, 0.9935, 0.9990), (0.9990, 1.0000, 0.9980, 0.9995)]
-        n = len(bars)
-        return scen(bars, prefix=False, c1=[-1] + [1] * (n - 1), btf_on=btf_on)
+        self.assertEqual(run(s_D6()).halves, [])
 
     def test_D7_bridge_too_far(self):
-        self.assertEqual(run(self._btf(7, True)).halves, [])
-        self.assertEqual(len(run(self._btf(6, True)).halves), 2)
-        self.assertEqual(len(run(self._btf(7, False)).halves), 2)
-
-    def _pull(self, c3, c4):
-        bars = [(0.9935, 0.9945, 0.9925, 0.9940), (0.9940, 0.9950, 0.9935, 0.9945),
-                (0.9945, 1.0085, 0.9940, 1.0080), (1.0080, 1.0085, 1.0000, c3),
-                (1.0040, 1.0070, 1.0020, c4), (1.0030, 1.0040, 1.0020, 1.0030)]
-        return scen(bars, prefix=False, c1=[-1, 1, 1, 1, 1, 1])
+        self.assertEqual(run(s_D7a()).halves, [])
+        self.assertEqual(len(run(s_D7b()).halves), 2)
+        self.assertEqual(len(run(s_D7c()).halves), 2)
 
     def test_D8_pullback_one_candle_then_entry(self):
-        r = run(self._pull(1.0040, 1.0050))
+        r = run(s_D8())
         self.assertEqual(len(r.halves), 2)
         self.assertEqual(r.halves[0].entry_bar, 4)
         self.assertEqual(r.halves[0].kind, "pullback")
 
     def test_D9_pullback_missed_no_later_entry(self):
-        r = run(self._pull(1.0060, 1.0030))
-        self.assertEqual(r.halves, [])
+        self.assertEqual(run(s_D9()).halves, [])
 
 
 class Continuation(Base):
-    def _cont(self, c2_5=1, dip=False, p=None):
-        rows = [(1.0000, 1.0020, 0.9990, 1.0010), (1.0010, 1.0030, 1.0000, 1.0020),
-                (1.0015, 1.0025, 0.9930 if dip else 1.0005, 0.9940 if dip else 1.0020),
-                (1.0020, 1.0105, 1.0015, 1.0100), (1.0100, 1.0110, 1.0090, 1.0100)]
-        c1 = [-1, 1, 1, -1, -1, 1, 1]
-        c2 = [1, 1, 1, 1, 1, c2_5, 1]
-        vol = [True, True, False, False, False, False, False]
-        return scen(rows, c1=c1, c2=c2, vol=vol, volume_mode="INDICATOR", **(p or {}))
-
     def test_E1_continuation_waives_volume_and_distance(self):
-        r = run(self._cont())
+        r = run(s_E1())
         self.assertEqual(len(r.halves), 4)
         self.assertEqual(r.halves[0].reason, "c1_flip")
         self.assertEqual(r.halves[2].kind, "continuation")
         self.assertEqual(r.halves[2].entry_bar, 6)
 
     def test_E2_baseline_close_in_between_kills_continuation(self):
-        r = run(self._cont(dip=True))
-        self.assertEqual(len(r.halves), 2)
+        self.assertEqual(len(run(s_E2()).halves), 2)
 
     def test_E3_c2_against_blocks_continuation(self):
-        r = run(self._cont(c2_5=-1))
-        self.assertEqual(len(r.halves), 2)
-
-    def _after_stop(self, cont_after_stop):
-        rows = [(1.0000, 1.0010, 0.9840, 0.9960), (0.9960, 1.0000, 0.9955, 0.9990),
-                (0.9990, 1.0010, 0.9985, 1.0000), (1.0000, 1.0105, 0.9995, 1.0100),
-                (1.0100, 1.0110, 1.0090, 1.0100)]
-        c1 = [-1, 1, 1, 1, -1, 1, 1]
-        vol = [True, True] + [False] * 5
-        return scen(rows, c1=c1, vol=vol, volume_mode="INDICATOR", cont_after_stop=cont_after_stop)
+        self.assertEqual(len(run(s_E3()).halves), 2)
 
     def test_E4_continuation_after_stop_needs_new_signal(self):
-        r = run(self._after_stop(True))
+        r = run(s_E4a())
         self.assertEqual(len(r.halves), 4)
         self.assertEqual(r.halves[0].reason, "stop")
         self.assertEqual(r.halves[2].kind, "continuation")
         self.assertEqual(r.halves[2].entry_bar, 6)
 
     def test_E4_variant_no_continuation_after_stop(self):
-        r = run(self._after_stop(False))
-        self.assertEqual(len(r.halves), 2)
+        self.assertEqual(len(run(s_E4b()).halves), 2)
+
+
+class Reversal(Base):
+    """R1, hand-calculated 2026-11-23 (ATR 0.0100; short entry 0.9935: stop 1.0085, TP1 0.9835)."""
+
+    def test_R1_c1_flip_exit_and_opposite_entry_same_close(self):
+        r = run(s_R1())
+        self.assertEqual(len(r.halves), 4)
+        for hf in r.halves[:2]:
+            self.assertEqual(hf.dir, E.LONG)
+            self.assertHalf(hf, "c1_flip", 0.9935, -0.0065)
+            self.assertEqual(hf.exit_bar, 4)
+        s1, s2 = r.halves[2], r.halves[3]
+        for hf in (s1, s2):
+            self.assertEqual(hf.dir, E.SHORT)
+            self.assertEqual(hf.kind, "c1")
+            self.assertEqual(hf.entry_bar, 4)
+            self.assertAlmostEqual(hf.entry, 0.9935, EPS)
+        self.assertAlmostEqual(s1.tp, 0.9835, EPS)
+        # bar 5 low 0.9830 reaches TP1 0.9835; stop 1.0085 never touched (bar highs <= 0.9945)
+        self.assertHalf(s1, "tp1", 0.9835, 0.0100)
+        self.assertEqual(s1.exit_bar, 5)
+        # bar 5 closes 0.9850, beyond entry for a short: breakeven, runner stop 1.0085 -> 0.9935;
+        # history ends at bar 5, runner closed at that close (reason "end")
+        self.assertAlmostEqual(s2.stop, 0.9935, EPS)
+        self.assertEqual(s2.stop_reason, "be")
+        self.assertHalf(s2, "end", 0.9850, 0.0085)
 
 
 class CostsAndSymmetry(Base):
@@ -326,7 +432,7 @@ class CostsAndSymmetry(Base):
             self.assertAlmostEqual(a.pnl - b.pnl, 0.0002, EPS)
 
     def test_F2_short_mirror_identical(self):
-        for f in (s_A1, s_A2, s_A3, s_A4, s_A5, s_A6, s_B1, s_B2, s_C1, s_C2, s_C3):
+        for f in (s_A1, s_A2, s_A3, s_A4, s_A5, s_A6, s_B1, s_B2, s_C1, s_C2, s_C3, s_R1):
             lo, sh = run(f()), run(mirror(f()))
             self.assertEqual(len(lo.halves), len(sh.halves), f.__name__)
             for a, b in zip(lo.halves, sh.halves):

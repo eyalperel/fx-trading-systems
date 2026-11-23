@@ -28,7 +28,7 @@ Light-C is not full C. Constructs that compile elsewhere will fail here.
 `ab_` AlphaBetaFilter · `mstc_` MESAStochastic · `fi_` FisherCore · `fto_` FisherTransform_Superseded · `ift_` Test_Fisher_IFT_COG ·
 `ma_` MAMACore · `maw_` MAMA wrapper · `mao_` MAMA_Superseded · `fr_` FRAMACore · `frw_` FRAMA wrapper · `fro_` FRAMA_Superseded ·
 `at_` ATRMT4Core · `atw_` ATRMT4 wrapper · `ats_` ATR NCS body · `ax0_`/`axi_`/`axr_`/`axz_` ATR control bodies NC0/NCWi/NCR/NCZ ·
-`nx_` NNFX template config (`NNFX_Config.h`) · `tp_` TPL_Probe ·
+`nx_` NNFX template config / state (`NNFX_Config.h`, `NNFX_Template.h`) · `nxs_` NNFX_Slots locals · `nxt_` NNFX_Template locals · `tp_` TPL_Probe · `tpe_` TPL_Equivalence · `tple_` its generated scenario include ·
 `pse_` PROBE_SeriesExprLen · `xa_` XCHK_ATRMT4_vs_ATRS
 
 ---
@@ -328,3 +328,4 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 2026-11-22 | Added §9d.15: open trades closed at the first tick of the asset's last history day (TPL_Probe runs 3-6) |
 | 2026-11-22 | §9d.12 addendum: with TICKS, the fill is the price of the record that crosses the level (run 4: 0.98450 for a 0.98500 stop); on fine paths the fill lands on the level (run 6). `assetAdd(..., Spread 0, ...)` left a 0.0100 spread; set `Spread = 0;` after `asset()` (run 4-5) |
 | 2026-11-22 | §1.4 note (b): on Zorro 3.11 `function run()` compiled and ran (TPL_Probe runs 1-6, no Error line); the §1.4 rule dates from 2.70. `void run()` remains the project convention |
+| 2026-11-23 | §1.3: prefixes `nxs_`, `nxt_`, `tpe_`, `tple_` (template S3 / S4). Reason seen in the first draft: a local `g` shadows Zorro's global `g` used by every trade macro (`TradeInt` = `g->tr->...`) |

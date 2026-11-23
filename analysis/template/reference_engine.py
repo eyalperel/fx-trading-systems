@@ -57,7 +57,7 @@ CONFIG_MAP = {
     "nx_TrailDistAtr": "trail_dist_atr", "nx_BaselineMaxDistAtr": "baseline_max_dist_atr",
     "nx_PullbackWaitBars": "pullback_wait_bars", "nx_BtfMaxAgeBars": "btf_max_age",
     "nx_CatchupLimitOn": "catchup_limit_on", "nx_CatchupMaxBars": "catchup_max_bars",
-    "nx_ContAfterStop": "cont_after_stop",
+    "nx_ContAfterStop": "cont_after_stop", "nx_BtfOn": "btf_on",
 }
 
 

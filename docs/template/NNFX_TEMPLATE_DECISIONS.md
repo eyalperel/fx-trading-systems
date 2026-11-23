@@ -18,6 +18,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | T10 | Baseline catch-up window; pullback details (A2, A5) | Decided 2026-11-22 |
 | T11 | No magic numbers: parameters and sensitivity | Decided 2026-11-22 |
 | M-D1..M-D4 | Zorro mechanics decisions (from `ZORRO_TRADE_MECHANICS.md`) | All decided 2026-11-22 |
+| M-D5 | Hedge mode | Decided 2026-11-23 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
@@ -379,3 +380,21 @@ BTC data also missing, ZORRO_TRADE_MECHANICS §9).
    takes TP1 on half 1, then stops the runner; documented difference, not a failure).
 3. Every real-data run reports the number of trades with stop and TP1 both inside one daily
    bar, so the effect of the order is visible.
+
+## M-D5 — Hedge mode (decided 2026-11-23, user: accept)
+
+- (a) `Hedge` 0: opening a position closes opposite positions of the same asset (default for
+  NFA accounts); 1: same, per algo (default for non-NFA accounts); 2: full hedging, "Entering a
+  trade will not automatically close opposite positions" (Zorro 3.11 hedge.htm). "Opening a
+  trade automatically closes opposite trades when Hedge is 0 or 1" (buylong.htm). Which
+  default a backtest gets is not stated.
+- (b) Correct template code sends the exit before an opposite entry, so modes 0, 1 and 2 give
+  the same trades on correct code.
+- (c) With 0 or 1 a missing exit in the template is closed by Zorro and the equivalence
+  comparison still passes; with 2 it shows as overlapping long and short trades, which the
+  engine never produces, so S4 fails. Mode 2 holds both directions if the template errs, which
+  NFA brokers forbid: a live-trading concern, not a backtest one.
+
+**Decision.** Variant 0: `Hedge = 2` as a named config value (`nx_HedgeMode`). Every exit comes
+from template code or a trade's own stop / target. Revisit before any demo or live run (NFA
+compliance: mode 0 or 4).

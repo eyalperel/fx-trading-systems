@@ -44,6 +44,57 @@ var    nx_Leverage;          // target leverage; see ZORRO_TRADE_MECHANICS (Marg
 var    nx_SpreadMult;        // spread multiplier (1 = asset list)
 string nx_AssetList;         // asset list file
 
+// ---- engine switches (S3 template, 2026-11-23) -------------------------------------
+int    nx_HedgeMode;         // Zorro Hedge
+int    nx_FixedLots;         // > 0: fixed lots per half (S4 equivalence); 0: risk sizing T8 (stage P6)
+int    nx_BtfOn;             // bridge-too-far rule on / off (per strategy, T3.3)
+int    nx_SlotSource;        // where slot states come from (codes below)
+int    nx_CtlMutation;       // planted-bug control id; 0 in every real run (codes below)
+
+// ---- codes: identifiers, not parameters (never varied, not sensitivity levels) ------
+#define NX_MAXA        64    // max assets per script: S4 batch 60 + 4 controls [capacity]
+#define NX_SRC_STRATEGY 0    // slots from the strategy's indicator file [code]
+#define NX_SRC_SCRIPTED 1    // slots from a states CSV per asset (S4 scenarios) [code]
+#define NX_VOL_YES     0     // volume ALWAYS_YES, T2 [code]
+#define NX_VOL_NO      1     // volume ALWAYS_NO guard stub, T2 [code]
+#define NX_VOL_IND     2     // volume indicator state [code]
+#define NX_EXIT_NONE   0     // exit slot NONE, T1 [code]
+#define NX_EXIT_IND    1     // exit indicator state, T1 [code]
+#define NX_MUT_NONE    0     // no planted bug [code]
+#define NX_MUT_M3      1     // control: breakeven placed without the M-D3 check [code]
+#define NX_MUT_MF      2     // control: entry only when no trade is open [code]
+#define NX_R_NONE      0     // exit reasons [code]
+#define NX_R_STOP      1     // [code]
+#define NX_R_TP1       2     // [code]
+#define NX_R_BE        3     // [code]
+#define NX_R_TRAIL     4     // [code]
+#define NX_R_C1FLIP    5     // [code]
+#define NX_R_EXITIND   6     // [code]
+#define NX_R_BASELINE  7     // [code]
+#define NX_R_BEADV     8     // M-D3 runner exit [code]
+#define NX_R_END       9     // closed at market by Zorro, not by the template (end of history, gotchas 9d.15) [code]
+#define NX_R_OTHER     10    // any other close: never expected [code]
+#define NX_K_C1        1     // entry kinds [code]
+#define NX_K_CONT      2     // [code]
+#define NX_K_BASELINE  3     // [code]
+#define NX_K_PULLBACK  4     // [code]
+#define NX_TI_ASSET    0     // TradeInt slots carried by each half: asset index + 1 [code]
+#define NX_TI_GROUP    1     // trade number within the asset [code]
+#define NX_TI_HALF     2     // 1 = TP1 half, 2 = runner [code]
+#define NX_TI_KIND     3     // entry kind [code]
+#define NX_TI_STOPR    4     // reason if its stop fires: stop / be / trail [code]
+#define NX_TI_EXITR    5     // reason of a template exit order, 0 if none [code]
+#define NX_TI_LOGGED   6     // 1 once its HALF row is written [code]
+#define NX_TI_ENTYMD   7     // YYYYMMDD of the bar it filled in (New York date) [code]
+#define NX_HALF_TP1    1     // half closed at TP1 [code]
+#define NX_HALF_RUNNER 2     // half that runs to breakeven / trail [code]
+#define NX_SC_C1       1     // states CSV columns after the %w timestamp (tools/make_scenarios.py) [code]
+#define NX_SC_C2       2     // [code]
+#define NX_SC_BASE     3     // [code]
+#define NX_SC_ATR      4     // [code]
+#define NX_SC_VOL      5     // [code]
+#define NX_SC_EX       6     // [code]
+
 // ---- slot switches ----------------------------------------------------------------
 int    nx_ExitMode;          // 0 = NONE (exit only by C1 flip, baseline, stops)
 int    nx_VolumeMode;        // 0 = ALWAYS_YES, 1 = ALWAYS_NO (guard test only), 2 = indicator
@@ -81,6 +132,12 @@ void nx_config_init()
 	nx_Leverage = 20;                     // (a) [M14]
 	nx_SpreadMult = 1;                    // T7 (stress level: 2)
 	nx_AssetList = "AssetsNNFX_FX";       // M-D4; load path checked in S3
+
+	nx_HedgeMode = 2;                     // full hedging: Zorro closes nothing itself, M-D5
+	nx_FixedLots = 0;                     // risk sizing T8 (P6); S4 batch sets 1 (c)
+	nx_BtfOn = 1;                         // Strategy 1, two-lines-cross C1 [V34]; T3.3 (Strategy 2: 0)
+	nx_SlotSource = NX_SRC_STRATEGY;      // T3 slot interface
+	nx_CtlMutation = NX_MUT_NONE;         // S4 decision 4, 2026-11-23: controls only
 
 	nx_ExitMode = 0;                      // NONE, T1
 	nx_VolumeMode = 0;                    // ALWAYS_YES, T2

@@ -6,8 +6,8 @@ template's trade list must match it on the same inputs. It works in price, pips 
 swap and integer-lot sizing are outside it (probes P5, P6 in
 `docs/template/ZORRO_TRADE_MECHANICS.md`).
 
-Tests: `python -m unittest discover -s analysis/template/tests` (30 tests: scenarios A1-F2
-reviewed 2026-11-22, signal definition, config agreement with `NNFX_Config.h`).
+Tests: `python -m unittest discover -s analysis/template/tests` (32 tests: scenarios A1-F2
+reviewed 2026-11-22, R1 reversal added 2026-11-23, signal definition, config agreement with `NNFX_Config.h`).
 Expected values in the tests are hand-calculated; they define the rules, not the engine.
 Until the S4 criteria are committed they may be corrected freely; after that only by a
 dated amendment.

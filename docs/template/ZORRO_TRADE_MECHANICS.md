@@ -147,3 +147,13 @@ the hand-calculated trades of Phase 1 step 5.
 - **M-D4** Asset list and account currency: **decided 2026-11-22**: project copy
   `config/assets/AssetsNNFX_FX.csv` of AssetsForex.csv, loaded explicitly; account EUR,
   100,000 EUR start.
+
+## 12. Manual reads before the template code (2026-11-23, S3 template / S4)
+
+| # | Question | Manual (a) | Consequence |
+|---|---|---|---|
+| R1 | `exitLong` sent at a close under `Fill = 3` | Mode 3: "Trades do not fill immediately, but wait for the next price quote" (fill.htm); the exit price "can be affected with the Fill variable" (selllong.htm). Exits not named explicitly | (c) next open, like entries. Unprobed: an explicit S4 prediction item (scenarios C1, C2) |
+| R2 | `Hedge` default | 0 = NFA default, 1 = non-NFA default; 0 / 1 close opposite trades on entry; 2 never (hedge.htm, buylong.htm). Backtest default not stated | Set explicitly: M-D5, `Hedge = 2` |
+| R3 | `enterLong` return | `TRADE*`, 0 when no trade was entered; assignable to `ThisTrade` (buylong.htm). When an entry is refused (`MaxLong` etc.), "stop limits, profit targets, and life times of open trades with the same asset and algo are updated to the current values" | Store `TradeID` per half. The template enters only when flat, so the refused-entry update cannot touch an open trade |
+| R4 | Limits for a 58-asset batch | Free license limits account / profit, bar period and data resolution, not assets (restrictions.htm); dataset handles 1..1000 (data.htm); memory is the stated asset constraint, `TICKS` adds to it (errors.htm) | Allowed; the generator reports total records before the run |
+| R5 | Fill rounding | "Fill prices are normally rounded to the point value of the asset. TR_FRC enables unrounded fill prices." (fill.htm) | (b) Run 6 fills within 1.4e-8 of their levels: not binding at the 1e-5 tolerance |
