@@ -519,6 +519,10 @@ bars with real indicators (until now every run used scripted states on synthetic
   2007-01-01 to 2026-05-29; `LookBack` 520 bars as named config value `nx_LookBackBars` ((c): covers FAMA's
   measured ~500-bar start-up, MAMA review MA-1). The dev / confirmation split is by asset (PROJECT_STATE §2):
   all EUR/USD years are dev.
+  **Amended 2026-11-23 (before any run, user: option A):** trades start **2007-02-01**. (b) The history holds only 517
+  daily bars before 2007-01-02 (early holidays and gaps), fewer than LookBack 520; (a) errors.htm Warning / Error 047:
+  "Historical price data was insufficient for covering the test period or the LookBack period" (what Zorro then does
+  is not stated). 539 bars precede 2007-02-01 under every bar variant. LookBack stays 520.
 - **R-D5 Fill rounding: `TR_FRC` on** (named config value `nx_FillUnrounded = 1`). (a) fill.htm: "Fill prices are
   normally rounded to the point value of the asset. TR_FRC enables unrounded fill prices."; trademode.htm: TR_FRC
   "Do not round stops, limits, and backtest fill prices to the point value". The rounding step is stated

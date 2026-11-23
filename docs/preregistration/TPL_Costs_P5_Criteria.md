@@ -202,3 +202,16 @@ Commit `2b22994` (Amendment 3). Log `C:/Zorro/Data/TPL_Costs_log_run4.csv` **byt
 H_BAR, short rule S_ASK. Zorro: `Trades 32`, no Error line.
 
 **Verdict: P5 still PASS after P6.** Runs of P5: 4 (runs 1-2 FAIL, recorded; runs 3-4 PASS).
+
+## Amendment 4 — 2026-11-23 (regression run 5, R1 template changes; before the run)
+
+**Why:** branch `eurusd-r1` changed the template: `nx_FillUnrounded = 1` sets TradeMode `TR_FRC` in
+`nx_template_init()` (R-D5: stops, limits and fills no longer rounded to the PIP; (a) `include/trading.h:276`
+"don't round to 1 PIP"), and the slot values `nx_s*` moved from `NNFX_Slots.h` to `NNFX_Config.h` (declaration
+only). Inputs unchanged (generator output byte-identical, checked 2026-11-23).
+
+**Prediction (c):** same verdict and counts as run 4 (RUN PASS, 0 FAIL rows, day rule H_BAR, short rule S_ASK, Trades 32). Logs need **not** be byte-identical: a level
+that is not on the pip grid (stop = fill - 1.5 x float32 ATR) now fills unrounded. Recorded as an observation (b):
+the largest change of any logged fill price vs run 4; > 0 shows that Zorro rounded before (R-D5), 0 that it did
+not on these paths. Every price change must stay within the existing tolerances. Runs so far: 4; this is run 5.
+

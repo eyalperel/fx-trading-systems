@@ -25,7 +25,7 @@
 #include "../template/NNFX_Slots.h"
 #include "../template/NNFX_Template.h"
 
-int r1_CompileOnly = 1;   // 1: compile check; 0 for a run (after its criteria commit)
+int r1_CompileOnly = 0;   // run (compile checks 2026-11-23 clean); criteria committed before each run
 int r1_Costs = 0;         // 0 = R1a, 1 = R1b (R-D7)
 string r1_Asset = "EUR/USD";
 
@@ -38,7 +38,7 @@ void run()
 	Slippage = nx_SlippageSec;
 	Hedge = nx_HedgeMode;
 	StartWeek = nx_StartWeek;
-	StartDate = 20070101;   // R-D4
+	StartDate = 20070201;   // R-D4 amended 2026-11-23: 539 bars before it cover LookBack 520
 	EndDate = 20260529;     // R-D4: last history day (b)
 
 	if(is(INITRUN)) {
@@ -77,7 +77,7 @@ void run()
 		Spread = 0; Commission = 0; RollLong = 0; RollShort = 0;   // R1a: no costs (spread.htm)
 	}
 	nx_slots_update(0);   // every bar, LOOKBACK included: indicators warm up (gotchas 3.1)
-	nx_log(strf("BAR,%s,%i,%i,%.10f,%i,%.10f,%.10f,%.10f,%.10f", r1_Asset, Bar, ymd(ldate(EST, 0)), wdate(0),
+	nx_log(strf("RBAR,%s,%i,%i,%.10f,%i,%.10f,%.10f,%.10f,%.10f", r1_Asset, Bar, ymd(ldate(EST, 0)), wdate(0),
 		(int)is(LOOKBACK), priceOpen(0), priceHigh(0), priceLow(0), priceClose(0)));
 	if(!is(LOOKBACK)) {
 		nx_bar(0, r1_Asset);   // decisions only after the warm-up (engine replay starts here too)

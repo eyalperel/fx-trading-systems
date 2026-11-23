@@ -17,6 +17,11 @@ Order of events in bar t (T4, T5):
   3. at the close: breakeven / M-D3 check, trailing (closes only), close-decided exits,
      then entry decisions (C1 signal, continuation, baseline cross with catch-up,
      pullback, bridge-too-far).
+Optional per-bar inputs for real data (R1, decision R-D6; default None = the daily rules above, unchanged):
+  open_fill[t]  price of market fills at the start of bar t (entries and close-decided exits) instead of o[t];
+  intrabar(t, halves)  replaces step 2: returns the stop / TP1 events inside bar t in time order as
+                (half, fill price, "stop" | "tp"), e.g. from M1 records (tools/r1_replay.py). A half listed
+                twice is closed once (first event).
 Costs: `spread` (price units) is subtracted once per half (long: exit at bid; short:
 entry at bid), the convention of stop.htm "ask/bid" handling; checked in S4 (P5).
 """
@@ -115,7 +120,7 @@ class Result:
     be_adverse_exits: int = 0
 
 
-def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None):
+def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None, open_fill=None, intrabar=None):
     p = p or Params()
     n = len(o)
     vol = vol if vol is not None else [True] * n
@@ -148,15 +153,16 @@ def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None):
 
     for t in range(n):
         # 1. at the open
+        px_open = o[t] if open_fill is None else open_fill[t]
         if pending_exit and open_:
             for hf in open_:
-                close(hf, t, o[t], pending_exit)
+                close(hf, t, px_open, pending_exit)
             open_ = []
         pending_exit = None
         if pending_entry:
             d, a, kind = pending_entry
             tid += 1
-            e = o[t]
+            e = px_open
             stop = e - d * p.stop_atr * a
             tp = e + d * p.tp1_atr * a
             open_ = [Half(d, 1, tid, kind, t, e, a, stop, tp), Half(d, 2, tid, kind, t, e, a, stop, None)]
@@ -166,8 +172,23 @@ def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None):
             last_trade = dict(dir=d, reason=None)
             pending_entry = None
 
-        # 2. inside the bar: stop before TP1
-        for hf in list(open_):
+        # 2. inside the bar: stop before TP1 (or the intrabar resolver's events, R-D6)
+        if intrabar is not None:
+            for hf in list(open_):
+                stop_hit = l[t] <= hf.stop if hf.dir == LONG else h[t] >= hf.stop
+                tp_hit = hf.tp is not None and (h[t] >= hf.tp if hf.dir == LONG else l[t] <= hf.tp)
+                if stop_hit and tp_hit:
+                    res.same_bar_conflicts += 1
+            for hf, price, kind in intrabar(t, list(open_)):
+                if hf not in open_:
+                    continue
+                open_.remove(hf)
+                if kind == "stop":
+                    close(hf, t, price, hf.stop_reason)
+                else:
+                    close(hf, t, price, "tp1")
+                    tstate[hf.trade_id]["tp1_bar"] = t
+        for hf in (list(open_) if intrabar is None else []):
             d = hf.dir
             stop_hit = l[t] <= hf.stop if d == LONG else h[t] >= hf.stop
             tp_hit = hf.tp is not None and (h[t] >= hf.tp if d == LONG else l[t] <= hf.tp)

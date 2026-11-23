@@ -19,13 +19,8 @@
 //
 // Requires: NNFX_Config.h. Globals and locals prefixed nx_ / nxs_ (flat namespace, gotcha 1.3).
 
-int nx_sC1;       // C1 state
-int nx_sC2;       // C2 state
-int nx_sEx;       // exit-slot state after the exit mode
-int nx_sVol;      // volume go / no-go after the volume mode
-var nx_sBase;     // baseline value
-var nx_sAtr;      // ATR value
-int nx_sOK;       // 1 = every slot delivered a value for this bar
+// The slot values nx_s* are declared in NNFX_Config.h: a strategy slot source (included before this file,
+// single pass, gotchas 5.3) writes them (R1 compile check 2026-11-23: 'nx_sBase' undeclared).
 
 int nx_aVolMode[NX_MAXA];     // per-asset volume mode (NX_VOL_*), set by nx_slots_init / batch
 int nx_aExitMode[NX_MAXA];    // per-asset exit mode (NX_EXIT_*)

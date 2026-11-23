@@ -100,6 +100,17 @@ int    nx_CtlMutation;       // planted-bug control id; 0 in every real run (cod
 #define NX_SC_VOL      5     // [code]
 #define NX_SC_EX       6     // [code]
 
+// ---- slot values: written by the slot source each bar, read by the template (NNFX_Slots.h) ----
+// Declared here because every script includes this file first and a strategy slot source is read before
+// NNFX_Slots.h (single pass, gotchas 5.3).
+int nx_sC1;       // C1 state
+int nx_sC2;       // C2 state
+int nx_sEx;       // exit-slot state after the exit mode
+int nx_sVol;      // volume go / no-go after the volume mode
+var nx_sBase;     // baseline value
+var nx_sAtr;      // ATR value
+int nx_sOK;       // 1 = every slot delivered a value for this bar
+
 // ---- slot switches ----------------------------------------------------------------
 int    nx_ExitMode;          // 0 = NONE (exit only by C1 flip, baseline, stops)
 int    nx_VolumeMode;        // 0 = ALWAYS_YES, 1 = ALWAYS_NO (guard test only), 2 = indicator
