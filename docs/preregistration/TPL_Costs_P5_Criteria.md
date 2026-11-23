@@ -122,3 +122,49 @@ output `analysis/template/costs/results/TPL_Costs_run1.csv` (36 FAIL rows). Zorr
    **S_ASK** only; commission 0.1 per half; rollover -0.1 / +0.05 per day.
 4. Old run-1 files (`History/EUR_*_USD*`, `analysis/template/costs/expected/expected_EUR_*`) are unused
    from now on.
+
+## Run 2 — 2026-11-23 10:51 — FAIL (2 rows: fill position of long TP1 by one path step; costs exact)
+
+Commit `8f5d947` (Amendment 1). Log `C:/Zorro/Data/TPL_Costs_log_run2.csv` (sha256 `478edbae14d2cacc…`);
+checker output `analysis/template/costs/results/TPL_Costs_run2.csv`. Zorro: `Trades 32`, no Error line.
+
+- (b) Q0, Q1 met: assetType 1 on all 16 assets, syn files loaded (states rows 20, no Error 047).
+- (b) Q2-Q4, Q6, Q7 met: timing equal K0 vs K1; K0 cost-free; rollover an integer number of days on every
+  half; **day rule H_BAR only** (C1 / C1M 4 days) and **short rule S_ASK only**, both as predicted in
+  Amendment 1; commission 0.1 per half; rollover -0.1 / +0.05 per day.
+- (b) **Q5 FAIL on 2 rows:** A2 and B1 half 1 (long TP1, CAD/CHF and EUR/CAD): profit K0 - K1 = 0.10998, Q5
+  expects 0.1 within 1e-4. The K1 TP filled at 1.01019 (ask, 09:36:01 Fri), one 1e-5 path step before the
+  1.01020 of run 1: 0.01 = 1e-5 x 1000 units.
+- (b) Cost identity against the actual fills, all 32 halves: profit = direction x (exit - entry) x units
+  - spread x units - commission + rollover, largest deviation 5.5e-7 (float32). **Every half, long TP1
+  included, pays exactly one spread relative to its recorded (ask) fill**; the long TP1 difference is in
+  where it triggers (about bid = level), not in what is charged. M-D7's wording "pays no spread" describes
+  the result against the level, not the accounting.
+- Cause of the FAIL (c, criteria-side): Q5's money tolerance (1e-4) was set from float32 precision only and
+  left out the fill-position tolerance of one path step (1e-5 in price, S4 C3, = 0.01 at 1000 units) for a
+  long TP1 whose trigger depends on the bid. Not tuned here.
+
+## Amendment 2 — 2026-11-23 (after run 2, before run 3; user decision)
+
+**Written after seeing run 2.** The change separates the two questions P5 mixes; it does not loosen the
+cost question.
+
+1. **Costs (replaces Q5 and Q6's cost part):** for every half of both copies, profit = direction x (exit -
+   entry) x units - spread x units - commission + rollover, against that half's own recorded fills,
+   within 1e-4 (float32). Spread 0.0002 / commission 0.1 on K1, 0 on K0. `TradeCommission` = 1 (the
+   Commission setting; run 2: 1.0) on every K1 half.
+2. **Fill position (new, separate):** K1 vs K0 within one path step, 1e-5, the S4 C3 tolerance and its
+   reason (fills land within one 0.1-pip record of a level): entries equal; exits equal, except long TP1
+   exits one spread higher on the ask (M-D7); shorts must fit S_ASK (exits equal) or S_BID (entry-derived
+   level exits one spread lower) consistently.
+3. Q0-Q4, Q7 unchanged. M-D7's wording is corrected in its record: every half pays one spread against
+   its recorded fill; a long TP1 *triggers* at about bid = level.
+
+Known before run 3 (from run 2's data; disclosed, not hidden): the cost identity holds on all 32 halves
+(largest deviation 5.5e-7), and the long TP1 position offset was +1.998e-4 vs +2e-4 expected
+(|diff| 9.98e-6, inside 1e-5 by 2e-8: the narrowest margin of the run). The path and the script are
+unchanged, so run 3 is expected to reproduce run 2's log exactly (same sha256); a different log would
+itself be a finding.
+
+Prediction for run 3: PASS; log identical to run 2 (sha256 `478edbae14d2cacc…`); day rule H_BAR; short
+rule S_ASK. Runs: 3 (2 FAIL recorded).

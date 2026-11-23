@@ -35,8 +35,8 @@ def fake_log(rule="H_UTC", short="S_ASK", plant=None):
             roll = comm = 0.0
             if k == 1:
                 roll = n * C.ROLL[d]
-                comm = C.COMM
-                prof = prof - C.SPREAD_COST - comm + roll
+                comm = 1.0          # TradeCommission holds the Commission setting (run 2: 1.0); 0.1 is charged
+                prof = prof - C.SPREAD_COST - C.COMM + roll
                 if d == 1 and reason == "tp1":      # M-D7: long TP fills at the level in bid terms
                     exitp += C.SPREAD
                     prof += C.SPREAD_COST
@@ -45,6 +45,9 @@ def fake_log(rule="H_UTC", short="S_ASK", plant=None):
                     prof += C.SPREAD_COST
                 if plant == (sc, h, "profit"):
                     prof -= 0.05
+                if plant == (sc, h, "position"):
+                    exitp += 3 * C.TOL_PRICE
+                    prof += d * 3 * C.TOL_PRICE * units
                 if plant == (sc, h, "roll"):
                     roll += 0.02
             if k == 0 and plant == (sc, h, "k0roll"):
@@ -86,6 +89,12 @@ class CheckCosts(unittest.TestCase):
 
     def test_long_tp_paying_spread_fails(self):
         self.assertFalse(run(plant=("A2", 1, "profit"))[1])
+
+    def test_fill_position_beyond_one_step_fails_but_costs_hold(self):
+        rows, ok, fr, fs = run(plant=("B1", 2, "position"))
+        self.assertFalse(ok)
+        fails = [r[1] for r in rows if r[2] == "FAIL"]
+        self.assertEqual(fails, ["h2_exit_position"])
 
     def test_planted_fractional_roll_fails(self):
         self.assertFalse(run(plant=("B1", 2, "roll"))[1])

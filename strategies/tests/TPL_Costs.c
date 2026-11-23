@@ -23,7 +23,7 @@
 #include "../template/NNFX_Template.h"
 #include "TPL_Costs_Scenarios.h"
 
-int tpc_CompileOnly = 0;   // run 2 (Amendment 1 committed before the run; compile check with 1 done)
+int tpc_CompileOnly = 0;   // run 3 (Amendment 2 committed before the run)
 
 void run()
 {

@@ -10,6 +10,8 @@ units per day = -0.1 / +0.05 per day (Zorro 3.11 spread.htm: "per 10000 contract
 rollover added "for any trade that was longer open than 12 hours at any new day, including
 Saturday and Sunday").
 Amendment 1 (2026-11-23, after run 1): long TP1 halves pay no spread (M-D7); prediction H_BAR and S_ASK.
+Amendment 2 (2026-11-23, after run 2): costs checked against each half's own fills; fill positions K1 vs K0
+checked separately within one path step (1e-5, S4 C3).
 Open questions, answered by the run, each with its candidates fixed here before the run:
   day rule  H_UTC (new day at 00:00 UTC) / H_NY (00:00 New York) / H_BAR (17:00 New York, our bar close)
   short     S_ASK (short stop / TP levels measured from the ask entry, as the engine) /
@@ -147,26 +149,28 @@ def evaluate(half, info, errors):
             for r in RULES:
                 if round(n) != roll_days(r, E, CLOSE[(sc, a["half"])]):
                     fit_rule[r] = False
-            # commission: one round turn per half
-            dprof = a["profit"] - b["profit"]
+            # Amendment 2 (2026-11-23, after run 2): two separate checks.
+            # (1) COSTS, every half of both copies: profit = dir x (exit - entry) x units - spread x units
+            #     - commission + rollover, against the half's own recorded fills (tolerance 1e-4, float32).
+            for k, x in ((0, a), (1, b)):
+                sp, cm = (SPREAD, COMM) if k else (0.0, 0.0)
+                model = x["dir"] * (x["exit"] - x["entry"]) * x["units"] - sp * x["units"] - cm + x["roll"]
+                add(sc, f"{tag}_K{k}_cost_identity", abs(model - x["profit"]) < TOL_MONEY, repr(model), repr(x["profit"]))
+            add(sc, f"{tag}_K1_commission", abs(b["comm"] - 1) < TOL_MONEY, "Commission 1 (= 0.1 per lot)", b["comm"])
+            # (2) FILL POSITION, K1 vs K0, within one path step (1e-5, as S4 C3): entries equal; exits equal,
+            #     except a long TP1 (one spread higher on the ask, M-D7) and, under S_BID, short exits at
+            #     entry-derived levels (one spread lower).
+            add(sc, f"{tag}_entry_position", abs(a["entry"] - b["entry"]) <= TOL_PRICE, repr(a["entry"]), repr(b["entry"]))
+            off = b["exit"] - a["exit"]
             if a["dir"] == 1:
-                # Amendment 1 / M-D7 (run 1, (b)): a long closed at TP1 fills when the BID reaches the level:
-                # recorded exit (ask) one spread higher, no spread in the profit. Every other long half pays one.
-                tp = a["reason"] == "tp1"
-                x1 = a["exit"] + (SPREAD if tp else 0)
-                add(sc, f"{tag}_long_prices", abs(a["entry"] - b["entry"]) <= TOL_PRICE
-                    and abs(x1 - b["exit"]) <= TOL_PRICE, f"{a['entry']} / {x1}", f"{b['entry']} / {b['exit']}")
-                exp = (0 if tp else SPREAD_COST) + COMM - b["roll"]
-                add(sc, f"{tag}_long_cost_identity", abs(dprof - exp) < TOL_MONEY, repr(exp), repr(dprof))
+                exp_off = SPREAD if a["reason"] == "tp1" else 0.0
+                add(sc, f"{tag}_exit_position", abs(off - exp_off) <= TOL_PRICE, f"{exp_off:+.5f}", f"{off:+.8f}")
             else:
-                exp_ask = SPREAD_COST + COMM - b["roll"]
-                exp_bid = (COMM - b["roll"]) if a["reason"] in ENTRY_LEVEL_EXIT else exp_ask
-                ok_ask, ok_bid = abs(dprof - exp_ask) < TOL_MONEY, abs(dprof - exp_bid) < TOL_MONEY
+                ok_ask = abs(off) <= TOL_PRICE
+                ok_bid = abs(off - (-SPREAD if a["reason"] in ENTRY_LEVEL_EXIT else 0.0)) <= TOL_PRICE
                 fit_short["S_ASK"] &= ok_ask
                 fit_short["S_BID"] &= ok_bid
-                add(sc, f"{tag}_short_cost_identity", ok_ask or ok_bid,
-                    f"S_ASK {exp_ask:.6f} / S_BID {exp_bid:.6f}", repr(dprof))
-                add(sc, f"{tag}_short_K1_entry", True, "recorded", repr(b["entry"]), status="INFO")
+                add(sc, f"{tag}_exit_position", ok_ask or ok_bid, "S_ASK 0 / S_BID -spread", f"{off:+.8f}")
     fr = [r for r, ok in fit_rule.items() if ok]
     fs = [s for s, ok in fit_short.items() if ok]
     add("RUN", "day_rule_fits", len(fr) >= 1, "one of " + "/".join(RULES), "/".join(fr) or "none")

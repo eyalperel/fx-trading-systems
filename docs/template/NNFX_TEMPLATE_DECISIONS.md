@@ -435,3 +435,7 @@ before the first asset call. `EndWeek` left at the default (Friday 20:00 New Yor
 **Decision.** Accept Zorro's accounting as is; no template workaround (it would be new untested code).
 Documented here and in gotchas 9d.19; P5 criteria amended (long TP1: no spread); every real-data run
 reports the number of long TP1 halves.
+**M-D7 wording corrected 2026-11-23 (P5 run 2, (b)):** against its own recorded fill every half, long TP1
+included, pays exactly one spread (cost identity on 32 halves within 5.5e-7). What differs is the trigger:
+a long's take-profit fills at about bid = level, so its recorded (ask) exit is one spread above the level
+and its result equals the TP distance. Decision unchanged.
