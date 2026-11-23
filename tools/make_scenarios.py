@@ -80,10 +80,10 @@ def build(name, start):
 def write(name, s, days, zorro, out):
     hist = os.path.join(zorro, "History")
     n = len(days)
-    # year-split name: Zorro rejects a mix of year-split and unsplit history (errors.htm, Error 047)
-    years = sorted({d.year for d in days})
-    assert len(years) == 1, "a scenario must stay inside one calendar year"
-    with open(os.path.join(hist, f"SYN_{name}_{years[0]}.t6"), "wb") as f:
+    # One unsplit file per scenario (TPL_Probe runs 1-2, 2026-11-22): a year-split file of
+    # daily records was rejected by Zorro 3.11 (Error 047 "no 2024 history"), the unsplit
+    # file loaded. Synthetic assets are never mixed with year-split M1 history in a script.
+    with open(os.path.join(hist, f"SYN_{name}.t6"), "wb") as f:
         for i in reversed(range(n)):
             f.write(struct.pack("<d6f", ole(days[i]), s["h"][i], s["l"][i], s["o"][i], s["c"][i], 0.0, 0.0))
     with open(os.path.join(hist, f"SYN_{name}_states.csv"), "w", newline="") as f:

@@ -59,3 +59,30 @@ Changes (generator and probe only; rules, expected trades and items 0-9 unchange
 4. The probe logs `ASSETFAIL` when `asset()` returns 0.
 Added prediction for run 2: no `ASSETFAIL` rows; EUR/USD bar rows carry EUR/USD prices
 (around 1.08-1.09 in March 2024), not synthetic ones.
+
+## Run 2 — 2026-11-22 18:56 (setup failure)
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run2.csv`. Zorro window and log:
+`Error 047: SYN_A2 no 2024 history (History\SYN_A2_2024.t6)`, `Error 047: SYN_A2 2024..2024
+no data.`, `Error 047: No bars generated`.
+- (b) Runs 1-2 together: an unsplit file of daily records (`SYN_A2.t6`) loaded; the same
+  records year-split (`SYN_A2_2024.t6`) were rejected; year-split M1 EUR/USD was rejected
+  when loaded after an unsplit daily synthetic asset (run 1).
+- (c) Amendment 1's cause (year-split naming alone) is **refuted** by run 2. Working reading,
+  not established: Zorro treats year-split files as high-resolution history and requires
+  one history type across the assets of a script (errors.htm, "same type for all assets").
+  Not pursued: the template never needs both kinds in one script.
+- No user broker / demo account is involved: [Test] is an offline backtest on History files.
+
+## Amendment 2 — 2026-11-22 (before run 3)
+
+1. Synthetic history back to one unsplit file per scenario (`SYN_A2.t6`, `SYN_A3.t6`), as in
+   run 1 where it loaded. Year-split synthetic files moved to `History/_to_delete/`.
+2. EUR/USD removed from this probe. Synthetic and real (year-split M1) history are never
+   mixed in one script. Item 2 (P4 on EUR/USD) moves to the later EUR/USD-only run; its
+   mechanism on synthetic bars is item 2b below.
+3. Warm-up bars (Amendment 1, item 2) and the asset() check kept.
+Predictions for run 3: items 0, 1, 3-9 unchanged; the Amendment 1 EUR/USD prediction is
+withdrawn. Item 2b: synthetic bars 03-08 (and earlier) stamped 22:00 UTC, 03-11 stamped
+21:00 UTC, `ldate_est` 17:00 on every full bar (bar 0 is a partial bar ending at the first
+record, run 1).

@@ -5,13 +5,13 @@
 //   P1  Fill = 3: an order placed at a bar's close fills at the next bar's open;
 //   P3  a bar touching both Stop and TakeProfit closes at the Stop;
 //   P4  BarZone = EST, BarOffset = 17*60: daily bars close 17:00 New York, across the
-//       2024-03-10 DST change (EUR/USD M1 history);
+//       2024-03-10 DST change (synthetic bars here; EUR/USD in a later EUR/USD-only run);
 //   plus: assetList() of the project list, assetAdd() of synthetic assets, synthetic
 //   .t6 history, dataset load of scripted states (dataParse "%w"), and breakeven set by
 //   TradeStopLimit at a close (first half of P2).
 // Prediction: docs/template/TPL_Probe_Prediction.md, committed before the run.
-// Inputs: History/SYN_A2_2024.t6, SYN_A3_2024.t6, SYN_A2_states.csv, SYN_A3_states.csv
-//         (tools/make_scenarios.py --start 2024-03-06 A2 A3); EUR/USD M1 history.
+// Inputs: History/SYN_A2.t6, SYN_A3.t6, SYN_A2_states.csv, SYN_A3_states.csv
+//         (tools/make_scenarios.py --start 2024-03-06 A2 A3).
 // Output: Data/TPL_Probe_raw.csv (deleted at INITRUN). After the run copy it to
 //         TPL_Probe_raw_run1.csv. Expect no line starting with "Error" in the window.
 // This is a probe, not template logic: it uses raw Zorro calls, and its dates and the
@@ -105,9 +105,7 @@ function run()
 	tp_scen("SYN_A2", 2);
 	tp_scen("SYN_A3", 3);
 
-	if(!asset("EUR/USD")) tp_line(strf("ASSETFAIL,EUR/USD,%i", Bar));
-	else tp_line(strf("BAR,EUR/USD,%i,%.8f,%.8f,%.15f,%.15f,%.15f,%.15f,0,0,0,0,%i,%i",
-		Bar, wdate(0), ldate(EST, 0), priceOpen(), priceHigh(), priceLow(), priceClose(), NumOpenLong, NumPendingLong));
+	// EUR/USD removed (Amendment 2): no year-split M1 history in a synthetic-asset script.
 
 	for(all_trades)
 		tp_line(strf("TRD,%s,%i,%i,%i,%i,%i,%.15f,%.15f,%.15f,%.15f,%.15f",
