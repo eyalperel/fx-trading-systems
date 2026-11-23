@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3); next: P6 lot sizing, then an EUR/USD-only real-data run)
+**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS** (run 1; S4 / P5 regressions byte-identical); next: merge `template-decisions`, then an EUR/USD-only real-data run)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -341,11 +341,19 @@ file's first rows exactly.
    fill; a long TP1 triggers at about bid = level (M-D7, accepted); short levels from the ask entry; rollover per bar
    day (17:00 New York), weekend days included, after 12 h (gotchas 9d.19). Cost assets: real pair names with a
    `syn` history suffix (`History = "*syn.t6"`), so no real run can load them.
-   **Next:** (1) P6 lots (risk sizing T8, PIPCost, lot rounding; template currently refuses to trade
-   with `nx_FixedLots = 0`); (2) EUR/USD-only real-data run (P4 on real bars, fill rounding `TR_FRC` on 5-decimal
-   quotes, ZORRO_TRADE_MECHANICS §12 R5); (3) Phase 1 step 5 hand-calculated real trades; (4) merge
-   `template-decisions` after review.
-   **Open:** dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
+   **P6 sizing, 2026-11-23** (commits `1cc7f3e`, `f315f77`, `2b22994`): decisions M-D8 (template computes lots:
+   floor(Equity x 1% / (1.5 x ATR pips x PIPCost)) per half; refuse below 1 lot, risk above 1%, margin above Equity;
+   `Capital` 100,000; fixed asset-list PIPCost = 2025-07-28 rates, per-bar conversion later; MarginCost from
+   leverage 20 at entry). `nx_size()`, SIZE / ACCT log rows; probe `strategies/tests/TPL_Sizing.c` (15 synthetic
+   assets, `History = "*sz.t6"`), `tools/check_sizing.py` + 8 tests; criteria `docs/preregistration/TPL_Sizing_Criteria.md`.
+   **Run 1 PASS**: hand-calculated lots 66 / 77 / 11474, all 3 guards fired, mutant detected; Equity at a decision
+   holds every asset's state at this bar's close (timing TA). Open (b): `MarginTotal` fits neither MarginCost model
+   (<= 0.2% off). Regressions after P6: TPL_Equivalence run 4 and TPL_Costs run 4 byte-identical to run 3.
+   Housekeeping: S4 run 3 regression after P5 PASS; gotchas §1.3 prefixes `tpc_`, `pat_`, `tsz_`, `nxz_`; 9d.19
+   reworded to M-D7; P5 run-1 files moved to `History/_to_delete/`.
+   **Next:** (1) review and merge `template-decisions`; (2) EUR/USD-only real-data run (P4 on real bars, fill rounding `TR_FRC` on 5-decimal
+   quotes, ZORRO_TRADE_MECHANICS §12 R5); (3) Phase 1 step 5 hand-calculated real trades.
+   **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.

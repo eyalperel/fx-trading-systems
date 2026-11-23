@@ -211,3 +211,13 @@ folders regenerate byte-identical (checked 2026-11-23, 160 files).
 **Prediction (c):** `C:/Zorro/Data/TPL_Equivalence_run4.csv` **byte-identical** to `TPL_Equivalence_run3.csv` (sha256 `51407d9b0dfda1f4…`);
 hence the checker output is identical and the verdict PASS. Zorro `Trades 116`, no Error line. Runs so far: 3; this is
 run 4, a regression run. Variants unchanged.
+
+## Run 4 — 2026-11-23 16:02 — PASS, prediction met (regression after P6)
+
+Commit `2b22994` (Amendment 3). Log `C:/Zorro/Data/TPL_Equivalence_log_run4.csv` **byte-identical to run 3**
+(sha256 `51407d9b0dfda1f4…`, `cmp`); checker output identical to run 3's: RUN PASS, 60/60, 4/4 controls,
+4 DOC, 40 ENTRY_ONLY. Zorro: `Trades 116`, no Error line. (b) The window's summary `Capital` figure changed
+(4671$ in run 3, 4678$ here): (c) a Zorro statistic affected by `Capital = 100000`; it is not in the log and
+has no meaning for this batch.
+
+**Verdict: S4 still PASS after P6.** Runs of S4: 4 (run 1 FAIL setup; runs 2-4 PASS).
