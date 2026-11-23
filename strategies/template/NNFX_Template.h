@@ -137,8 +137,53 @@ void nx_template_init()
 		nx_aCostInit[nxt_i] = 0;
 		nx_aSpread0[nxt_i] = 0;
 	}
+	Capital = nx_Capital;   // M-D8.3: Equity = Capital + closed + open results (balance.htm)
 	file_delete(nx_LogFile);
 	nx_log("kind,asset,a,b,c,d,e,f,g,h,i,j,k,l,m,n");
+}
+
+// Risk sizing per signal (T8, M-D8), asset nxi selected, at the decision close. Returns the lots
+// per half (both halves get the same lots), or 0 when the signal is refused; every call writes a
+// SIZE row, a refusal also an ERROR row. Order of checks: below 1 lot, configured risk exceeded,
+// margin. Locals use the nxz_ prefix (gotchas 1.3).
+int nx_size(int nxi, string nxn, int nxz_ymd, var nxz_atr)
+{
+	var nxz_eq = Equity;                                   // M-D8.3, incl. open trades (a) balance.htm
+	var nxz_pct = nx_RiskPct / NX_NHALVES;                 // % of equity per half, T8.2
+	if(nx_aMut[nxi] == NX_MUT_R2) nxz_pct = nx_RiskPct;    // planted bug (control assets only)
+	var nxz_target = nxz_eq * nxz_pct / NX_PCT;            // EUR at risk per half
+	var nxz_stopPips = nx_StopAtr * nxz_atr / PIP;
+	var nxz_riskLot = nxz_stopPips * PIPCost;              // risk of 1 lot (a) lots.htm; no spread, M-D8.1
+	var nxz_raw = nxz_target / nxz_riskLot;
+	int nxz_lots = floor(nxz_raw);                         // round down, M-D8.2
+	var nxz_actual = nxz_lots * nxz_riskLot;
+	var nxz_cap = nxz_eq * nx_RiskPct / NX_NHALVES / NX_PCT;   // configured risk per half: runtime guard
+	MarginCost = priceClose(0) * PIPCost / PIP / nx_Leverage;  // M-D8.5 (a) pip.htm
+	var nxz_margin = NX_NHALVES * nxz_lots * MarginCost;   // both halves
+	nx_log(strf("SIZE,%s,%i,%.6f,%.6f,%.6f,%.15f,%.15f,%.15f,%i,%.6f,%.6f,%.12f,%.15f,%.10f,%i,%.6f,%.10f,%.6f",
+		nxn, nxz_ymd, nxz_eq, Balance, MarginTotal, nxz_atr, PIP, PIPCost, (int)LotAmount, nxz_pct,
+		nxz_target, nxz_stopPips, nxz_riskLot, nxz_raw, nxz_lots, nxz_actual, MarginCost, nxz_margin));
+	if(nxz_lots < 1) {
+		nx_log(strf("ERROR,%s,%i,lots,below 1 lot: raw %.10f", nxn, nxz_ymd, nxz_raw));
+		return 0;
+	}
+	if(nxz_actual > nxz_cap) {
+		nx_log(strf("ERROR,%s,%i,risk,actual %.6f above configured %.6f", nxn, nxz_ymd, nxz_actual, nxz_cap));
+		return 0;
+	}
+	if(MarginTotal + nxz_margin > nxz_eq) {
+		nx_log(strf("ERROR,%s,%i,margin,%.6f + %.6f above equity %.6f", nxn, nxz_ymd, MarginTotal, nxz_margin, nxz_eq));
+		return 0;
+	}
+	return nxz_lots;
+}
+
+// One ACCT row per bar, called by the script after its asset loop: account state for the margin
+// report (M-D8.5) and the Equity checks of the sizing probe.
+void nx_account_row()
+{
+	nx_log(strf("ACCT,,%i,%i,%.6f,%.6f,%.6f,%i", Bar, ymd(ldate(EST, 0)), Equity, Balance, MarginTotal,
+		(int)is(MARGINCALL)));
 }
 
 // T7 spread level for asset i (selected): Spread = base x nx_SpreadMult. The base is the asset's
@@ -391,9 +436,10 @@ void nx_bar(int nxi, string nxn)
 	if(nxt_dec == 0) return;
 
 	// send the entry: two halves, filled at the next open (Fill 3), Stop / TP1 from the fill
-	if(nx_FixedLots <= 0) {   // risk sizing (T8) arrives in stage P6: refuse to trade without it
-		nx_log(strf("ERROR,%s,%i,no sizing: nx_FixedLots = 0 and risk sizing not implemented", nxn, nxt_ymd));
-		return;
+	int nxt_lots = nx_FixedLots;   // > 0 only in the S4 / P5 batches
+	if(nx_FixedLots <= 0) {
+		nxt_lots = nx_size(nxi, nxn, nxt_ymd, nxt_a);   // T8 / M-D8
+		if(nxt_lots < 1) return;   // refused: ERROR row written, signal skipped (c: as if no entry)
 	}
 	nx_aGroup[nxi] = nxt_g + 1;
 	nx_aDir[nxi] = nxt_dec;
@@ -410,7 +456,7 @@ void nx_bar(int nxi, string nxn)
 	nx_aBest[nxi] = 0;
 	if(nxt_dec == 1) { nx_aChainL[nxi] = 1; nx_aChainS[nxi] = 0; }
 	if(nxt_dec == -1) { nx_aChainS[nxi] = 1; nx_aChainL[nxi] = 0; }
-	Lots = nx_FixedLots;
+	Lots = nxt_lots;
 	Stop = nx_StopAtr * nxt_a;
 	TakeProfit = nx_Tp1Atr * nxt_a;
 	if(nxt_dec == 1) ThisTrade = enterLong(); else ThisTrade = enterShort();

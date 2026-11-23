@@ -20,7 +20,7 @@ Light-C is not full C. Constructs that compile elsewhere will fail here.
 |---|---|---|---|
 | 1.1 | **No ternary operator `? :`** | `syntax error` at the line | Explicit `if`/`else` |
 | 1.2 | `Period` is a reserved word | Compile error or unexpected behaviour | Use `BarPeriod`, or a prefixed local. (b, Zorro 3.11, H1 run 2) `int Period` as a function parameter compiles with no Error line. Not tested as a global or static name: keep avoiding it there (c). |
-| 1.3 | 🔇 **Flat variable namespace across all included files** | Silent collision; one file overwrites another's local | Prefix every local: `rm_`, `rmo_`, `cc_`, `cyc_`, `ab_`, `mstc_`, `fi_` (FisherCore), `fto_` (FisherTransform_Superseded), `ift_` (Test_Fisher_IFT_COG), `ma_` (MAMACore), `maw_` (MAMA wrapper), `mao_` (MAMA_Superseded), `fr_` (FRAMACore), `frw_` (FRAMA wrapper), `fro_` (FRAMA_Superseded), `at_` (ATRMT4Core), `atw_` (ATRMT4 wrapper), `ats_` (ATR NCS body), `ax0_` / `axi_` / `axr_` / `axz_` (ATR control bodies NC0 / NCWi / NCR / NCZ), `pse_` (PROBE_SeriesExprLen), `xa_` (XCHK_ATRMT4_vs_ATRS), `tpc_` (TPL_Costs), `pat_` (PROBE_AssetType) |
+| 1.3 | 🔇 **Flat variable namespace across all included files** | Silent collision; one file overwrites another's local | Prefix every local: `rm_`, `rmo_`, `cc_`, `cyc_`, `ab_`, `mstc_`, `fi_` (FisherCore), `fto_` (FisherTransform_Superseded), `ift_` (Test_Fisher_IFT_COG), `ma_` (MAMACore), `maw_` (MAMA wrapper), `mao_` (MAMA_Superseded), `fr_` (FRAMACore), `frw_` (FRAMA wrapper), `fro_` (FRAMA_Superseded), `at_` (ATRMT4Core), `atw_` (ATRMT4 wrapper), `ats_` (ATR NCS body), `ax0_` / `axi_` / `axr_` / `axz_` (ATR control bodies NC0 / NCWi / NCR / NCZ), `pse_` (PROBE_SeriesExprLen), `xa_` (XCHK_ATRMT4_vs_ATRS), `tpc_` (TPL_Costs), `pat_` (PROBE_AssetType), `tsz_` (TPL_Sizing), `nxz_` (nx_size locals) |
 | 1.4 | `void run()`, not `function run()` | Compile error | — |
 
 **Prefixes in use (do not reuse):**
@@ -30,6 +30,7 @@ Light-C is not full C. Constructs that compile elsewhere will fail here.
 `at_` ATRMT4Core · `atw_` ATRMT4 wrapper · `ats_` ATR NCS body · `ax0_`/`axi_`/`axr_`/`axz_` ATR control bodies NC0/NCWi/NCR/NCZ ·
 `nx_` NNFX template config / state (`NNFX_Config.h`, `NNFX_Template.h`) · `nxs_` NNFX_Slots locals · `nxt_` NNFX_Template locals · `tp_` TPL_Probe · `tpe_` TPL_Equivalence · `tple_` its generated scenario include ·
 `tpc_` TPL_Costs (its generated scenario include uses `tple_`) · `pat_` PROBE_AssetType ·
+`tsz_` TPL_Sizing (include also `tple_`) · `nxz_` nx_size locals (NNFX_Template.h) ·
 `pse_` PROBE_SeriesExprLen · `xa_` XCHK_ATRMT4_vs_ATRS
 
 ---
@@ -337,3 +338,4 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 2026-11-23 | Added §9d.16 (trading week in BarZone; StartWeek) and §9d.17 (bars follow the first asset) from S4 run 1 |
 | 2026-11-23 | Added §9d.18 (assetType: only real pair names are Forex) and §9d.19 (spread on long TP exits, rollover day) from P5 run 1 and PROBE_AssetType |
 | 2026-11-23 | §1.3: prefixes `tpc_` (TPL_Costs), `pat_` (PROBE_AssetType). §9d.19 reworded to the M-D7 correction (P5 run 2): every half pays one spread against its own fill; a long TP triggers at about bid = level |
+| 2026-11-23 | §1.3: prefixes `tsz_` (TPL_Sizing), `nxz_` (nx_size locals in NNFX_Template.h), P6 |

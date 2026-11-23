@@ -41,7 +41,7 @@ var    nx_RiskPct;           // % of equity per signal (both halves together)
 var    nx_RiskPctMin;        // user range, lower end
 var    nx_RiskPctMax;        // user range, upper end
 var    nx_Capital;           // starting capital, account currency (EUR, M-D4)
-var    nx_Leverage;          // target leverage; see ZORRO_TRADE_MECHANICS (MarginCost check pending)
+var    nx_Leverage;          // leverage: MarginCost set from it at each entry (M-D8.5)
 var    nx_SpreadMult;        // spread multiplier (1 = asset list)
 string nx_AssetList;         // asset list file
 
@@ -64,6 +64,9 @@ int    nx_CtlMutation;       // planted-bug control id; 0 in every real run (cod
 #define NX_MUT_NONE    0     // no planted bug [code]
 #define NX_MUT_M3      1     // control: breakeven placed without the M-D3 check [code]
 #define NX_MUT_MF      2     // control: entry only when no trade is open [code]
+#define NX_MUT_R2      3     // control (P6): full nx_RiskPct per half instead of nx_RiskPct / NX_NHALVES [code]
+#define NX_NHALVES     2     // half-positions per signal, T8.2 [code]
+#define NX_PCT         100   // percent to fraction [code]
 #define NX_R_NONE      0     // exit reasons [code]
 #define NX_R_STOP      1     // [code]
 #define NX_R_TP1       2     // [code]
@@ -136,7 +139,7 @@ void nx_config_init()
 	nx_AssetList = "AssetsNNFX_FX";       // M-D4; load path checked in S3
 
 	nx_HedgeMode = 2;                     // full hedging: Zorro closes nothing itself, M-D5
-	nx_FixedLots = 0;                     // risk sizing T8 (P6); S4 batch sets 1 (c)
+	nx_FixedLots = 0;                     // risk sizing T8 / M-D8 (P6); S4 / P5 batches set 1 (c)
 	nx_BtfOn = 1;                         // Strategy 1, two-lines-cross C1 [V34]; T3.3 (Strategy 2: 0)
 	nx_SlotSource = NX_SRC_STRATEGY;      // T3 slot interface
 	nx_CtlMutation = NX_MUT_NONE;         // S4 decision 4, 2026-11-23: controls only

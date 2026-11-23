@@ -21,6 +21,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | M-D5 | Hedge mode | Decided 2026-11-23 |
 | M-D6 | Start of the trading week (StartWeek) | Decided 2026-11-23 |
 | M-D7 | Spread on long TP1 exits (Zorro accounting) | Decided 2026-11-23 |
+| M-D8 | Lot sizing in Zorro (implements T8; stage P6) | Decided 2026-11-23 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
@@ -439,3 +440,53 @@ reports the number of long TP1 halves.
 included, pays exactly one spread (cost identity on 32 halves within 5.5e-7). What differs is the trigger:
 a long's take-profit fills at about bid = level, so its recorded (ask) exit is one spread above the level
 and its result equals the TP distance. Decision unchanged.
+
+## M-D8 — Lot sizing in Zorro (decided 2026-11-23, user: accept each of 5 points; implements T8, stage P6)
+
+Read first from the Zorro 3.11 manual (`C:/Zorro/manual_311/en`: lots.htm, pip.htm, balance.htm,
+winloss.htm, account.htm) and the project asset list `config/assets/AssetsNNFX_FX.csv`.
+
+- (a) lots.htm: "The trade size is always an integer number of lots"; never less than 1 lot. Risk of a trade
+  = `Lots * (Stop/PIP) * PIPCost`. Zorro's own `Risk` sizer uses `RiskPerLot = PIPCost/PIP * (Spread +
+  abs(Stop-Price)) + CommissionPerLot` and acts by reducing `Margin`; its interplay with the default
+  `Margin` (0.00000001) is not spelled out.
+- (a) pip.htm: PIPCost = value of 1 pip per lot in account currency, from the asset list; it "should
+  normally remain constant during the simulation for not adding artifacts"; a script may recompute it
+  from the exchange rate (`convertProfits` example). `MarginCost = Asset price * PIPCost / PIP / Leverage`;
+  MarginCost may be set by script "before entering the trade". account.htm: negative MarginCost = margin in
+  percent of position value ("-25 ... equivalent to leverage 4").
+- (a) balance.htm / winloss.htm: `Equity = Balance + WinValTotal - LossValTotal`; in test
+  `Balance = Capital + WinTotal - LossTotal`. lots.htm: `Capital` = initial capital; if free capital
+  (Capital minus loss minus total margin) turns negative Zorro sets MARGINCALL and liquidates trades.
+- (b) `AssetsNNFX_FX.csv`: LotAmount 1000 for every FX pair; PIPCost is a snapshot of the list date
+  (2025-07-28): EUR/USD 0.08561 = 1000 x 0.0001 / 1.16815 (the row's price; 0.085605); EUR/JPY 0.058102
+  ~ 1000 x 0.01 / 172.12 (0.058099); AUD/USD 0.08561. MarginCost = -1 for every pair (1% = leverage 100).
+- (b) Template before P6: `Capital` never set; `nx_Leverage = 20` defined but not applied.
+- (c) Not stated in the manual: the price at which open trades enter Equity (bid / ask), and when Equity
+  updates inside the per-asset loop. Measured by the P6 probe, not assumed.
+- (c) Size at ATR 80 pips (stop 120 pips): 1,000 EUR / (120 x 0.08561) = 97.3 lots per half; margin at
+  leverage 20 about 50 EUR per lot, about 9,700 EUR per signal (~10% of equity).
+
+**Decision.**
+1. **The template computes the lots** (not Zorro's `Risk`): per half
+   `Lots = floor( Equity x nx_RiskPct/2 % / ((nx_StopAtr x ATR / PIP) x PIPCost) )`. No spread in the
+   formula: T8's source formula has none (Risk$ / (1.5 x ATR pips) [M3]); spread is a cost (T7, P5).
+   Every half logs target risk, actual risk (`Lots x stop pips x PIPCost`) and the rounding error (T8.3).
+2. **Round down** (`floor()` called explicitly): actual risk never above the target; undershoot below one lot
+   (~1% of risk at ~97 lots, ~0.5% average, (c)). No VP / Stonehill rounding rule is known: this choice is (c).
+   **Below 1 lot: skip the signal and log an `ERROR` row**, never round up to 1 lot.
+3. **Equity basis:** Zorro's `Equity` with `Capital = nx_Capital` (100,000 EUR) set in INITRUN; read once per
+   signal at the decision close; the same value sizes both halves (equal lots, T8.2).
+4. **PIPCost: fixed asset-list snapshot** (Zorro default) for variant 0. (c) R is unaffected (the same PIPCost
+   sizes the trade and values its result); EUR amounts and lot counts are "at 2025-07-28 rates" and every
+   results header says so. Per-bar conversion (`convertProfits` pattern) is a later, more realistic option;
+   it needs a probe of open-trade P&L under a changing PIPCost first, and AUD/USD needs EUR/USD loaded
+   (gotchas 9d.17). T11.6: reported, not varied.
+5. **Leverage 20:** before each entry `MarginCost = priceClose() * PIPCost / PIP / nx_Leverage`. Guard: if
+   `MarginTotal` + the signal's margin (both halves) > `Equity`, skip the signal, log `ERROR,...,margin`, count
+   it. Zorro's margin-call simulation (Capital > 0) stays on as a backstop; any MARGINCALL is counted. Each half
+   logs its margin; the run logs max `MarginTotal / Equity` (T11.6: "only if margin binds, checked").
+
+Verified by the P6 probe (`docs/preregistration/TPL_Sizing_Criteria.md`): hand-calculated lots on synthetic
+assets; each guard (below 1 lot, margin, planted wrong risk %) seen to fire.
+

@@ -118,6 +118,17 @@ the hand-calculated trades of Phase 1 step 5.
   120 x 0.0858 = 10.3, so about 97 lots per half, and integer rounding about 1%.
   Measured per run (T8.3).
 
+- **P6 reading, 2026-11-23 (decided as M-D8):**
+  - (a) Equity = Balance + WinValTotal - LossValTotal; in test Balance = Capital + WinTotal - LossTotal
+    (balance.htm, winloss.htm). Capital > 0 enables the simulated margin call (lots.htm).
+  - (a) PIPCost comes from the asset list and "should normally remain constant during the simulation";
+    a script may recompute it (pip.htm). (b) In `AssetsNNFX_FX.csv` it is a 2025-07-28 snapshot
+    (EUR/USD 0.08561 = 0.1 / 1.16815; EUR/JPY 0.058102 ~ 10 / 172.12).
+  - (a) MarginCost = price x PIPCost / PIP / Leverage, settable by script before entry; negative values are
+    a percentage (pip.htm, account.htm). (b) The list has -1 (leverage 100); T8 wants 20.
+  - (a) Zorro's `Risk` sizer adds the spread and commission to the stop distance (lots.htm); not used.
+  - (c) Open: valuation price of open trades in Equity, and Equity's update timing in a multi-asset loop.
+
 ## 9. Data availability (dev set) — found while reading
 
 - (b) `C:/Zorro/History` holds only `EURUSD_*.t6` plus asset lists. BTC/USD H4, EUR/JPY
