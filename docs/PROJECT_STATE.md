@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); Phase 1 step 4 in progress: template decisions T1-T11 taken 2026-11-22, next the template code)
+**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); Phase 1 step 4 in progress: decisions T1-T11 + M-D1..M-D4, config + lint, Python reference engine and Zorro mechanics probe (TPL_Probe run 6 PASS) done 2026-11-22; next: the Light-C template, then the S4 equivalence pre-registration)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -299,6 +299,26 @@ file's first rows exactly.
    agreement; costs from the asset list at spread x1 and x2; 2% in two 1% halves, results in R; continuation with C2; catch-up with no
    day limit; T11 no magic numbers (one-at-a-time pre-registered sensitivity, every level counted). Open: NNFX Podcast Ep 39
    (one-candle rule) not among the 336 fetched videos, to fetch (T6); Strategy 2's C1 / C2 are both midline crosses, against V20 (T3).
+   **Stages done 2026-11-22** (branch `template-decisions`, last commit `7018d5d`, not yet merged):
+   - S0 Zorro 3.11 trade mechanics from the bundled manual (`C:/Zorro/zorro.chm`, unpacked to `C:/Zorro/manual_311/`; the older
+     `zorro_help` copy is 2.70): `docs/template/ZORRO_TRADE_MECHANICS.md`; decisions M-D1 (bars close 17:00 New York: BarZone EST,
+     BarOffset 1020), M-D2 (Slippage 0, 5 s as sensitivity), M-D3 (breakeven due with the close beyond entry: runner exits at the
+     next open), M-D4 (project asset list `config/assets/AssetsNNFX_FX.csv` = AssetsForex.csv, account EUR, 100,000 start).
+   - S1 `strategies/template/NNFX_Config.h` (every number named, source-labelled, integer-built) + `tools/lint_literals.py` (23 tests;
+     planted label / decimal guards fire).
+   - S2 `analysis/template/reference_engine.py` (independent Python implementation of T1-T11): 31 hand-calculated scenario tests incl.
+     short mirror and config agreement; mutation check 7/7 real bugs caught, 2 equivalent mutants (`analysis/template/README.md`).
+   - S3 probe `strategies/tests/TPL_Probe.c` + `tools/make_scenarios.py` (synthetic scenarios as `.t6` intraday paths + states CSV +
+     expected trades): **run 6 PASS, all predictions** after 5 recorded runs and 5 amendments (`docs/template/TPL_Probe_Prediction.md`).
+     Confirmed: next-open fill (Fill 3), entry-bar exits need TICKS (**T5 amendment: `nx_TicksOn = 1`**; the engine keeps T5.2, scenario
+     A3HF documents the TICKS-order difference), stop / TP at the level, breakeven via `TradeStopLimit`, 17:00 NY bars across DST.
+     Gotchas 9d.11-9d.15 (float trade fields in `strf`, TICKS, synthetic history naming, partial first bar, end-of-history close).
+   **Next:** (1) Light-C template `NNFX_Slots.h` + `NNFX_Template.h` (engine event order, Zorro orders, architecture A; set Spread by
+   script for synthetic assets, MarginCost from nx_Leverage); (2) S4 pre-registration (tolerance 1e-5 on fills, "end" trades compared on
+   entry only, A3HF a documented difference, variants counted); (3) one-click equivalence batch over all S2 scenarios; (4) then P5 / P6
+   (costs, lots) and an EUR/USD-only real-data run (P4 on real bars).
+   **Open:** dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
+   Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
 

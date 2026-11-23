@@ -327,3 +327,4 @@ Found building harness H1 for `SuperSmoother2Pole.c`. Runs: H1 run 1 (FAIL, inpu
 | 2026-11-22 | Added §9d.11-9d.14 (TPL_Probe runs 1-3: float trade fields in strf, TICKS and entry-bar exits, synthetic history naming, partial first bar); §1.3 prefixes `nx_`, `tp_` |
 | 2026-11-22 | Added §9d.15: open trades closed at the first tick of the asset's last history day (TPL_Probe runs 3-6) |
 | 2026-11-22 | §9d.12 addendum: with TICKS, the fill is the price of the record that crosses the level (run 4: 0.98450 for a 0.98500 stop); on fine paths the fill lands on the level (run 6). `assetAdd(..., Spread 0, ...)` left a 0.0100 spread; set `Spread = 0;` after `asset()` (run 4-5) |
+| 2026-11-22 | §1.4 note (b): on Zorro 3.11 `function run()` compiled and ran (TPL_Probe runs 1-6, no Error line); the §1.4 rule dates from 2.70. `void run()` remains the project convention |
