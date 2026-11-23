@@ -15,6 +15,7 @@ int    nx_BarPeriodMin;      // daily bars
 int    nx_BarZone;           // bar time zone
 int    nx_BarOffsetMin;      // bar end offset from BarZone midnight
 int    nx_FillMode;          // Zorro Fill mode
+int    nx_TicksOn;           // 1 = set(TICKS): intrabar path evaluated, entry-bar exits possible
 var    nx_SlippageSec;       // Zorro Slippage
 
 // ---- trade management (all in multiples of the entry-bar ATR, frozen per trade) --
@@ -55,6 +56,7 @@ void nx_config_init()
 	nx_BarZone = EST;                     // M-D1 New York, DST-aware
 	nx_BarOffsetMin = 17; nx_BarOffsetMin *= 60; // M-D1 bars close 17:00 New York (A17)
 	nx_FillMode = 3;                      // T4 next-bar open (Zorro 3.11 fill.htm)
+	nx_TicksOn = 1;                       // T5 amendment 2026-11-22 (mode.htm TICKS; gotchas 9d.12)
 	nx_SlippageSec = 0;                   // M-D2 (sensitivity level: 5)
 
 	nx_AtrLen = 14;                       // (a) [V03, V16]

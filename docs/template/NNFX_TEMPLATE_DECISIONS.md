@@ -359,3 +359,23 @@ stop cannot cause it (always 1.5 x ATR behind a close).
 3. A cheaper list (Oanda / Darwinex spreads) is a later T11 sensitivity level.
 BTC/USD is not in the list; crypto handled separately later (no daily NNFX BTC run planned;
 BTC data also missing, ZORRO_TRADE_MECHANICS §9).
+
+## T5 amendment — Zorro TICKS mode and the same-bar order (2026-11-22, user: accept)
+
+- (a) Zorro 3.11 mode.htm: without `TICKS` "an intra-bar approximation is used ... a stop
+  loss is always triggered earlier than a profit target"; "TICKS should be used when trades
+  enter and exit at the same bar"; with TICKS "the price curve inside any bar is evaluated".
+- (b) TPL_Probe run 3: without TICKS, entries filled on a bar whose range crossed stop and
+  target, and neither fired (gotchas 9d.12). Real history is M1 (ZORRO_TRADE_MECHANICS §6).
+- (c) Without TICKS every entry-day stop-out or TP1 is missed: an optimistic bias that breaks
+  T5 (the entry bar is checked).
+
+**Decision.**
+1. The template sets `TICKS` (`nx_TicksOn = 1`). On M1 history the intrabar order comes from
+   the data; Zorro's stop-first rule then applies only inside one history record.
+2. T5.2 (stop first when both levels lie inside one daily bar) stays the reference engine's
+   rule, since the engine sees daily OHLC only. Equivalence scenarios use intraday paths with
+   a stated order; scenario A3 is run low-first (Zorro = T5.2) and high-first (A3HF: Zorro
+   takes TP1 on half 1, then stops the runner; documented difference, not a failure).
+3. Every real-data run reports the number of trades with stop and TP1 both inside one daily
+   bar, so the effect of the order is visible.

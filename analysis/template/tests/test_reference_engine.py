@@ -90,6 +90,11 @@ def s_A6():
     return scen([(1.0000, 1.0110, 0.9990, 0.9980), (0.9975, 0.9985, 0.9965, 0.9980)])
 
 
+def s_P1():
+    """Entry bar opens away from the signal close (probe P1): fill at 1.0010, not 1.0000."""
+    return scen([(1.0010, 1.0030, 1.0000, 1.0020), (1.0020, 1.0030, 1.0010, 1.0025)])
+
+
 def s_B1():
     return scen([(1.0000, 1.0110, 0.9990, 1.0090), (1.0090, 1.0220, 1.0080, 1.0210),
                  (1.0210, 1.0310, 1.0200, 1.0300), (1.0300, 1.0310, 1.0240, 1.0250),
@@ -152,6 +157,16 @@ class StopsTargetsGaps(Base):
         self.assertHalf(r.halves[1], "be_adverse", 0.9975, -0.0025)
         self.assertEqual(r.halves[1].exit_bar, 3)
         self.assertEqual(r.be_adverse_exits, 1)
+
+
+class NextOpenFill(Base):
+    def test_P1_entry_at_next_open_not_signal_close(self):
+        r = run(s_P1())
+        for hf in r.halves:
+            self.assertAlmostEqual(hf.entry, 1.0010, EPS)
+            self.assertAlmostEqual(hf.stop, 1.0010 - 0.0150, EPS)
+            self.assertEqual(hf.reason, "end")
+        self.assertAlmostEqual(r.halves[0].tp, 1.0110, EPS)
 
 
 class Trailing(Base):

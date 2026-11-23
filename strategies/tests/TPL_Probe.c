@@ -10,8 +10,8 @@
 //   .t6 history, dataset load of scripted states (dataParse "%w"), and breakeven set by
 //   TradeStopLimit at a close (first half of P2).
 // Prediction: docs/template/TPL_Probe_Prediction.md, committed before the run.
-// Inputs: History/SYN_A2.t6, SYN_A3.t6, SYN_A2_states.csv, SYN_A3_states.csv
-//         (tools/make_scenarios.py --start 2024-03-06 A2 A3).
+// Inputs: History/SYN_{A2,A3,A3HF,P1}.t6 and *_states.csv
+//         (tools/make_scenarios.py --start 2024-03-06 A2 A3 A3HF P1). TICKS set (nx_TicksOn).
 // Output: Data/TPL_Probe_raw.csv (deleted at INITRUN). After the run copy it to
 //         TPL_Probe_raw_run1.csv. Expect no line starting with "Error" in the window.
 // This is a probe, not template logic: it uses raw Zorro calls, and its dates and the
@@ -93,22 +93,32 @@ function run()
 		int rcList = assetList("C:\\Users\\eyalp\\Documents\\fx-trading-systems\\config\\assets\\AssetsNNFX_FX.csv");
 		var pip = 1; pip /= 10000;
 		var pipCost = 1; pipCost /= 10;
+		if(nx_TicksOn) set(TICKS);   // T5 amendment; must be set in INITRUN (mode.htm)
 		assetAdd("SYN_A2", 1, 0, 0, 0, pip, pipCost, 0, nx_Leverage, 1000, 0, "SYN_A2");
 		assetAdd("SYN_A3", 1, 0, 0, 0, pip, pipCost, 0, nx_Leverage, 1000, 0, "SYN_A3");
+		assetAdd("SYN_A3HF", 1, 0, 0, 0, pip, pipCost, 0, nx_Leverage, 1000, 0, "SYN_A3HF");
+		assetAdd("SYN_P1", 1, 0, 0, 0, pip, pipCost, 0, nx_Leverage, 1000, 0, "SYN_P1");
 		dataNew(2, 0, 0);
 		int n2 = dataParse(2, "%w,f1,f2,f3,f4,f5,f6", "History\\SYN_A2_states.csv");
 		dataNew(3, 0, 0);
 		int n3 = dataParse(3, "%w,f1,f2,f3,f4,f5,f6", "History\\SYN_A3_states.csv");
-		tp_line(strf("INFO,assetList_rc=%i,rows_A2=%i,rows_A3=%i,BarOffset=%i,Fill=%i", rcList, n2, n3, BarOffset, Fill));
+		dataNew(4, 0, 0);
+		int n4 = dataParse(4, "%w,f1,f2,f3,f4,f5,f6", "History\\SYN_A3HF_states.csv");
+		dataNew(5, 0, 0);
+		int n5 = dataParse(5, "%w,f1,f2,f3,f4,f5,f6", "History\\SYN_P1_states.csv");
+		tp_line(strf("INFO,assetList_rc=%i,rows_A2=%i,rows_A3=%i,rows_A3HF=%i,rows_P1=%i,BarOffset=%i,Fill=%i,TICKS=%i",
+			rcList, n2, n3, n4, n5, BarOffset, Fill, (int)is(TICKS)));
 	}
 
 	tp_scen("SYN_A2", 2);
 	tp_scen("SYN_A3", 3);
+	tp_scen("SYN_A3HF", 4);
+	tp_scen("SYN_P1", 5);
 
 	// EUR/USD removed (Amendment 2): no year-split M1 history in a synthetic-asset script.
 
 	for(all_trades)
 		tp_line(strf("TRD,%s,%i,%i,%i,%i,%i,%.15f,%.15f,%.15f,%.15f,%.15f",
 			Asset, Bar, TradeID, (int)TradeIsOpen, TradeBarOpen, TradeBarClose,
-			TradePriceOpen, TradePriceClose, TradeStopLimit, TradeProfitLimit, TradeProfit));
+			TradePriceOpen, TradePriceClose, (var)TradeStopLimit, (var)TradeProfitLimit, (var)TradeProfit));   // float fields cast (gotchas 9d.11)
 }

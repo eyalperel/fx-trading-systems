@@ -68,8 +68,42 @@ def pad(s):
     return out
 
 
+# Intraday paths (TPL_Probe run 3, 2026-11-22): with one record per day, a Fill = 3 entry
+# fills on that day's only tick and the day's range is never checked for stops / targets.
+# Real history is M1, so each synthetic day is a path of records stamped at 17:00 New York
+# of the previous day plus TICK_HOURS (all inside the bar, M-D1). Record 1 is the open
+# (O = H = L = C = open, so a gap from the previous close stays a gap). Records 2-4 are
+# segment candles from one path point to the next (O = start, C = end, H / L = span): a
+# level inside a segment then fills at the level, not at a jumped price (fill.htm:
+# "Max of TakeProfit and Open", "Min of Stop and Open").
+# Default order: up day (close >= open) open -> low -> high -> close; down day
+# open -> high -> low -> close. ORDER overrides it for named variants.
+TICK_HOURS = (1, 6, 12, 23)
+SCENARIOS = {  # file name -> (scenario function, {scenario bar index: order})
+    "A2": ("A2", {}), "A3": ("A3", {}), "A3HF": ("A3", {2: "HF"}), "P1": ("P1", {}),
+    "A5": ("A5", {}), "A6": ("A6", {}), "B1": ("B1", {}), "B2": ("B2", {}),
+    "C1": ("C1", {}), "C2": ("C2", {}), "C3": ("C3", {}), "A1": ("A1", {}), "A4": ("A4", {}),
+}
+
+
+def path(o, h, l, c, order):
+    if order is None:
+        order = "LF" if c >= o else "HF"
+    mid = (l, h) if order == "LF" else (h, l)
+    return [o, mid[0], mid[1], c]
+
+
+def tick_times(day):
+    prev = dt.datetime(day.year, day.month, day.day, 17, tzinfo=NY) - dt.timedelta(days=1)
+    if day.weekday() == 0:          # Monday's bar starts Sunday 17:00 New York
+        prev -= dt.timedelta(days=2)
+    return [(prev + dt.timedelta(hours=hh)).astimezone(dt.timezone.utc) for hh in TICK_HOURS]
+
+
 def build(name, start):
-    s = pad(getattr(T, "s_" + name)())
+    fn, order = SCENARIOS[name]
+    s = pad(getattr(T, "s_" + fn)())
+    s["order"] = {PAD_BARS + k: v for k, v in order.items()}
     for k in ("o", "h", "l", "c", "baseline", "atr"):
         s[k] = [f32(x) for x in s[k]]
     days = weekdays(start - dt.timedelta(days=7), PAD_BARS + 7)
@@ -85,7 +119,11 @@ def write(name, s, days, zorro, out):
     # file loaded. Synthetic assets are never mixed with year-split M1 history in a script.
     with open(os.path.join(hist, f"SYN_{name}.t6"), "wb") as f:
         for i in reversed(range(n)):
-            f.write(struct.pack("<d6f", ole(days[i]), s["h"][i], s["l"][i], s["o"][i], s["c"][i], 0.0, 0.0))
+            pts = path(s["o"][i], s["h"][i], s["l"][i], s["c"][i], s["order"].get(i))
+            segs = [(pts[0], pts[0])] + [(pts[k - 1], pts[k]) for k in range(1, len(pts))]
+            for t_utc, (a, b) in reversed(list(zip(tick_times(days[i]), segs))):
+                w = (t_utc - OLE0).total_seconds() / 86400.0
+                f.write(struct.pack("<d6f", w, max(a, b), min(a, b), a, b, 0.0, 0.0))
     with open(os.path.join(hist, f"SYN_{name}_states.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["date_ole", "c1", "c2", "baseline", "atr", "vol", "ex"])
@@ -93,6 +131,7 @@ def write(name, s, days, zorro, out):
             w.writerow([repr(ole(days[i])), s["c1"][i], s["c2"][i], repr(s["baseline"][i]),
                         repr(s["atr"][i]), int(bool(s["vol"][i])), s["ex"][i]])
     kw = dict(s)
+    kw.pop("order")
     p = kw.pop("params")
     res = E.run(p=p, **kw)
     os.makedirs(out, exist_ok=True)

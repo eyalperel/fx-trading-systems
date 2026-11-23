@@ -86,3 +86,48 @@ Predictions for run 3: items 0, 1, 3-9 unchanged; the Amendment 1 EUR/USD predic
 withdrawn. Item 2b: synthetic bars 03-08 (and earlier) stamped 22:00 UTC, 03-11 stamped
 21:00 UTC, `ldate_est` 17:00 on every full bar (bar 0 is a partial bar ending at the first
 record, run 1).
+
+## Run 3 — 2026-11-22 19:07 (ran; items 6-9 failed, cause found)
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run3.csv` (sha256 `dbe71dcb269a2465…`).
+Zorro: `Trades 4 Win 0.0% Avg -106.0p`, no Error line.
+- (b) Items 0, 1, 2b, 3, 4 as predicted: no Error; INFO rows 9 / 8; full bars stamped
+  22:00 UTC up to 03-08 and 21:00 UTC on 03-11 (17:00 New York); ENTER for both scenarios
+  on the 03-07 bar with stop distance 0.0150 and TP distance 0.0100.
+- (b) Item 5: both halves of both scenarios filled at 1.00000 on the 03-08 bar. Not
+  conclusive for P1: 1.0000 is also the 03-07 close.
+- (b) Items 6-8 **failed**: no stop or target fired on 03-08 although A3's low (0.98449)
+  crossed the stop and both highs (1.011) crossed TP1; all four trades were closed at the
+  end of the test (03-11). (a) mode.htm: without `TICKS` "an intra-bar approximation is
+  used", and "TICKS should be used when trades enter and exit at the same bar"; the probe
+  did not set TICKS. A first explanation in the planning chat ("the single tick was used
+  up") was a guess and is withdrawn.
+- (b) The logged stop / target / profit values were garbage: those trade fields are 4-byte
+  `float` and were printed with `%f` without a cast (gotchas 9d.11).
+
+## Amendment 3 — 2026-11-22 (before run 4)
+
+1. `TICKS` set in INITRUN (`nx_TicksOn = 1`; T5 amendment in NNFX_TEMPLATE_DECISIONS.md).
+2. Each synthetic day is an intraday path of 4 records: the open (O = H = L = C), then three
+   segment candles open -> first extreme -> second extreme -> close (up day: low first; down
+   day: high first). A level inside a segment fills at the level, a gap at the day's open
+   stays a gap (fill.htm). `tools/make_scenarios.py`.
+3. New scenarios: **A3HF** (A3's day, high first) and **P1** (entry bar opens at 1.0010,
+   signal close 1.0000; reference test `test_P1_entry_at_next_open_not_signal_close`).
+4. Float trade fields cast to `var` when printed.
+
+Predictions for run 4 (tolerance 1e-6 on prices; float32 inputs, spread 0, slippage 0):
+
+| # | Item | Predicted |
+|---|---|---|
+| 0 | Zorro window | no line starting with `Error` |
+| 1 | INFO | rows_A2=9, rows_A3=8, rows_A3HF=8, rows_P1=9, BarOffset=1020, Fill=3, TICKS=1 |
+| 2b | Bar stamps | full bars 22:00 UTC up to 03-08, 21:00 UTC on 03-11; `ldate_est` 17:00 |
+| 4 | Entries | ENTER on the 03-07 bar for all four scenarios |
+| 5 | P1 fill | SYN_P1 both halves at **1.0010** (03-08 open, not the 03-07 close 1.0000); A2 / A3 / A3HF at 1.0000 |
+| 6 | A2 half 1 | TP1 on 03-08 at 1.0100 |
+| 7 | A2 runner | stop set to 1.0000 at the 03-08 close; stopped on 03-11 at 1.0000 |
+| 8 | A3 (low first) | both halves stopped on 03-08 at 0.9850 (= reference engine, T5.2) |
+| 8b | A3HF (high first) | half 1 TP1 on 03-08 at 1.0100; runner stopped on 03-08 at 0.9850. **Differs from the reference engine** (both halves stop, T5.2): the documented TICKS-order case, not a failure |
+| 9 | Stop / TP prices while open | stop 0.9850 (A2, A3, A3HF), 0.9860 (P1); TP1 1.0100 (A2, A3, A3HF), 1.0110 (P1); runners no TP |
+| 10 | P1 exits | both halves still open at the last scenario bar; closed by the end of the test (price recorded, not predicted) |
