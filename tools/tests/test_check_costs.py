@@ -37,6 +37,9 @@ def fake_log(rule="H_UTC", short="S_ASK", plant=None):
                 roll = n * C.ROLL[d]
                 comm = C.COMM
                 prof = prof - C.SPREAD_COST - comm + roll
+                if d == 1 and reason == "tp1":      # M-D7: long TP fills at the level in bid terms
+                    exitp += C.SPREAD
+                    prof += C.SPREAD_COST
                 if d == -1 and short == "S_BID" and reason in C.ENTRY_LEVEL_EXIT:
                     exitp -= C.SPREAD
                     prof += C.SPREAD_COST
@@ -80,6 +83,9 @@ class CheckCosts(unittest.TestCase):
     def test_planted_profit_error_fails(self):
         self.assertFalse(run(plant=("A2", 2, "profit"))[1])
         self.assertFalse(run(plant=("B1M", 1, "profit"))[1])
+
+    def test_long_tp_paying_spread_fails(self):
+        self.assertFalse(run(plant=("A2", 1, "profit"))[1])
 
     def test_planted_fractional_roll_fails(self):
         self.assertFalse(run(plant=("B1", 2, "roll"))[1])

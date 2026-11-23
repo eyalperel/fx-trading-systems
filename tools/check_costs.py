@@ -9,6 +9,7 @@ commission 1 per 10000 units = 0.1 per round turn; rollover -1 (long) / +0.5 (sh
 units per day = -0.1 / +0.05 per day (Zorro 3.11 spread.htm: "per 10000 contracts for currencies";
 rollover added "for any trade that was longer open than 12 hours at any new day, including
 Saturday and Sunday").
+Amendment 1 (2026-11-23, after run 1): long TP1 halves pay no spread (M-D7); prediction H_BAR and S_ASK.
 Open questions, answered by the run, each with its candidates fixed here before the run:
   day rule  H_UTC (new day at 00:00 UTC) / H_NY (00:00 New York) / H_BAR (17:00 New York, our bar close)
   short     S_ASK (short stop / TP levels measured from the ask entry, as the engine) /
@@ -104,7 +105,9 @@ def read_log(path):
 
 
 def asset(sc, k):
-    return f"EUR_{sc}{k}_USD"
+    """Asset name in the log: the real pair assigned in tools/make_scenarios.py (COSTED)."""
+    import make_scenarios as M
+    return M.COSTED[f"{sc}_K{k}"][2]
 
 
 def evaluate(half, info, errors):
@@ -147,9 +150,13 @@ def evaluate(half, info, errors):
             # commission: one round turn per half
             dprof = a["profit"] - b["profit"]
             if a["dir"] == 1:
-                add(sc, f"{tag}_long_prices_equal", abs(a["entry"] - b["entry"]) <= TOL_PRICE
-                    and abs(a["exit"] - b["exit"]) <= TOL_PRICE, f"{a['entry']} / {a['exit']}", f"{b['entry']} / {b['exit']}")
-                exp = SPREAD_COST + COMM - b["roll"]
+                # Amendment 1 / M-D7 (run 1, (b)): a long closed at TP1 fills when the BID reaches the level:
+                # recorded exit (ask) one spread higher, no spread in the profit. Every other long half pays one.
+                tp = a["reason"] == "tp1"
+                x1 = a["exit"] + (SPREAD if tp else 0)
+                add(sc, f"{tag}_long_prices", abs(a["entry"] - b["entry"]) <= TOL_PRICE
+                    and abs(x1 - b["exit"]) <= TOL_PRICE, f"{a['entry']} / {x1}", f"{b['entry']} / {b['exit']}")
+                exp = (0 if tp else SPREAD_COST) + COMM - b["roll"]
                 add(sc, f"{tag}_long_cost_identity", abs(dprof - exp) < TOL_MONEY, repr(exp), repr(dprof))
             else:
                 exp_ask = SPREAD_COST + COMM - b["roll"]

@@ -20,6 +20,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | M-D1..M-D4 | Zorro mechanics decisions (from `ZORRO_TRADE_MECHANICS.md`) | All decided 2026-11-22 |
 | M-D5 | Hedge mode | Decided 2026-11-23 |
 | M-D6 | Start of the trading week (StartWeek) | Decided 2026-11-23 |
+| M-D7 | Spread on long TP1 exits (Zorro accounting) | Decided 2026-11-23 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
@@ -416,3 +417,21 @@ compliance: mode 0 or 4).
 **Decision.** `StartWeek = 71700` (Sunday 17:00 New York) as named config value `nx_StartWeek`, set
 before the first asset call. `EndWeek` left at the default (Friday 20:00 New York: no quotes after
 17:00, and no edge case at the Friday 17:00 bar close).
+
+## M-D7 — Long TP1 halves pay no spread in Zorro (decided 2026-11-23, user: accept)
+
+- (a) stop.htm: "all prices are given as ask prices"; a trade is closed "when the ask price reaches the
+  given ... limit"; longs close at the bid, shorts at the ask. spread.htm: "The trade profit is reduced
+  by the spread."
+- (b) P5 run 1 (`TPL_Costs`, costs off vs on, same paths): every half lost exactly one spread, except long
+  halves closed at TP1, which lost none (exit recorded at 1.01020 on the ask = 1.01000 bid). Long stops,
+  breakeven, trail and C1-flip exits, and every short exit, paid one spread. So a long's take-profit
+  fills when the bid reaches the level, unlike the manual's wording. Also (b): the rollover day changes
+  at the bar boundary (17:00 New York), and short levels are measured from the ask entry.
+- (c) Size: one spread (1.2 pips on EUR/USD) on a TP1 of about 1 x ATR (80-100 pips): about 1% of that
+  half's gain, long TP1 halves only. The engine (one spread per half) is not used for cost results; S4
+  ran at spread 0, so equivalence is unaffected.
+
+**Decision.** Accept Zorro's accounting as is; no template workaround (it would be new untested code).
+Documented here and in gotchas 9d.19; P5 criteria amended (long TP1: no spread); every real-data run
+reports the number of long TP1 halves.

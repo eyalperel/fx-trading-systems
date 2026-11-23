@@ -5,22 +5,43 @@ int tple_N() { return 16; }
 
 string tple_name(int i)
 {
-	if(i == 0) return "EUR_A10_USD";
-	if(i == 1) return "EUR_A11_USD";
-	if(i == 2) return "EUR_A20_USD";
-	if(i == 3) return "EUR_A21_USD";
-	if(i == 4) return "EUR_B10_USD";
-	if(i == 5) return "EUR_B11_USD";
-	if(i == 6) return "EUR_C10_USD";
-	if(i == 7) return "EUR_C11_USD";
-	if(i == 8) return "EUR_A1M0_USD";
-	if(i == 9) return "EUR_A1M1_USD";
-	if(i == 10) return "EUR_A2M0_USD";
-	if(i == 11) return "EUR_A2M1_USD";
-	if(i == 12) return "EUR_B1M0_USD";
-	if(i == 13) return "EUR_B1M1_USD";
-	if(i == 14) return "EUR_C1M0_USD";
-	if(i == 15) return "EUR_C1M1_USD";
+	if(i == 0) return "AUD/CAD";
+	if(i == 1) return "AUD/CHF";
+	if(i == 2) return "AUD/NZD";
+	if(i == 3) return "CAD/CHF";
+	if(i == 4) return "EUR/AUD";
+	if(i == 5) return "EUR/CAD";
+	if(i == 6) return "EUR/CHF";
+	if(i == 7) return "EUR/GBP";
+	if(i == 8) return "EUR/NZD";
+	if(i == 9) return "GBP/AUD";
+	if(i == 10) return "GBP/CAD";
+	if(i == 11) return "GBP/CHF";
+	if(i == 12) return "GBP/NZD";
+	if(i == 13) return "NZD/CAD";
+	if(i == 14) return "NZD/CHF";
+	if(i == 15) return "USD/CAD";
+	return "";
+}
+
+string tple_stem(int i)
+{
+	if(i == 0) return "AUDCADsyn";
+	if(i == 1) return "AUDCHFsyn";
+	if(i == 2) return "AUDNZDsyn";
+	if(i == 3) return "CADCHFsyn";
+	if(i == 4) return "EURAUDsyn";
+	if(i == 5) return "EURCADsyn";
+	if(i == 6) return "EURCHFsyn";
+	if(i == 7) return "EURGBPsyn";
+	if(i == 8) return "EURNZDsyn";
+	if(i == 9) return "GBPAUDsyn";
+	if(i == 10) return "GBPCADsyn";
+	if(i == 11) return "GBPCHFsyn";
+	if(i == 12) return "GBPNZDsyn";
+	if(i == 13) return "NZDCADsyn";
+	if(i == 14) return "NZDCHFsyn";
+	if(i == 15) return "USDCADsyn";
 	return "";
 }
 

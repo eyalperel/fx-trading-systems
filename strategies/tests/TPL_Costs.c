@@ -5,11 +5,12 @@
 // (K1), through the unchanged template. Per half, the K0 - K1 profit difference must equal the
 // hand-calculated spread + commission - rollover. Criteria and prediction:
 // docs/preregistration/TPL_Costs_P5_Criteria.md, committed before the run.
-// Inputs: History/EUR_<scenario><k>_USD.t6 + _states.csv and TPL_Costs_Scenarios.h, written by
+// Inputs: History/<PAIR>syn.t6 + <PAIR>syn_states.csv and TPL_Costs_Scenarios.h, written by
 //   python tools/make_scenarios.py --zorro C:/Zorro --out analysis/template/costs/expected
 //          --start 2024-03-06 --header strategies/tests/TPL_Costs_Scenarios.h COSTS
-// Names begin and end with a currency so Zorro treats them as Forex (asset.htm, assetType): the
-// INFO row logs assetType(), which must be 1.
+// Assets carry real pair names (only those are Forex for assetType(), PROBE_AssetType 2026-11-23); the
+// INFO row logs assetType(), which must be 1. Their files carry a "syn" suffix and are loaded with
+// History = "*syn.t6" (history.htm), so no real-pair run can load them.
 // Output: Data/NNFX_Template_log.csv (deleted at INITRUN); copy to Data/TPL_Costs_log_run<n>.csv.
 // K1 costs (built from integers, gotchas 9d.1): Spread 2 pips; Commission 1 per 10000 units;
 // RollLong -1, RollShort +0.5 per 10000 units per day. With PIPCost 0.1 per pip and LotAmount
@@ -22,7 +23,7 @@
 #include "../template/NNFX_Template.h"
 #include "TPL_Costs_Scenarios.h"
 
-int tpc_CompileOnly = 0;   // run 1 (P5 criteria committed before the run; compile check with 1 done)
+int tpc_CompileOnly = 0;   // run 2 (Amendment 1 committed before the run; compile check with 1 done)
 
 void run()
 {
@@ -33,6 +34,7 @@ void run()
 	Slippage = nx_SlippageSec;
 	Hedge = nx_HedgeMode;
 	StartWeek = nx_StartWeek;
+	History = "*syn.t6";   // synthetic files only (P5 Amendment 1); set before any asset call
 	LookBack = 0;
 	StartDate = 20240228;
 	EndDate = 20240329;
@@ -67,7 +69,7 @@ void run()
 		for(tpc_i = 0; tpc_i < tple_N(); tpc_i++) {
 			string tpc_n = tple_name(tpc_i);
 			assetAdd(tpc_n, 1, 0, 0, 0, tpc_pip, tpc_pipCost, 0, nx_Leverage, 1000, 0, tpc_n);
-			int tpc_rows = nx_slots_load(tpc_i, strf("History\\%s_states.csv", tpc_n));
+			int tpc_rows = nx_slots_load(tpc_i, strf("History\\%s_states.csv", tple_stem(tpc_i)));
 			nx_aVolMode[tpc_i] = tple_volume_mode(tpc_i);
 			nx_aBtfOn[tpc_i] = tple_btf_on(tpc_i);
 			nx_aContStop[tpc_i] = tple_cont_after_stop(tpc_i);

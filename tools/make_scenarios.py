@@ -129,18 +129,29 @@ CONTROLS = {"A6_CM3": ("A6", MUT_M3), "A6M_CM3": ("A6M", MUT_M3),
             "R1_CMF": ("R1", MUT_MF), "R1M_CMF": ("R1M", MUT_MF)}
 
 
-# P5 cost probe (2026-11-23): each scenario twice, costs off (K0) and on (K1), on Forex-shaped asset
-# names. Zorro identifies an asset as Forex only "if the name begins and ends with the 3-letter
-# abbreviation of a currency" (asset.htm, assetType); commission and rollover are per 10000 units
-# for currencies, per contract otherwise (spread.htm). File stem EUR_<scenario><k>_USD.
+# P5 cost probe (2026-11-23): each scenario twice, costs off (K0) and on (K1). Zorro costs an asset per
+# 10000 units only if assetType() = FOREX; PROBE_AssetType (2026-11-23) found that only real pair names
+# qualify (EUR/USD, EURUSD: 1; EUR_A10_USD, XTS/XXX, ABC/DEF: 0). So the cost assets carry real pair
+# names (not dev-set pairs, 0.0001 pip) and their files a "syn" suffix, loaded with History = "*syn.t6"
+# (history.htm): a normal run looks for AUDCAD.t6 / AUDCAD_2024.t6 and never sees these files.
 COSTS_BASE = ["A1", "A2", "B1", "C1", "A1M", "A2M", "B1M", "C1M"]
-COSTED = {f"{b}_K{k}": (b, k) for b in COSTS_BASE for k in (0, 1)}
+COST_PAIRS = ["AUD/CAD", "AUD/CHF", "AUD/NZD", "CAD/CHF", "EUR/AUD", "EUR/CAD", "EUR/CHF", "EUR/GBP",
+              "EUR/NZD", "GBP/AUD", "GBP/CAD", "GBP/CHF", "GBP/NZD", "NZD/CAD", "NZD/CHF", "USD/CAD"]
+COSTED = {}
+for _j, (_b, _k) in enumerate((b, k) for b in COSTS_BASE for k in (0, 1)):
+    COSTED[f"{_b}_K{_k}"] = (_b, _k, COST_PAIRS[_j])
+SYN_SUFFIX = "syn"
+
+
+def asset_name(name):
+    """Name Zorro uses for the asset (logged in the template rows)."""
+    return COSTED[name][2] if name in COSTED else f"SYN_{name}"
 
 
 def stem(name):
+    """File stem in History: the asset name without '/', plus the syn suffix for cost assets."""
     if name in COSTED:
-        b, k = COSTED[name]
-        return f"EUR_{b}{k}_USD"
+        return COSTED[name][2].replace("/", "") + SYN_SUFFIX
     return f"SYN_{name}"
 
 
@@ -296,15 +307,17 @@ def write_header(path, names, start):
              f"// Scenarios written with --start {start.isoformat()}. Settings per scenario come from the",
              "// reference-engine test scenario (test_reference_engine.py); values follow NNFX_Config.h ids.",
              f"int tple_N() {{ return {len(names)}; }}", ""]
-    for fn, key in (("tple_name", None), ("tple_volume_mode", "volume_mode"),
+    for fn, key in (("tple_name", None), ("tple_stem", "stem"), ("tple_volume_mode", "volume_mode"),
                     ("tple_btf_on", "btf_on"), ("tple_cont_after_stop", "cont_after_stop"),
                     ("tple_mutation", "mutation"), ("tple_costed", "costed")):
-        ret = "string" if key is None else "int"
+        ret = "string" if key in (None, "stem") else "int"
         lines.append(f"{ret} {fn}(int i)")
         lines.append("{")
         for i, n in enumerate(names):
             base, _ = split(n)
             if key is None:
+                v = f'"{asset_name(n)}"'
+            elif key == "stem":
                 v = f'"{stem(n)}"'
             elif key == "mutation":
                 v = mutation(n)
@@ -314,7 +327,7 @@ def write_header(path, names, start):
                 pv = getattr(getattr(T, "s_" + SCENARIOS[base][0])()["params"], key)
                 v = VOLUME_MODE_ID[pv] if key == "volume_mode" else int(bool(pv))
             lines.append(f"\tif(i == {i}) return {v};")
-        lines.append('\treturn "";' if key is None else "\treturn -1;")
+        lines.append('\treturn "";' if key in (None, "stem") else "\treturn -1;")
         lines.append("}")
         lines.append("")
     with open(path, "w", newline="\n") as f:
