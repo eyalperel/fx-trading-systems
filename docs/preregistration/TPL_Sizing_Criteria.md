@@ -101,3 +101,40 @@ Model values (`--predict`), signals after the first day (2024-03-07 rows: Equity
 
 Costs together with sizing (spread / rollover in Equity: P5 tested them at 1 lot); PIPCost conversion
 (M-D8.4 option B, later); the same-currency rule (portfolio runs, T8.5); real bars (EUR/USD run next).
+
+## Run 1 — 2026-11-23 15:58 — PASS, all predictions met; timing TA
+
+Commit `f315f77` (criteria). Log `C:/Zorro/Data/TPL_Sizing_log_run1.csv` (sha256 `e91ad59edca18c92…`); checker
+output `analysis/template/sizing/results/TPL_Sizing_run1.csv`: 86 rows, 0 FAIL, 1 DETECTED; timing fits: TA only.
+Zorro: `Test: TPL_Sizing (TICKS) 2024`, `Trades 32`, no Error line. (The window's Win / Capital / CAGR figures
+are the synthetic batch's statistics and have no meaning.)
+
+| # | Result (b) |
+|---|---|
+| C0, K0 | No Error line, no ASSETFAIL; 15 INFO rows with the required settings |
+| K1 | 18 SIZE rows recompute from their own inputs within 1e-8; first-day lots 66 / 77 / 11474 as hand-calculated |
+| K1c | A1_CMR DETECTED (pct 2, 133 lots) |
+| K2 | ERROR rows exactly: EUR/AUD `risk` (actual 1994.999955 above 1000), GBP/CHF `lots` (raw 0.0066666668), GBP/CAD `margin` (0 + 132000 above 100000); no HALF row for them; 32 halves on the 12 trading assets; no MARGINCALL |
+| K3 | All 19 SIZE rows match model **TA** (TB fails): R1 / R1M at 2024-03-11 Equity 102,217.057465, **68** lots; E1 / E1M at 2024-03-13 Equity 105,200.549728, **81** lots. Every ACCT row equals the model at the bar close |
+| K4 | Every HALF row's lots equal its signal's SIZE lots |
+
+Observations:
+- (b) **Equity timing = TA:** when an asset decides, `Equity` already holds every asset's state at this bar's
+  close, including assets later in the loop. (c) Zorro processes all assets' ticks of a bar before calling `run()`.
+- (b) Max `MarginTotal / Equity` = 0.518 (2024-03-08 close, 52,875.53 of 102,002.58), as predicted (~0.5).
+- (b) `MarginTotal` vs the two models of which MarginCost an open trade keeps:
+
+  | Close | Logged | At entry decision (ours) | At current close |
+  |---|---|---|---|
+  | 2024-03-08 | 52,875.534 | 52,842.533 | 52,875.534 |
+  | 2024-03-11 | 42,970.364 | 42,950.563 | 43,009.963 |
+  | 2024-03-12 | 23,579.823 | 23,566.623 | 23,612.824 |
+  | 2024-03-13 | 16,779.823 | 16,766.623 | 16,812.824 |
+
+  Neither model fits every row; the differences are <= 0.2% of `MarginTotal` (<= 0.04% of Equity). (c) Mechanism
+  not identified (a mix of per-asset MarginCost update times is likely). Effect: the margin guard's threshold is
+  uncertain by that much; at <= 52% use it does not bind. Open item, recorded, not a criterion.
+- (b) Rounding error per signal: -1.00% (PIPCost 0.1), -1.12% (0.08561), -0.0006% (PIP 0.01) on the first day;
+  later signals -0.21% (R1: 1020.00 for 1022.17) and -1.13% (E1).
+
+**Verdict: P6 sizing PASS** (1 run). Variants: 1 sizing configuration; 1 mutant; 2 planted inputs.

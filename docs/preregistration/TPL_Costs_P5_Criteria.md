@@ -182,3 +182,15 @@ Commit `4156cf6` (Amendment 2). Log `C:/Zorro/Data/TPL_Costs_log_run3.csv`, **by
   short rule **S_ASK**.
 - **Verdict: P5 PASS** (3 runs: run 1 FAIL, assets not Forex, Q1 guard; run 2 FAIL, criteria tolerance;
   run 3 PASS after Amendment 2, which was written after seeing run 2 and disclosed as such).
+
+## Amendment 3 — 2026-11-23 (regression run 4, after P6; before the run)
+
+**Why:** the template changed after run 3 (commit `1cc7f3e`, P6): `nx_template_init()` sets `Capital = 100000`,
+and the entry block calls `nx_size()` only when `nx_FixedLots <= 0`. This batch sets `nx_FixedLots = 1`, so
+(c) sizing is bypassed and no logged value changes (`Capital` affects Equity and margin-call simulation only;
+1 lot per half uses < 0.1% of the margin). The generator edits change no input: all History files and expected
+folders regenerate byte-identical (checked 2026-11-23, 160 files).
+
+**Prediction (c):** `C:/Zorro/Data/TPL_Costs_run4.csv` **byte-identical** to `TPL_Costs_run3.csv` (sha256 `478edbae14d2cacc…`);
+hence the checker output is identical and the verdict PASS. Zorro `Trades 32`, no Error line. Runs so far: 3; this is
+run 4, a regression run. Variants unchanged.

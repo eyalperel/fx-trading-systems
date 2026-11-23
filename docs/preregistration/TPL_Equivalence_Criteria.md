@@ -199,3 +199,15 @@ Zorro: `Test: TPL_Equivalence (TICKS) 2024`, `Trades 116`, no Error line.
 
 **Verdict: S4 still PASS after the P5 template changes.** Runs of S4: 3 (run 1 FAIL setup, run 2 PASS,
 run 3 regression PASS). Variants unchanged (5 configurations, 2 mutants on 4 assets).
+
+## Amendment 3 — 2026-11-23 (regression run 4, after P6; before the run)
+
+**Why:** the template changed after run 3 (commit `1cc7f3e`, P6): `nx_template_init()` sets `Capital = 100000`,
+and the entry block calls `nx_size()` only when `nx_FixedLots <= 0`. This batch sets `nx_FixedLots = 1`, so
+(c) sizing is bypassed and no logged value changes (`Capital` affects Equity and margin-call simulation only;
+1 lot per half uses < 0.1% of the margin). The generator edits change no input: all History files and expected
+folders regenerate byte-identical (checked 2026-11-23, 160 files).
+
+**Prediction (c):** `C:/Zorro/Data/TPL_Equivalence_run4.csv` **byte-identical** to `TPL_Equivalence_run3.csv` (sha256 `51407d9b0dfda1f4…`);
+hence the checker output is identical and the verdict PASS. Zorro `Trades 116`, no Error line. Runs so far: 3; this is
+run 4, a regression run. Variants unchanged.
