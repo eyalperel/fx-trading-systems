@@ -61,7 +61,12 @@ def ole(day):
     return (local.astimezone(dt.timezone.utc) - OLE0).total_seconds() / 86400.0
 
 
-def pad(s):
+def scenario_len(name):
+    base, _ = split(name)
+    return len(getattr(T, "s_" + SCENARIOS[base][0])()["o"])
+
+
+def pad(s, tail_n=TAIL_BARS):
     """PAD_BARS neutral bars before the scenario; TAIL_BARS flat bars after it.
 
     Lead: baseline / atr repeat the scenario's first value. Tail (Amendment 5): Zorro closes
@@ -73,11 +78,11 @@ def pad(s):
     last_c = s["c"][-1]
     tail = dict(o=last_c, h=last_c, l=last_c, c=last_c)
     for k in ("o", "h", "l", "c"):
-        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [tail[k]] * TAIL_BARS
+        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [tail[k]] * tail_n
     for k in ("c1", "c2", "vol", "ex"):
-        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [s[k][-1]] * TAIL_BARS
+        out[k] = [PAD[k]] * PAD_BARS + list(s[k]) + [s[k][-1]] * tail_n
     for k in ("baseline", "atr"):
-        out[k] = [s[k][0]] * PAD_BARS + list(s[k]) + [s[k][-1]] * TAIL_BARS
+        out[k] = [s[k][0]] * PAD_BARS + list(s[k]) + [s[k][-1]] * tail_n
     return out
 
 
@@ -160,11 +165,18 @@ def effective_order(o, c, order):
     return order if order is not None else ("LF" if c >= o else "HF")
 
 
+# All scenarios end on one common day (Amendment 1 to the S4 criteria, 2026-11-23): Zorro creates
+# bars only where the FIRST asset has prices (barmode.htm, BR_FLAT not set); in run 1 every asset
+# stopped at SYN_A2's last day. Each tail is TAIL_BARS plus the difference to the longest scenario.
+MAX_LEN = None
+
+
 def build(name, start):
     """Padded scenario (mirrored if name ends in M), float32 prices, explicit per-bar order."""
     base, mirrored = split(name)
     fn, order = SCENARIOS[base]
-    s = pad(getattr(T, "s_" + fn)())
+    longest = MAX_LEN if MAX_LEN is not None else scenario_len(name)
+    s = pad(getattr(T, "s_" + fn)(), TAIL_BARS + longest - scenario_len(name))
     over = {PAD_BARS + k: v for k, v in order.items()}
     eff = {i: effective_order(s["o"][i], s["c"][i], over.get(i)) for i in range(len(s["o"]))}
     if mirrored:
@@ -300,6 +312,8 @@ def main(argv):
     a = ap.parse_args(argv)
     start = dt.date.fromisoformat(a.start)
     names = all_names() if a.names == ["ALL"] else a.names
+    global MAX_LEN
+    MAX_LEN = max(scenario_len(n) for n in names)
     bad = [d for n in names for d in check_padding(n)]
     if bad:
         print("PADDING CHANGES TRADES (nothing written):\n  " + "\n  ".join(bad))
@@ -318,7 +332,10 @@ def main(argv):
         print(f"SYN_{name}: {len(days)} bars {days[0]}..{days[-1]}, {len(res.halves)} expected halves, {nrec} records")
     with open(os.path.join(a.out, "expected_counts.csv"), "w", newline="") as f:
         csv.writer(f).writerows(counts)
-    print(f"{len(names)} scenarios, padding check passed; {total} records = {total * 32 / 1e6:.1f} MB; last day {last}")
+    if len({c[-1] for c in counts[1:]}) != 1:
+        print("LAST DAYS DIFFER (Amendment 1 requires one common last day)")
+        return 1
+    print(f"{len(names)} scenarios, padding check passed, common last day; {total} records = {total * 32 / 1e6:.1f} MB; last day {last}")
     if a.header:
         write_header(a.header, names, start)
         print(f"header: {a.header}")

@@ -27,7 +27,7 @@ DOC_DIFF = {
     ("A3HF", 1): ("tp1", 1.0100), ("A3HF", 2): ("stop", 0.9850),
     ("A3HFM", 1): ("tp1", 0.9900), ("A3HFM", 2): ("stop", 1.0150),
 }
-SETUP = {"Fill": "3", "Hedge": "2", "TICKS": "1", "BarOffset": "1020"}   # criteria C1
+SETUP = {"Fill": "3", "Hedge": "2", "TICKS": "1", "BarOffset": "1020", "StartWeek": "71700"}   # C1 (+ Amendment 1)
 
 
 def ymd_to_iso(v):

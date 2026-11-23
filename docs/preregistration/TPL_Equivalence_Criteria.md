@@ -67,3 +67,54 @@ template is not used for any strategy result until a run passes.
 Costs (spread, swap, commission: P5), lot sizing and PIPCost (P6), real bars and real indicators
 (P4 on EUR/USD), fill rounding to 1 pip on 5-decimal quotes (`TR_FRC`, ZORRO_TRADE_MECHANICS §12 R5),
 the optimistic same-bar order (engine only).
+
+---
+
+## Run 1 — 2026-11-23 09:43 — FAIL (two setup causes found; template logic not implicated)
+
+Commit `356315a` (criteria + code). Log `C:/Zorro/Data/TPL_Equivalence_log_run1.csv` (sha256
+`162400b83510ecac…`); checker output `analysis/template/equivalence/results/TPL_Equivalence_run1.csv`.
+Zorro: `Test: TPL_Equivalence (TICKS) 2024`, `Trades 112`, no Error line.
+
+- (b) C0 met (no Error / ERROR / ASSETFAIL). C7 met: 4/4 controls detected (A6_CM3 and A6M_CM3 3 FAIL
+  rows each, R1_CMF and R1M_CMF 1 each). 4 DOC rows as predicted (A3HF / A3HFM match C5).
+- (b) **50/60 real scenarios PASS; FAIL: A4, A4M, A5, A5M, A6, A6M, D7b, D7bM, D7c, D7cM.** ENTRY_ONLY
+  rows 36 (predicted 40; the missing 4 are D7c / D7cM).
+- **Cause 1 (b): Zorro's trading week.** Every failing fill is a Monday fill at 03:00:00 UTC (Zorro
+  trade log): A4 stops at 0.97801 (gap open 0.9800 expected), A5 TP1 at 1.01201 (1.0130), A6 M-D3
+  exit at 0.99651 (0.9975), D7b entry at 0.99800 (0.9990), mirrors alike. On the synthetic Monday
+  path that time is the day's low (high for mirrors). (a) `StartWeek` default 72300 = "Sunday 23:00"
+  in local time of the BarZone; with `BR_WEEKEND` (default) Zorro does not "trade ... between
+  EndWeek and StartWeek in the bar time zone, even when they contain price quotes" (date.htm,
+  barmode.htm). BarZone = EST (M-D1) puts the week start at Sunday 23:00 New York = Monday 03:00
+  UTC; the synthetic Monday starts Sunday 18:00 New York. (b) Real EUR/USD 2024 (`EURUSD_2024.t6`,
+  53 weekly gaps): last quote Friday 16:47-17:00 New York, first quote Sunday 17:01-17:09 New York.
+  So on real data too, Monday-open fills would be taken up to 6 h after the weekly open.
+- **Cause 2 (b): bar creation follows the first asset.** All 64 assets' last BAR row is 2024-03-18,
+  the last history day of SYN_A2 (asset 0). (a) "If that flag [BR_FLAT] is not set, bars are only
+  created where the first asset has valid prices" (barmode.htm). D7c / D7cM decided their entry
+  at the 03-18 close and never got another bar (0 halves); D7b / D7bM entered at 03-18 and were
+  closed by the end of the test. The generator gave scenarios different lengths (13-20 days).
+- (c) Neither cause involves the template's decisions: every non-Monday fill, every reason, kind and
+  day outside these cases matched; the controls failed as planted.
+- Not interpreted further while the setup is wrong. Next: decision on the trading week (M-D6),
+  generator fix for a common last day, Amendment 1, run 2.
+
+## Amendment 1 — 2026-11-23 (after run 1, before run 2)
+
+Changes (setup only; criteria C0-C7, tolerance, documented differences and the template's decision
+logic unchanged):
+1. **M-D6 (user decision 2026-11-23):** `StartWeek = 71700` (Sunday 17:00 New York, BarZone EST),
+   named config value `nx_StartWeek`, set before the first asset call. `EndWeek` stays at Zorro's
+   default (Friday 20:00 New York; the last real quote is Friday ~17:00, run 1 cause 1).
+   C1 gains `StartWeek = 71700` (INFO row), checked by the comparator.
+2. **Common last day:** every scenario's tail is extended so all 64 end on 2024-03-26
+   (`tools/make_scenarios.py`; the generator refuses to write if last days differ). Checked: the
+   regenerated expected trades differ from run 1's only in the exits of `end` halves; 40 real
+   `end` halves, as before.
+3. Run 2 uses `tpe_CompileOnly = 0` unchanged in purpose.
+
+Prediction for run 2 (unchanged from the original, now with both causes removed): C0 met; 60/60 real
+scenarios PASS; 4 DOC rows (A3HF, A3HFM); 40 ENTRY_ONLY rows; 4/4 controls detected; every Monday
+fill at the Monday open (first record, Sunday 18:00 New York on the synthetic path); last BAR row
+2024-03-26 for every asset. Runs so far: 1 (FAIL, setup). Variants unchanged (5 configurations).

@@ -398,3 +398,20 @@ BTC data also missing, ZORRO_TRADE_MECHANICS §9).
 **Decision.** Variant 0: `Hedge = 2` as a named config value (`nx_HedgeMode`). Every exit comes
 from template code or a trade's own stop / target. Revisit before any demo or live run (NFA
 compliance: mode 0 or 4).
+
+## M-D6 — Start of the trading week (decided 2026-11-23, user: accept)
+
+- (a) `StartWeek` / `EndWeek`: "Start and end of the business week in dhhmm local time in the
+  BarZone ... Default: Start 72300 (Sunday 23:00), end 52000 (Friday 20:00)" (Zorro 3.11 date.htm).
+  `BR_WEEKEND`, set by default: "Don't generate bars and don't trade ... between EndWeek and
+  StartWeek in the bar time zone (BarZone), even when they contain price quotes" (barmode.htm).
+- (b) With BarZone = EST (M-D1) the default week starts Sunday 23:00 New York. S4 run 1: every
+  Monday-open fill was taken at Monday 03:00 UTC = Sunday 23:00 New York (10 failing scenarios).
+  Real EUR/USD 2024 (`EURUSD_2024.t6`, 53 weekly gaps): last quote Friday 16:47-17:00 New York,
+  first quote Sunday 17:01-17:09 New York.
+- (c) With the default, about one entry or close-decided exit in five (those due at a Monday open)
+  would fill up to 6 h after the weekly open, at a price no rule intends.
+
+**Decision.** `StartWeek = 71700` (Sunday 17:00 New York) as named config value `nx_StartWeek`, set
+before the first asset call. `EndWeek` left at the default (Friday 20:00 New York: no quotes after
+17:00, and no edge case at the Friday 17:00 bar close).

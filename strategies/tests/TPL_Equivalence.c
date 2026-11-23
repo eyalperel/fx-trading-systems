@@ -22,7 +22,7 @@
 #include "../template/NNFX_Template.h"
 #include "TPL_Equivalence_Scenarios.h"
 
-int tpe_CompileOnly = 0;   // run 1 (criteria committed 2026-11-23; compile check with 1 done)
+int tpe_CompileOnly = 0;   // run 2 (Amendment 1 committed before the run)
 
 void run()
 {
@@ -32,6 +32,7 @@ void run()
 	Fill = nx_FillMode;
 	Slippage = nx_SlippageSec;
 	Hedge = nx_HedgeMode;
+	StartWeek = nx_StartWeek;   // M-D6; must precede the first asset call (barmode.htm)
 	LookBack = 0;
 	StartDate = 20240228;   // 5 warm-up bars before the scenarios (make_scenarios PAD_BARS)
 	EndDate = 20240329;     // after the last scenario day 2024-03-26
@@ -46,6 +47,7 @@ void run()
 		Fill = nx_FillMode;
 		Slippage = nx_SlippageSec;
 		Hedge = nx_HedgeMode;
+		StartWeek = nx_StartWeek;
 		if(tpe_CompileOnly) {
 			printf("\nTPL_Equivalence: compile check only (tpe_CompileOnly = 1), nothing run");
 			quit("compile check done");
@@ -66,9 +68,9 @@ void run()
 			nx_aBtfOn[tpe_i] = tple_btf_on(tpe_i);
 			nx_aContStop[tpe_i] = tple_cont_after_stop(tpe_i);
 			nx_aMut[tpe_i] = tple_mutation(tpe_i);
-			nx_log(strf("INFO,%s,%i,rows=%i,vol=%i,btf=%i,cont=%i,mut=%i,list=%i,Fill=%i,Hedge=%i,TICKS=%i,BarOffset=%i",
+			nx_log(strf("INFO,%s,%i,rows=%i,vol=%i,btf=%i,cont=%i,mut=%i,list=%i,Fill=%i,Hedge=%i,TICKS=%i,BarOffset=%i,StartWeek=%i",
 				tpe_n, tpe_i, tpe_rows, nx_aVolMode[tpe_i], nx_aBtfOn[tpe_i], nx_aContStop[tpe_i],
-				nx_aMut[tpe_i], tpe_rcList, Fill, Hedge, (int)is(TICKS), BarOffset));
+				nx_aMut[tpe_i], tpe_rcList, Fill, Hedge, (int)is(TICKS), BarOffset, StartWeek));
 		}
 	}
 
