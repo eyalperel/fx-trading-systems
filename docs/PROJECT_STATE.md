@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-22 (Phase 1 step 3 in progress: SS2, SS3, HighPassFilter, RoofingFilter, UltimateSmootherE, Reflex, MESAStochastic, LaguerreRSI, Fisher Transform, MAMA / FAMA and FRAMA verified; oscillator harness family (D6) and adaptive-smoother family (D7) built; ATR(14) (MT4 definition) verified 2026-11-22; every slot indicator of both strategies verified except the exit (none defined); Phase 1 step 4 in progress: decisions T1-T11 + M-D1..M-D4, config + lint, Python reference engine and Zorro mechanics probe (TPL_Probe run 6 PASS) done 2026-11-22; next: the Light-C template, then the S4 equivalence pre-registration)
+**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built and **S4 engine equivalence PASS** (run 2, 60/60 scenarios + 4/4 controls); every slot indicator of both strategies verified except the exit (none defined); next: P5 / P6 (costs, lots), then an EUR/USD-only real-data run)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -313,10 +313,30 @@ file's first rows exactly.
      Confirmed: next-open fill (Fill 3), entry-bar exits need TICKS (**T5 amendment: `nx_TicksOn = 1`**; the engine keeps T5.2, scenario
      A3HF documents the TICKS-order difference), stop / TP at the level, breakeven via `TradeStopLimit`, 17:00 NY bars across DST.
      Gotchas 9d.11-9d.15 (float trade fields in `strf`, TICKS, synthetic history naming, partial first bar, end-of-history close).
-   **Next:** (1) Light-C template `NNFX_Slots.h` + `NNFX_Template.h` (engine event order, Zorro orders, architecture A; set Spread by
-   script for synthetic assets, MarginCost from nx_Leverage); (2) S4 pre-registration (tolerance 1e-5 on fills, "end" trades compared on
-   entry only, A3HF a documented difference, variants counted); (3) one-click equivalence batch over all S2 scenarios; (4) then P5 / P6
-   (costs, lots) and an EUR/USD-only real-data run (P4 on real bars).
+   **S3 template + S4 equivalence, 2026-11-23** (branch `template-decisions`; commits `356315a`, `b3f31f9`):
+   - Decisions in this sitting (planning chat, one at a time): layout + event-order mapping (architecture A:
+     Zorro executes, `nx_bar()` decides at each close, a statement-by-statement port of the engine's step 3);
+     **M-D5** `Hedge = 2` (Zorro never closes a trade itself, so a missing exit shows); scenario set d (30 long
+     + 30 short mirrors, new reversal scenario R1); planted-bug controls inside the same click; **M-D6**
+     `StartWeek = 71700` (Sunday 17:00 New York).
+   - Code: `strategies/template/NNFX_Slots.h` (slot states per closed bar, SCRIPTED source, volume / exit modes),
+     `NNFX_Template.h` (per-asset arrays, no statics; halves matched by `TradeInt` tags because `TradeID` is 0
+     while pending; exit reasons from Zorro's trade flags); config codes and switches in `NNFX_Config.h`
+     (lint clean); `strategies/tests/TPL_Equivalence.c` (64 assets, compile-only switch);
+     `tools/make_scenarios.py` (D/E/R1 scenarios, mirrors with explicit intraday order, padding guard,
+     common last day, generated include); `tools/compare_equivalence.py` + 18 tests (each planted defect seen
+     to flip the verdict). Engine tests 32/32 (R1 catches a bug no earlier test caught).
+   - Criteria `docs/preregistration/TPL_Equivalence_Criteria.md` (committed before run 1; Amendment 1 before run 2).
+     **Run 1 FAIL** (setup): Zorro's week starts Sunday 23:00 in the BarZone (gotchas 9d.16) and bars follow the
+     first asset (9d.17). **Run 2 PASS, all predictions met:** 60/60 real scenarios, 4 DOC (A3HF / A3HFM TICKS
+     order), 40 entry-only, 4/4 controls detected, largest fill difference 1.4e-8 (tolerance 1e-5).
+     Confirmed (b): close-sent exits fill at the next open (Fill 3); a stop set beyond the price fills at the
+     next tick (= the M-D3 exit price); real EUR/USD 2024 opens Sunday 17:01-17:09 New York.
+   **Next:** (1) P5 costs (spread / swap / commission from the asset list, T7 guard: costs on vs off differ by the
+   hand-computed amount) and P6 lots (risk sizing T8, PIPCost, lot rounding; template currently refuses to trade
+   with `nx_FixedLots = 0`); (2) EUR/USD-only real-data run (P4 on real bars, fill rounding `TR_FRC` on 5-decimal
+   quotes, ZORRO_TRADE_MECHANICS §12 R5); (3) Phase 1 step 5 hand-calculated real trades; (4) merge
+   `template-decisions` after review.
    **Open:** dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,

@@ -118,3 +118,31 @@ Prediction for run 2 (unchanged from the original, now with both causes removed)
 scenarios PASS; 4 DOC rows (A3HF, A3HFM); 40 ENTRY_ONLY rows; 4/4 controls detected; every Monday
 fill at the Monday open (first record, Sunday 18:00 New York on the synthetic path); last BAR row
 2024-03-26 for every asset. Runs so far: 1 (FAIL, setup). Variants unchanged (5 configurations).
+
+## Run 2 — 2026-11-23 09:49 — PASS, all predictions met
+
+Commit `b3f31f9` (Amendment 1). Log `C:/Zorro/Data/TPL_Equivalence_log_run2.csv` (sha256
+`d6492c5ce83aa9ff…`); checker output `analysis/template/equivalence/results/TPL_Equivalence_run2.csv`.
+Zorro: `Test: TPL_Equivalence (TICKS) 2024`, `Trades 116` (120 expected halves minus the 4 the MF
+controls lose), no Error line.
+
+| # | Result (b) |
+|---|---|
+| C0 | No Error line; no ERROR / ASSETFAIL row |
+| C1 | 64 INFO rows: Fill 3, Hedge 2, TICKS 1, BarOffset 1020, StartWeek 71700, all states rows loaded; last BAR row 2024-03-26 on all 64 assets |
+| C2-C4, C6 | **60/60 real scenarios PASS**; 40 ENTRY_ONLY rows (predicted 40); counts equal the engine's; no `other` reason; nothing open after the last bar. Largest price difference on any compared fill 1.4e-8 (A3, half 1 exit), tolerance 1e-5 |
+| C5 | 4 DOC rows as predicted: A3HF tp1 1.0100 then stop 0.9850; A3HFM tp1 0.9900 then stop 1.0150 |
+| C7 | 4/4 controls detected: A6_CM3 / A6M_CM3 2 FAIL rows each (runner reason `be` for `be_adverse`, M-D3 count 0 for 1); R1_CMF / R1M_CMF 2 halves for 4 (the reversal's short never entered), as predicted |
+
+Observations:
+- (b) Monday-open fills now on the first record of the week (e.g. A6 runner "Sell 1@0.997500 at
+  22:00:00 Sun" UTC = Sunday 18:00 New York): M-D6 confirmed.
+- (b) **Exits sent at a close (exitTrade) fill at the next bar's open under Fill 3** (ZORRO_TRADE_MECHANICS
+  §12 R1, open until now): C1, C2, R1, A6, E1, E4a and mirrors all matched the engine's next-open exits.
+- (b) **Stop moved beyond the price at a close (probe P2, second half):** control A6_CM3 set the runner's
+  stop to 1.0000 at the 0.9980 close; Zorro did not close the trade at that close but at the next tick,
+  the next open 0.9975 ("Stop 1@0.997500", A6_CM3 log), the same price as the M-D3 exit at the next open.
+  M-D3's explicit exit therefore changes the label and the count, not the fill (on this path).
+
+**Verdict: S4 engine equivalence PASS** (2 runs; run 1 FAIL from setup, recorded above).
+Variants: 5 template configurations, 2 planted mutants on 4 assets.

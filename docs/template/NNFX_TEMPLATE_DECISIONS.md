@@ -19,6 +19,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | T11 | No magic numbers: parameters and sensitivity | Decided 2026-11-22 |
 | M-D1..M-D4 | Zorro mechanics decisions (from `ZORRO_TRADE_MECHANICS.md`) | All decided 2026-11-22 |
 | M-D5 | Hedge mode | Decided 2026-11-23 |
+| M-D6 | Start of the trading week (StartWeek) | Decided 2026-11-23 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
