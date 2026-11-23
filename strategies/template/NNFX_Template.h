@@ -57,6 +57,8 @@ int nx_aTrail[NX_MAXA];
 var nx_aBest[NX_MAXA];
 int nx_aNSameBar[NX_MAXA];   // same_bar_conflicts (T5.2 count)
 int nx_aNBeAdv[NX_MAXA];     // be_adverse_exits (M-D3 count)
+int nx_aCostInit[NX_MAXA];   // 1 once the asset's base spread is stored
+var nx_aSpread0[NX_MAXA];    // base spread of the asset (asset list or script), before the T7 multiplier
 
 int nx_sgn(var nxt_x)
 {
@@ -132,9 +134,24 @@ void nx_template_init()
 		nx_aBest[nxt_i] = 0;
 		nx_aNSameBar[nxt_i] = 0;
 		nx_aNBeAdv[nxt_i] = 0;
+		nx_aCostInit[nxt_i] = 0;
+		nx_aSpread0[nxt_i] = 0;
 	}
 	file_delete(nx_LogFile);
 	nx_log("kind,asset,a,b,c,d,e,f,g,h,i,j,k,l,m,n");
+}
+
+// T7 spread level for asset i (selected): Spread = base x nx_SpreadMult. The base is the asset's
+// Spread at its first call (asset list, or a value the script set before this call); recomputing
+// from the stored base every bar keeps the multiplier from compounding. Call after asset() and after
+// any script cost settings, before nx_bar().
+void nx_costs_apply(int i)
+{
+	if(!nx_aCostInit[i]) {
+		nx_aSpread0[i] = Spread;
+		nx_aCostInit[i] = 1;
+	}
+	Spread = nx_aSpread0[i] * nx_SpreadMult;
 }
 
 // Exit reason of a closed half (ThisTrade): template order tag first, then Zorro's flags.
@@ -195,10 +212,11 @@ void nx_bar(int nxi, string nxn)
 				int nxt_r = nx_classify();
 				int nxt_td = 1;
 				if(!TradeIsLong) nxt_td = -1;
-				nx_log(strf("HALF,%s,%i,%i,%i,%s,%i,%.15f,%i,%.15f,%s,%i,%i,%i",
+				nx_log(strf("HALF,%s,%i,%i,%i,%s,%i,%.15f,%i,%.15f,%s,%i,%i,%i,%.8f,%.8f,%.8f,%.10f,%.8f",
 					nxn, TradeInt[NX_TI_GROUP], TradeInt[NX_TI_HALF], nxt_td,
 					nx_kname(TradeInt[NX_TI_KIND]), TradeInt[NX_TI_ENTYMD], TradePriceOpen,
-					nxt_ymd, TradePriceClose, nx_rname(nxt_r), g->tr->flags, TradeBarOpen, TradeBarClose));
+					nxt_ymd, TradePriceClose, nx_rname(nxt_r), g->tr->flags, TradeBarOpen, TradeBarClose,
+					(var)TradeProfit, (var)TradeRoll, (var)TradeCommission, TradeSpread, TradeUnits));
 				TradeInt[NX_TI_LOGGED] = 1;
 				if(TradeInt[NX_TI_GROUP] == nxt_g) {
 					nxt_closedNow = 1;

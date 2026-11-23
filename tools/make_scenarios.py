@@ -129,6 +129,21 @@ CONTROLS = {"A6_CM3": ("A6", MUT_M3), "A6M_CM3": ("A6M", MUT_M3),
             "R1_CMF": ("R1", MUT_MF), "R1M_CMF": ("R1M", MUT_MF)}
 
 
+# P5 cost probe (2026-11-23): each scenario twice, costs off (K0) and on (K1), on Forex-shaped asset
+# names. Zorro identifies an asset as Forex only "if the name begins and ends with the 3-letter
+# abbreviation of a currency" (asset.htm, assetType); commission and rollover are per 10000 units
+# for currencies, per contract otherwise (spread.htm). File stem EUR_<scenario><k>_USD.
+COSTS_BASE = ["A1", "A2", "B1", "C1", "A1M", "A2M", "B1M", "C1M"]
+COSTED = {f"{b}_K{k}": (b, k) for b in COSTS_BASE for k in (0, 1)}
+
+
+def stem(name):
+    if name in COSTED:
+        b, k = COSTED[name]
+        return f"EUR_{b}{k}_USD"
+    return f"SYN_{name}"
+
+
 def all_names():
     return list(SCENARIOS) + [n + MIRROR for n in SCENARIOS] + list(CONTROLS)
 
@@ -138,6 +153,8 @@ def mutation(name):
 
 
 def split(name):
+    if name in COSTED:
+        name = COSTED[name][0]
     if name in CONTROLS:
         name = CONTROLS[name][0]
     if name in SCENARIOS:
@@ -238,7 +255,7 @@ def write(name, s, days, zorro, out):
     # One unsplit file per scenario (TPL_Probe runs 1-2, 2026-11-22): a year-split file of
     # daily records was rejected by Zorro 3.11 (Error 047 "no 2024 history"), the unsplit
     # file loaded. Synthetic assets are never mixed with year-split M1 history in a script.
-    with open(os.path.join(hist, f"SYN_{name}.t6"), "wb") as f:
+    with open(os.path.join(hist, f"{stem(name)}.t6"), "wb") as f:
         for i in reversed(range(n)):
             pts = path(s["o"][i], s["h"][i], s["l"][i], s["c"][i], s["order"].get(i))
             tts = tick_times(days[i])
@@ -253,7 +270,7 @@ def write(name, s, days, zorro, out):
             for t_utc, a, b in reversed(recs):
                 w = (t_utc - OLE0).total_seconds() / 86400.0
                 f.write(struct.pack("<d6f", w, max(a, b), min(a, b), a, b, 0.0, 0.0))
-    with open(os.path.join(hist, f"SYN_{name}_states.csv"), "w", newline="") as f:
+    with open(os.path.join(hist, f"{stem(name)}_states.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["date_ole", "c1", "c2", "baseline", "atr", "vol", "ex"])
         for i in reversed(range(n)):
@@ -264,7 +281,7 @@ def write(name, s, days, zorro, out):
     p = kw.pop("params")
     res = E.run(p=p, **kw)
     os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, f"expected_SYN_{name}.csv"), "w", newline="") as f:
+    with open(os.path.join(out, f"expected_{stem(name)}.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["scenario", "half", "dir", "kind", "entry_day", "entry", "exit_day", "exit", "reason", "pnl"])
         for hf in res.halves:
@@ -281,16 +298,18 @@ def write_header(path, names, start):
              f"int tple_N() {{ return {len(names)}; }}", ""]
     for fn, key in (("tple_name", None), ("tple_volume_mode", "volume_mode"),
                     ("tple_btf_on", "btf_on"), ("tple_cont_after_stop", "cont_after_stop"),
-                    ("tple_mutation", "mutation")):
+                    ("tple_mutation", "mutation"), ("tple_costed", "costed")):
         ret = "string" if key is None else "int"
         lines.append(f"{ret} {fn}(int i)")
         lines.append("{")
         for i, n in enumerate(names):
             base, _ = split(n)
             if key is None:
-                v = f'"SYN_{n}"'
+                v = f'"{stem(n)}"'
             elif key == "mutation":
                 v = mutation(n)
+            elif key == "costed":
+                v = COSTED[n][1] if n in COSTED else 0
             else:
                 pv = getattr(getattr(T, "s_" + SCENARIOS[base][0])()["params"], key)
                 v = VOLUME_MODE_ID[pv] if key == "volume_mode" else int(bool(pv))
@@ -311,9 +330,9 @@ def main(argv):
     ap.add_argument("names", nargs="+", help="scenario names, or ALL (set d: 30 + 30 mirrors + 4 controls)")
     a = ap.parse_args(argv)
     start = dt.date.fromisoformat(a.start)
-    names = all_names() if a.names == ["ALL"] else a.names
+    names = all_names() if a.names == ["ALL"] else (list(COSTED) if a.names == ["COSTS"] else a.names)
     global MAX_LEN
-    MAX_LEN = max(scenario_len(n) for n in names)
+    MAX_LEN = max(scenario_len(n) for n in all_names())   # global: subsets write identical files
     bad = [d for n in names for d in check_padding(n)]
     if bad:
         print("PADDING CHANGES TRADES (nothing written):\n  " + "\n  ".join(bad))
@@ -329,7 +348,7 @@ def main(argv):
                        len(days), days[-1].isoformat()])
         total += nrec
         last = max(last, days[-1])
-        print(f"SYN_{name}: {len(days)} bars {days[0]}..{days[-1]}, {len(res.halves)} expected halves, {nrec} records")
+        print(f"{stem(name)}: {len(days)} bars {days[0]}..{days[-1]}, {len(res.halves)} expected halves, {nrec} records")
     with open(os.path.join(a.out, "expected_counts.csv"), "w", newline="") as f:
         csv.writer(f).writerows(counts)
     if len({c[-1] for c in counts[1:]}) != 1:
