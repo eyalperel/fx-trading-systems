@@ -131,3 +131,37 @@ Predictions for run 4 (tolerance 1e-6 on prices; float32 inputs, spread 0, slipp
 | 8b | A3HF (high first) | half 1 TP1 on 03-08 at 1.0100; runner stopped on 03-08 at 0.9850. **Differs from the reference engine** (both halves stop, T5.2): the documented TICKS-order case, not a failure |
 | 9 | Stop / TP prices while open | stop 0.9850 (A2, A3, A3HF), 0.9860 (P1); TP1 1.0100 (A2, A3, A3HF), 1.0110 (P1); runners no TP |
 | 10 | P1 exits | both halves still open at the last scenario bar; closed by the end of the test (price recorded, not predicted) |
+
+## Run 4 — 2026-11-22 19:13 (ran with TICKS; spread contamination found)
+
+Raw output kept as `C:/Zorro/Data/TPL_Probe_raw_run4.csv` (sha256 `464f6b8a80a1d8ec…`).
+Zorro: `TPL_Probe (TICKS) 2024`, `Trades 8 Win 25.0% Avg -98.8p`, no Error line.
+- (b) Items 0, 1 (TICKS=1), 4 as predicted. **Item 5 (P1) passed:** SYN_P1 filled at 1.00100
+  on the first tick of 03-08, not at the 03-07 close 1.00000 (next-open fill, T4).
+  **Item 9 passed:** stop 0.98500 (P1 0.98600), TP1 1.01000 (P1 1.01100), runners TP 0.
+- (b) Every trade result is 0.0100 x 1000 = 10 account units worse than its price
+  difference (A3: (0.9845 - 1.0000) x 1000 = -15.5, Zorro -25.5; A3HF +11 -> +1.0; A2 -4 ->
+  -6.0; P1 +1 -> -9.0), and every entry shows "Risk 25" = (stop 0.0150 + 0.0100) x 1000:
+  an effective **spread of 0.0100** although `assetAdd(..., Spread 0, ...)` was given 0.
+- (b) A3 stopped on its entry day at the low tick, filled at the tick price 0.98450, not at
+  the stop 0.98500: with TICKS the fill is the crossing record's price.
+- (b) Not explained, not interpreted while the spread is 100 pips: A3HF runner exited with
+  half 1 at 1.011; A2 half 1 did not take TP1 on 03-08; A2 and P1 pairs exited together on
+  the first Monday tick.
+- (b) Generator bug: Monday ticks were stamped from Friday 18:00 New York (weekend
+  subtracted twice); bar assignment unaffected.
+
+## Amendment 4 — 2026-11-22 (before run 5)
+
+1. `Spread = 0;` set in the probe after every `asset()` call (spread.htm: "For a backtest
+   with no transaction costs, set Spread = 0").
+2. Path segments cut into records of at most 0.1 pip (STEP = 1e-5): fills overshoot a level
+   by at most 1e-5. Checked before the run: first crossings on 03-08 at 0.985000 (A3 stop)
+   and 1.010001 (A3HF / A2 TP1).
+3. Monday's bar ticks start Sunday 18:00 New York (checked: first tick Sun 03-10 22:00 UTC).
+
+Predictions for run 5: the run 4 table (items 0, 1, 2b, 4, 5, 6, 7, 8, 8b, 9, 10), with every
+stop / TP fill within **1e-5** of its level, and Zorro trade results = price difference x 1000
+(no extra cost). Expected Zorro summary: 8 trades; A2 +10.0 / 0.0; A3 -15.0 / -15.0;
+A3HF +10.0 / -15.0; P1 two trades closed by the end of the test (last scenario close 1.0025,
+about +1.5 each, recorded not predicted).

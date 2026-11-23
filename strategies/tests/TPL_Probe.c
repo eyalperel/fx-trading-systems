@@ -32,6 +32,7 @@ void tp_line(string s)
 void tp_scen(string name, int handle)
 {
 	if(!asset(name)) { tp_line(strf("ASSETFAIL,%s,%i", name, Bar)); return; }
+	Spread = 0;   // assetAdd(..., 0, ...) left a 0.0100 spread (run 4); spread.htm: "set Spread = 0" (Amendment 4)
 	int r = dataFind(handle, wdate(0));
 	var c1 = 0;
 	var c1prev = 0;

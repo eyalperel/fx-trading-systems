@@ -17,6 +17,7 @@ Usage: python tools/make_scenarios.py --zorro C:/Zorro --out <dir> --start 2024-
 """
 import argparse
 import csv
+import math
 import datetime as dt
 import os
 import struct
@@ -77,8 +78,12 @@ def pad(s):
 # level inside a segment then fills at the level, not at a jumped price (fill.htm:
 # "Max of TakeProfit and Open", "Min of Stop and Open").
 # Default order: up day (close >= open) open -> low -> high -> close; down day
-# open -> high -> low -> close. ORDER overrides it for named variants.
+# open -> high -> low -> close. ORDER overrides it for named variants. Segments are cut
+# into STEP-sized records (Amendment 4).
 TICK_HOURS = (1, 6, 12, 23)
+# With TICKS, Zorro fills at the price of the record that crosses a level (TPL_Probe run 4),
+# so each segment is cut into steps of at most STEP: a fill overshoots its level by <= STEP.
+STEP = 0.00001
 SCENARIOS = {  # file name -> (scenario function, {scenario bar index: order})
     "A2": ("A2", {}), "A3": ("A3", {}), "A3HF": ("A3", {2: "HF"}), "P1": ("P1", {}),
     "A5": ("A5", {}), "A6": ("A6", {}), "B1": ("B1", {}), "B2": ("B2", {}),
@@ -95,8 +100,8 @@ def path(o, h, l, c, order):
 
 def tick_times(day):
     prev = dt.datetime(day.year, day.month, day.day, 17, tzinfo=NY) - dt.timedelta(days=1)
-    if day.weekday() == 0:          # Monday's bar starts Sunday 17:00 New York
-        prev -= dt.timedelta(days=2)
+    # Monday: day - 1 = Sunday, so Monday's bar starts Sunday 17:00 New York as FX opens
+    # (run 4 subtracted the weekend twice; fixed in Amendment 4).
     return [(prev + dt.timedelta(hours=hh)).astimezone(dt.timezone.utc) for hh in TICK_HOURS]
 
 
@@ -120,8 +125,15 @@ def write(name, s, days, zorro, out):
     with open(os.path.join(hist, f"SYN_{name}.t6"), "wb") as f:
         for i in reversed(range(n)):
             pts = path(s["o"][i], s["h"][i], s["l"][i], s["c"][i], s["order"].get(i))
-            segs = [(pts[0], pts[0])] + [(pts[k - 1], pts[k]) for k in range(1, len(pts))]
-            for t_utc, (a, b) in reversed(list(zip(tick_times(days[i]), segs))):
+            tts = tick_times(days[i])
+            recs = [(tts[0], pts[0], pts[0])]
+            for k in range(1, len(pts)):
+                a, b = pts[k - 1], pts[k]
+                m = max(1, math.ceil(round(abs(b - a) / STEP, 6)))
+                for j in range(1, m + 1):
+                    t_j = tts[k - 1] + (tts[k] - tts[k - 1]) * j / m
+                    recs.append((t_j, f32(a + (b - a) * (j - 1) / m), f32(a + (b - a) * j / m)))
+            for t_utc, a, b in reversed(recs):
                 w = (t_utc - OLE0).total_seconds() / 86400.0
                 f.write(struct.pack("<d6f", w, max(a, b), min(a, b), a, b, 0.0, 0.0))
     with open(os.path.join(hist, f"SYN_{name}_states.csv"), "w", newline="") as f:
