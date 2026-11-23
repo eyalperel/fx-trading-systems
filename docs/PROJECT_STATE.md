@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built and **S4 engine equivalence PASS** (run 2, 60/60 scenarios + 4/4 controls); every slot indicator of both strategies verified except the exit (none defined); next: P5 / P6 (costs, lots), then an EUR/USD-only real-data run)
+**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3); next: P6 lot sizing, then an EUR/USD-only real-data run)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -332,8 +332,16 @@ file's first rows exactly.
      order), 40 entry-only, 4/4 controls detected, largest fill difference 1.4e-8 (tolerance 1e-5).
      Confirmed (b): close-sent exits fill at the next open (Fill 3); a stop set beyond the price fills at the
      next tick (= the M-D3 exit price); real EUR/USD 2024 opens Sunday 17:01-17:09 New York.
-   **Next:** (1) P5 costs (spread / swap / commission from the asset list, T7 guard: costs on vs off differ by the
-   hand-computed amount) and P6 lots (risk sizing T8, PIPCost, lot rounding; template currently refuses to trade
+   **P5 costs, 2026-11-23** (commits `4c10fec`, `8f5d947`, `4156cf6`): `strategies/tests/TPL_Costs.c` (8 scenarios x
+   costs off / on, one click), `tools/check_costs.py` + 8 tests; template HALF rows carry profit / rollover /
+   commission / spread / units, `nx_costs_apply()` applies the T7 multiplier from a stored base. Criteria
+   `docs/preregistration/TPL_Costs_P5_Criteria.md` (+ Amendments 1-2). Run 1 FAIL (Q1 guard: synthetic names not
+   Forex, costs per contract; `PROBE_AssetType`: only real pair names are Forex, gotchas 9d.18), run 2 FAIL (criteria
+   tolerance), **run 3 PASS** (byte-identical to run 2). Found (b): every half pays one spread against its recorded
+   fill; a long TP1 triggers at about bid = level (M-D7, accepted); short levels from the ask entry; rollover per bar
+   day (17:00 New York), weekend days included, after 12 h (gotchas 9d.19). Cost assets: real pair names with a
+   `syn` history suffix (`History = "*syn.t6"`), so no real run can load them.
+   **Next:** (1) P6 lots (risk sizing T8, PIPCost, lot rounding; template currently refuses to trade
    with `nx_FixedLots = 0`); (2) EUR/USD-only real-data run (P4 on real bars, fill rounding `TR_FRC` on 5-decimal
    quotes, ZORRO_TRADE_MECHANICS §12 R5); (3) Phase 1 step 5 hand-calculated real trades; (4) merge
    `template-decisions` after review.

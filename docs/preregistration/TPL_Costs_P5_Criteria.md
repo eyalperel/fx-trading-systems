@@ -168,3 +168,17 @@ itself be a finding.
 
 Prediction for run 3: PASS; log identical to run 2 (sha256 `478edbae14d2cacc…`); day rule H_BAR; short
 rule S_ASK. Runs: 3 (2 FAIL recorded).
+
+## Run 3 — 2026-11-23 11:10 — PASS, all predictions met
+
+Commit `4156cf6` (Amendment 2). Log `C:/Zorro/Data/TPL_Costs_log_run3.csv`, **byte-identical to run 2**
+(sha256 `478edbae14d2cacc…`, as predicted: the run is deterministic). Checker output
+`analysis/template/costs/results/TPL_Costs_run3.csv`: 0 FAIL rows. Zorro: `Trades 32`, no Error line.
+
+- (b) Costs: profit = price move - spread - commission + rollover on all 32 halves (<= 5.5e-7);
+  commission 0.1 per half; rollover -0.1 / +0.05 per day, whole days only.
+- (b) Fill positions within one path step; long TP1 one spread higher on the ask (M-D7).
+- (b) Day rule **H_BAR** (rollover day = bar day, 17:00 New York with M-D1, weekend days included);
+  short rule **S_ASK**.
+- **Verdict: P5 PASS** (3 runs: run 1 FAIL, assets not Forex, Q1 guard; run 2 FAIL, criteria tolerance;
+  run 3 PASS after Amendment 2, which was written after seeing run 2 and disclosed as such).
