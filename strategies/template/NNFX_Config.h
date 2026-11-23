@@ -18,6 +18,7 @@ int    nx_FillMode;          // Zorro Fill mode
 int    nx_TicksOn;           // 1 = set(TICKS): intrabar path evaluated, entry-bar exits possible
 int    nx_StartWeek;         // Zorro StartWeek (dhhmm in BarZone): start of the trading week
 var    nx_SlippageSec;       // Zorro Slippage
+int    nx_FillUnrounded;     // 1 = TradeMode TR_FRC: stops, limits and fills not rounded to the point value
 
 // ---- trade management (all in multiples of the entry-bar ATR, frozen per trade) --
 int    nx_AtrLen;
@@ -114,6 +115,7 @@ void nx_config_init()
 	nx_TicksOn = 1;                       // T5 amendment 2026-11-22 (mode.htm TICKS; gotchas 9d.12)
 	nx_StartWeek = 71700;                 // Sunday 17:00 New York, M-D6; (b) EURUSD 2024 first quote Sun 17:01-17:09 NY
 	nx_SlippageSec = 0;                   // M-D2 (sensitivity level: 5)
+	nx_FillUnrounded = 1;                 // R-D5 (a) fill.htm / trademode.htm TR_FRC
 
 	nx_AtrLen = 14;                       // (a) [V03, V16]
 	nx_StopAtr = 3; nx_StopAtr /= 2;      // 1.5 (a) [V25, M3]

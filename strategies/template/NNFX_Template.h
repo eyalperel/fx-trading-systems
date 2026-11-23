@@ -138,6 +138,7 @@ void nx_template_init()
 		nx_aSpread0[nxt_i] = 0;
 	}
 	Capital = nx_Capital;   // M-D8.3: Equity = Capital + closed + open results (balance.htm)
+	if(nx_FillUnrounded) setf(TradeMode, TR_FRC);   // R-D5: no rounding of stops, limits, fills (trademode.htm)
 	file_delete(nx_LogFile);
 	nx_log("kind,asset,a,b,c,d,e,f,g,h,i,j,k,l,m,n");
 }
