@@ -138,3 +138,25 @@ Observations:
   later signals -0.21% (R1: 1020.00 for 1022.17) and -1.13% (E1).
 
 **Verdict: P6 sizing PASS** (1 run). Variants: 1 sizing configuration; 1 mutant; 2 planted inputs.
+
+## Amendment 1 — 2026-11-23 (regression run 2, R1 template changes; before the run)
+
+**Why:** branch `eurusd-r1` changed the template: `nx_FillUnrounded = 1` sets TradeMode `TR_FRC` in
+`nx_template_init()` (R-D5: stops, limits and fills no longer rounded to the PIP; (a) `include/trading.h:276`
+"don't round to 1 PIP"), and the slot values `nx_s*` moved from `NNFX_Slots.h` to `NNFX_Config.h` (declaration
+only). Inputs unchanged (generator output byte-identical, checked 2026-11-23).
+
+**Prediction (c):** same verdict and counts as run 1 (RUN PASS, timing TA, 19 SIZE rows, 3 ERROR rows, 32 halves, mutant DETECTED, same lots). Logs need **not** be byte-identical: a level
+that is not on the pip grid (stop = fill - 1.5 x float32 ATR) now fills unrounded. Recorded as an observation (b):
+the largest change of any logged fill price vs run 1; > 0 shows that Zorro rounded before (R-D5), 0 that it did
+not on these paths. Every price change must stay within the existing tolerances. Runs so far: 1; this is run 2.
+
+
+## Run 2 — 2026-11-24 08:14 — PASS, prediction met (regression after the R1 template changes)
+
+Commit `12aa643` (Amendment 1). Log `C:/Zorro/Data/TPL_Sizing_log_run2.csv` **byte-identical to run 1** (sha256
+`e91ad59edca18c92…`); checker: RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA. Zorro: `Trades 32`, no Error line.
+(b) No fill changed: every level in this probe lies on the 1e-5 grid (TPL_Costs run 5 shows Zorro's pre-TR_FRC rounding step
+is 1e-5).
+
+**Verdict: P6 still PASS after R1.** Runs of P6: 2.

@@ -18,6 +18,7 @@ int    nx_FillMode;          // Zorro Fill mode
 int    nx_TicksOn;           // 1 = set(TICKS): intrabar path evaluated, entry-bar exits possible
 int    nx_StartWeek;         // Zorro StartWeek (dhhmm in BarZone): start of the trading week
 var    nx_SlippageSec;       // Zorro Slippage
+int    nx_FillUnrounded;     // 1 = TradeMode TR_FRC: stops, limits and fills not rounded to the point value
 
 // ---- trade management (all in multiples of the entry-bar ATR, frozen per trade) --
 int    nx_AtrLen;
@@ -99,6 +100,17 @@ int    nx_CtlMutation;       // planted-bug control id; 0 in every real run (cod
 #define NX_SC_VOL      5     // [code]
 #define NX_SC_EX       6     // [code]
 
+// ---- slot values: written by the slot source each bar, read by the template (NNFX_Slots.h) ----
+// Declared here because every script includes this file first and a strategy slot source is read before
+// NNFX_Slots.h (single pass, gotchas 5.3).
+int nx_sC1;       // C1 state
+int nx_sC2;       // C2 state
+int nx_sEx;       // exit-slot state after the exit mode
+int nx_sVol;      // volume go / no-go after the volume mode
+var nx_sBase;     // baseline value
+var nx_sAtr;      // ATR value
+int nx_sOK;       // 1 = every slot delivered a value for this bar
+
 // ---- slot switches ----------------------------------------------------------------
 int    nx_ExitMode;          // 0 = NONE (exit only by C1 flip, baseline, stops)
 int    nx_VolumeMode;        // 0 = ALWAYS_YES, 1 = ALWAYS_NO (guard test only), 2 = indicator
@@ -114,6 +126,7 @@ void nx_config_init()
 	nx_TicksOn = 1;                       // T5 amendment 2026-11-22 (mode.htm TICKS; gotchas 9d.12)
 	nx_StartWeek = 71700;                 // Sunday 17:00 New York, M-D6; (b) EURUSD 2024 first quote Sun 17:01-17:09 NY
 	nx_SlippageSec = 0;                   // M-D2 (sensitivity level: 5)
+	nx_FillUnrounded = 1;                 // R-D5 (a) fill.htm / trademode.htm TR_FRC
 
 	nx_AtrLen = 14;                       // (a) [V03, V16]
 	nx_StopAtr = 3; nx_StopAtr /= 2;      // 1.5 (a) [V25, M3]

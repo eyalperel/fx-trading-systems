@@ -202,3 +202,27 @@ Commit `2b22994` (Amendment 3). Log `C:/Zorro/Data/TPL_Costs_log_run4.csv` **byt
 H_BAR, short rule S_ASK. Zorro: `Trades 32`, no Error line.
 
 **Verdict: P5 still PASS after P6.** Runs of P5: 4 (runs 1-2 FAIL, recorded; runs 3-4 PASS).
+
+## Amendment 4 — 2026-11-23 (regression run 5, R1 template changes; before the run)
+
+**Why:** branch `eurusd-r1` changed the template: `nx_FillUnrounded = 1` sets TradeMode `TR_FRC` in
+`nx_template_init()` (R-D5: stops, limits and fills no longer rounded to the PIP; (a) `include/trading.h:276`
+"don't round to 1 PIP"), and the slot values `nx_s*` moved from `NNFX_Slots.h` to `NNFX_Config.h` (declaration
+only). Inputs unchanged (generator output byte-identical, checked 2026-11-23).
+
+**Prediction (c):** same verdict and counts as run 4 (RUN PASS, 0 FAIL rows, day rule H_BAR, short rule S_ASK, Trades 32). Logs need **not** be byte-identical: a level
+that is not on the pip grid (stop = fill - 1.5 x float32 ATR) now fills unrounded. Recorded as an observation (b):
+the largest change of any logged fill price vs run 4; > 0 shows that Zorro rounded before (R-D5), 0 that it did
+not on these paths. Every price change must stay within the existing tolerances. Runs so far: 4; this is run 5.
+
+
+## Run 5 — 2026-11-23 19:46 — PASS, prediction met (regression after the R1 template changes)
+
+Commit `12aa643` (Amendment 4). Log `C:/Zorro/Data/TPL_Costs_log_run5.csv` (sha256 `6dfbe788941bde8f…`); checker: RUN PASS, 0 FAIL
+rows, day rule H_BAR, short rule S_ASK. Zorro: `Trades 32`, no Error line. Not byte-identical to run 4 (allowed by Amendment 4):
+(b) 2 of 761 rows differ, the long TP1 exits of CAD/CHF and EUR/CAD (costs on): exit 1.010190725 (run 5) vs 1.010190010 =
+float32(1.01019) (run 4), change 7.2e-7; profit change 7.2e-4. **So without TR_FRC Zorro rounded this fill to the 0.1-pip grid
+(1e-5)**, as stop.htm states ("next 1/10 pip for currencies"), not to 1 PIP as the trading.h comment says. R-D5 (TR_FRC on) is
+confirmed as the right setting for exact replays.
+
+**Verdict: P5 still PASS after R1.** Runs of P5: 5.

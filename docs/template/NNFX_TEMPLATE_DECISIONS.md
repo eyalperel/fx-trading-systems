@@ -22,6 +22,7 @@ Each default below is variant 0 of the template; any change is a named, counted 
 | M-D6 | Start of the trading week (StartWeek) | Decided 2026-11-23 |
 | M-D7 | Spread on long TP1 exits (Zorro accounting) | Decided 2026-11-23 |
 | M-D8 | Lot sizing in Zorro (implements T8; stage P6) | Decided 2026-11-23 |
+| R-D1..R-D7 | First EUR/USD real-data run R1 (scope, slots, parameters, range, fill rounding, replay, costs) | Decided 2026-11-23 |
 | — | News rules; dead-market mode | Off by default (no calendar G5; dead market decided 2026-11-01) |
 
 ---
@@ -489,4 +490,57 @@ winloss.htm, account.htm) and the project asset list `config/assets/AssetsNNFX_F
 
 Verified by the P6 probe (`docs/preregistration/TPL_Sizing_Criteria.md`): hand-calculated lots on synthetic
 assets; each guard (below 1 lot, margin, planted wrong risk %) seen to fire.
+
+## R-D1..R-D7 — First EUR/USD real-data run, R1 (decided 2026-11-23, user: accept each)
+
+Stage after the merge of `template-decisions` (`1e8c189`); branch `eurusd-r1`. First run of the template on real
+bars with real indicators (until now every run used scripted states on synthetic paths).
+
+- **R-D1 Scope: mechanics only.** R1 checks bars, wiring, the trade replay, sizing, costs and Equity. The checker
+  computes no P&L, win rate or R summary; Zorro's own summary line is not recorded or used. Performance is read
+  only after Phase 1 step 5 (hand-calculated trades) passes (PROJECT_STATE §7). (c) A number seen before the
+  measuring tool is trusted can steer later choices.
+- **R-D2 Slots: Strategy 1's real indicators** through a new strategy file `NNFX_Strategy1.h`
+  (`NX_SRC_STRATEGY`): FAMA baseline, Fisher C1 (Fish vs Fish[1], T3), Reflex C2 (sign, T3), ATR(14) MT4.
+  Each bar's indicator values are exported and checked against the harness reference models
+  (`analysis/harness/reference.py`).
+- **R-D3 Parameters and inputs (variant 0):**
+
+  | Slot | Indicator | Parameters | Input | Source |
+  |---|---|---|---|---|
+  | Baseline | FAMA | FastLimit 0.5, SlowLimit 0.05 | (H+L)/2 | (a) TASC V.19:9 |
+  | C1 | Fisher | Len 10 | (H+L)/2 | (a) TASC V.20:11 |
+  | C2 | Reflex | Length 20 | Close | (a) TASC V.38:02 |
+  | ATR | ATR MT4 | 14 | H, L, C | (a) NNFX [V03, V16] |
+
+  Reflex 50 (Stonehill's tested default, NNFX_Sources C12) is a pre-registered T11.3 sensitivity level, not a
+  variant-0 value.
+- **R-D4 Range:** EUR/USD M1 history 2005-01-03..2026-05-29 (b, `C:/Zorro/History/EURUSD_*.t6`); trades from
+  2007-01-01 to 2026-05-29; `LookBack` 520 bars as named config value `nx_LookBackBars` ((c): covers FAMA's
+  measured ~500-bar start-up, MAMA review MA-1). The dev / confirmation split is by asset (PROJECT_STATE §2):
+  all EUR/USD years are dev.
+  **Amended 2026-11-23 (before any run, user: option A):** trades start **2007-02-01**. (b) The history holds only 517
+  daily bars before 2007-01-02 (early holidays and gaps), fewer than LookBack 520; (a) errors.htm Warning / Error 047:
+  "Historical price data was insufficient for covering the test period or the LookBack period" (what Zorro then does
+  is not stated). 539 bars precede 2007-02-01 under every bar variant. LookBack stays 520.
+- **R-D5 Fill rounding: `TR_FRC` on** (named config value `nx_FillUnrounded = 1`). (a) fill.htm: "Fill prices are
+  normally rounded to the point value of the asset. TR_FRC enables unrounded fill prices."; trademode.htm: TR_FRC
+  "Do not round stops, limits, and backtest fill prices to the point value". The rounding step is stated
+  inconsistently (pip.htm: PIP "also named point size"; stop.htm: "next 1/10 pip for currencies"). (a) `include/trading.h:276`:
+  `#define TR_FRC (1<<3) // don't round to 1 PIP`, so the default step is one PIP. (b) synthetic
+  levels lay on the pip grid, so no earlier probe could see it. (c) Rounding to the pip would move fills by up to
+  0.5 pip, 5x the replay tolerance. S4 / P5 / P6 re-run once as regressions (template change).
+- **R-D6 Replay with an M1 layer.** The Python engine gets, per bar, the intrabar order of level touches and the
+  fill price at the crossing minute, both computed from the M1 files (gotchas 9d.12: with TICKS a level inside a
+  record fills at the level; a record opening beyond it fills at its open). Zorro's trades must then equal the
+  engine's at the S4 tolerance (1e-5) with no allowance. The new engine / checker code is tested first on
+  synthetic cases with known answers and planted defects. Other R1 criteria: Python-built 17:00 New York daily
+  bars equal Zorro's (across all DST changes); indicator values equal the reference models; slot states equal
+  (near-threshold bars counted, not failed); P5 / P6 checks on every real trade; every check has a planted-defect test.
+- **R-D7 Costs: two runs, one script with a cost switch.** R1a: spread, commission, rollover 0 (bars, wiring,
+  exact M1 replay, sizing, Equity). R1b: asset-list costs at x1 (every half pays one spread against its own fill,
+  rollover per bar day, sizing recomputed, Equity reconciled; trades not replayed, the spread moves trigger times,
+  M-D7). (b) The EUR/USD `.t6` records carry a per-minute spread in `fVal` (nonzero in 73% / 100% of sampled records
+  in 2008 / 2024, max 9.3 pips); (a) spread.htm: used only with `Spread = marketVal()`. Historical spreads are a later
+  T7 sensitivity level.
 
