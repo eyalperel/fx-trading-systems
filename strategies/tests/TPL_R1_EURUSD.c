@@ -31,7 +31,7 @@
 
 int r1_CompileOnly = 0;   // run (compile checks 2026-11-23 clean); criteria committed before each run
 int r1_Costs = 1;         // 0 = R1a, 1 = R1b (R-D7); R1a PASS run 2
-int r1_SpreadLevel = 1;   // 1 = R1d (x1), 2 = R1c (x2); only used with r1_Costs = 1. Left at 1: R1d first.
+int r1_SpreadLevel = 2;   // 1 = R1d (x1), 2 = R1c (x2); only used with r1_Costs = 1. R1d run 1 PASS; set to 2 for R1c.
 string r1_Asset = "EUR/USD";
 
 void run()
