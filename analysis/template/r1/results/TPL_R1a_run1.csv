@@ -1,0 +1,12 @@
+check,item,result,expected,got,note
+K0,info,PASS,settings,ok,
+K0,no_error_rows,PASS,none,0,
+B1,bars,FAIL,RBAR = one Python variant,"fits None; ('next', 'own'): 473; ('next', 'drop'): 21; ('next', 'monday'): 24; ('same', 'own'): 21",
+B1,bar_end_17NY,FAIL,every RBAR ends 17:00 New York,1 off,20050103
+W1,skipped,FAIL,bars matched,no variant,
+K1,size_rows,PASS,every SIZE row recomputes,0 of 327 off,
+K3,equity,PASS,Equity / Balance from HALF rows,0 off,[]
+K4,profit,PASS,profit identity per half,0 off,[]
+K5,half_lots,PASS,half lots = SIZE lots of its signal,0 off,[]
+K6,no_margincall,PASS,no MARGINCALL,0,
+K6,max_margin_share,INFO,reported,0.0404,

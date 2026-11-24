@@ -24,6 +24,8 @@
 
 string nx_LogFile = "Data\\NNFX_Template_log.csv";
 
+int nx_RefusedLog = 1;   // 1: every refused signal writes a REFUSED row; scripts print it in their INFO row (PERF1 Amendment 1, A1.1)
+
 // ---- per-asset settings (copied from the config at init; a batch may override per asset) ----
 int nx_aBtfOn[NX_MAXA];
 int nx_aContStop[NX_MAXA];
@@ -97,6 +99,13 @@ void nx_log(string nxt_s)
 	file_append(nx_LogFile, "\n");
 }
 
+// Kind of a refused signal for the REFUSED row (PERF1 A1.1): continuation or standard (every other kind).
+string nx_refkind(int nxt_k)
+{
+	if(nxt_k == NX_K_CONT) return "continuation";
+	return "standard";
+}
+
 // Reset every per-asset array (INITRUN). Settings start from the config (variant 0).
 void nx_template_init()
 {
@@ -147,7 +156,7 @@ void nx_template_init()
 // per half (both halves get the same lots), or 0 when the signal is refused; every call writes a
 // SIZE row, a refusal also an ERROR row. Order of checks: below 1 lot, configured risk exceeded,
 // margin. Locals use the nxz_ prefix (gotchas 1.3).
-int nx_size(int nxi, string nxn, int nxz_ymd, var nxz_atr)
+int nx_size(int nxi, string nxn, int nxz_ymd, var nxz_atr, int nxz_kind)
 {
 	var nxz_eq = Equity;                                   // M-D8.3, incl. open trades (a) balance.htm
 	var nxz_pct = nx_RiskPct / NX_NHALVES;                 // % of equity per half, T8.2
@@ -166,14 +175,17 @@ int nx_size(int nxi, string nxn, int nxz_ymd, var nxz_atr)
 		nxz_target, nxz_stopPips, nxz_riskLot, nxz_raw, nxz_lots, nxz_actual, MarginCost, nxz_margin));
 	if(nxz_lots < 1) {
 		nx_log(strf("ERROR,%s,%i,lots,below 1 lot: raw %.10f", nxn, nxz_ymd, nxz_raw));
+		nx_log(strf("REFUSED,%s,%i,lots,%s", nxn, nxz_ymd, nx_refkind(nxz_kind)));
 		return 0;
 	}
 	if(nxz_actual > nxz_cap) {
 		nx_log(strf("ERROR,%s,%i,risk,actual %.6f above configured %.6f", nxn, nxz_ymd, nxz_actual, nxz_cap));
+		nx_log(strf("REFUSED,%s,%i,risk,%s", nxn, nxz_ymd, nx_refkind(nxz_kind)));
 		return 0;
 	}
 	if(MarginTotal + nxz_margin > nxz_eq) {
 		nx_log(strf("ERROR,%s,%i,margin,%.6f + %.6f above equity %.6f", nxn, nxz_ymd, MarginTotal, nxz_margin, nxz_eq));
+		nx_log(strf("REFUSED,%s,%i,margin,%s", nxn, nxz_ymd, nx_refkind(nxz_kind)));
 		return 0;
 	}
 	return nxz_lots;
@@ -409,6 +421,7 @@ void nx_bar(int nxi, string nxn)
 		int nxt_sig = nx_aSigS[nxi];
 		if(nxt_dd == 1) nxt_sig = nx_aSigL[nxi];
 		if(nx_aBtfOn[nxi] && nxt_c1 == nxt_dd && nxt_sig >= 0 && nxt_t - nxt_sig >= nx_BtfMaxAgeBars) {
+			nx_log(strf("REFUSED,%s,%i,bridge-too-far,standard", nxn, nxt_ymd));
 			nx_aWin[nxi] = 0;
 		} else {
 			nx_aWin[nxi] = 1;
@@ -439,7 +452,7 @@ void nx_bar(int nxi, string nxn)
 	// send the entry: two halves, filled at the next open (Fill 3), Stop / TP1 from the fill
 	int nxt_lots = nx_FixedLots;   // > 0 only in the S4 / P5 batches
 	if(nx_FixedLots <= 0) {
-		nxt_lots = nx_size(nxi, nxn, nxt_ymd, nxt_a);   // T8 / M-D8
+		nxt_lots = nx_size(nxi, nxn, nxt_ymd, nxt_a, nxt_kind);   // T8 / M-D8
 		if(nxt_lots < 1) return;   // refused: ERROR row written, signal skipped (c: as if no entry)
 	}
 	nx_aGroup[nxi] = nxt_g + 1;

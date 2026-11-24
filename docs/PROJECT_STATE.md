@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: first performance read of Strategy 1 on EUR/USD)
+**As of:** 2026-11-24 (**PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -70,9 +70,9 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 
 ### 1.4 Does not exist yet
 
-- Any strategy backtest, NNFX template, or exit logic
+- Any strategy that passed a performance read (Strategy 1 v0 on EUR/USD: STOP, PERF1 2026-11-24); a defined exit indicator
 - Walk-forward, Monte Carlo, or strategy-level surrogate test
-- Swap / spread cost model
+- Historical (time-varying) swap / spread model (asset-list costs only, T7)
 - Confirmation-set pass condition
 
 ---
@@ -104,6 +104,8 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
   Brownian motion alike. A filter's output rhythm belongs to filter × input.
 - **Volatility persists, direction doesn't.** H(returns) ≈ 0.50 on both assets;
   H(|returns|) = 0.658 (EUR/USD D1), 0.766 (BTC/USD H4).
+- **Strategy 1 v0 on EUR/USD D1 (PERF1, 2026-11-24): STOP.** 2007-2026, 325 signals, mean -0.030 signal-R at spread x2
+  (t -0.87): no evidence of an edge; roughly flat before costs (c). One feed, one asset, one variant.
 - **Ehlers' 2015 "pink noise"** measurement is brown noise (f⁻²).
 
 ---
@@ -125,6 +127,7 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 | — | Harness ramp-lag check assumes DC gain 1: a DC-gain error reads as lag ((x − y)/s = (1 − G)·x/s + G·τ; NC-B 35 bars) | **Resolved 2026-11-16:** HARNESS_DESIGN D4 (`032d766`): sine phase + ramp residual; ramp lag only at DC gain 1; `m_flat` generalised |
 | — | Literal products folded at compile time to an unpredictable float32 (gotchas 9d.8, probe `ba54022`) | UltimateSmootherE.c fixed 2026-11-18 (`ad8eae5`). Remaining in DominantCycle.c:24–25/46–47, InstantTrendline.c:63; each spec replaces them |
 | — | `L_FLOAT32` exemption is not written to the results header (lint output only) | Run records should carry every pre-registered exception; small tooling task |
+| — | `.gitignore` line 13 `Results/` (meant for Zorro's folder) also matches every lowercase `results/` folder, because git runs with `core.ignorecase = true` (b, found 2026-11-24): template checker outputs (S4, P5, P6, R1a-d) were never committed; harness results were force-added | Records cited by the criteria docs existed only on disk. Force-added 2026-11-24 (PERF1 report + template results). Fix the pattern later (separate commit) |
 | — | Intermittent test errors (`test_cli` MemoryError in Claude Code's shell, ×2; once 4/144 ERRORs in Git Bash, cause not captured) | CLAUDE.md §8 now requires tracebacks + rerun; watch |
 | — | `docs/indicators/SuperSmoother_Notes.md`: SS3 sections dated before 2026-11-16 describe the superseded hybrid (Key Finding 2, coefficients, SS3 table rows, SS3 Period column) | Flagged by a notice in the file; not re-measured for the corrected SS3 |
 | — | The `PI` macro is 3.14159 in Zorro 3.11 (b, `Include/trading.h:25`); used library-wide | Tiny: ~1e-6 bars of lag, ~1e-8 in filter output (gotchas 9d.2). **Decided 2026-11-06 (HARNESS_DESIGN D3): keep `PI`**; each spec records the gap in its tolerance floor |
@@ -364,8 +367,18 @@ file's first rows exactly.
    both same-bar days; seed 20261124) + one bridge-too-far refusal, every rule checked, decisive highs / lows confirmed against
    exchangerates.org.uk / poundsterlinglive.com within 0.4 pip: **PASS**. Pullback entries never occurred (S4 covers them).
    Observation: several outcomes hang on < 4-pip margins: test sensitivity to a second EUR/USD data feed later.
-   **Next:** (1) first performance read of Strategy 1 variant 0 on EUR/USD (R1a / R1b, in R, spread x1 and x2), pre-registered
-   what is reported; (2) Phase 2 (sensitivity T11, Strategy 2, other dev pairs, walk-forward, surrogates).
+   **PERF1, 2026-11-24** (branch `perf1-strategy1`; criteria `docs/preregistration/PERF1_Strategy1_EURUSD_Criteria.md` `8c28490`
+   + Amendments 1-3): first performance read of Strategy 1 variant 0 on EUR/USD, decided before looking (what is reported, data,
+   verdict rule at spread x2, one-feed note). `tools/perf_report.py` (51 tests: hand-calculated items, planted target-risk
+   defect, four verdict guards). Logging-only template change (REFUSED rows, INFO Tp1Atr; `d49c581`); regressions S4 run 6,
+   P5 run 6, P6 run 3 PASS (P6: 3 REFUSED rows = 3 ERROR rows); **R1d** (x1) PASS with K7 650/650 HALF rows = R1b;
+   **R1c** (x2) PASS. **Read 1: STOP** (b): 325 signals, mean signal-R -0.030 at x2 (t -0.87), total -9.87 R, -12.87 R without
+   the best year (2007); x1 mean -0.024. (c) No evidence of an edge; roughly flat before costs (approximate). Report
+   `analysis/template/r1/results/PERF1_read1_report.md`. Disclosures: step-5 trades, 3 R1b rows + row counts, Zorro's summary
+   seen after R1d (A3.1). **Strategy variants tested: 1.** Strategy 1 is not tuned on EUR/USD (P-3).
+   **Next:** (1) Strategy 2 variant 0 on EUR/USD: decide its open T3 issue (C1 and C2 of the same type, against V20) first, then
+   its own pre-registration (PERF1 format; x2 bar unchanged); (2) Phase 2 items (T11 sensitivity, other dev pairs, walk-forward,
+   surrogates, second data feed PERF1 P-4.3) only for a system that passes a read.
    **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,

@@ -218,3 +218,109 @@ class Data(unittest.TestCase):
         self.assertEqual([D.ymd_int(d) for d in b["day"]], [20180102])
         b = D.daily_bars(a, holidays=False)
         self.assertEqual([D.ymd_int(d) for d in b["day"]], [20180101, 20180102])
+
+
+INFO_CD = dict(SpreadMult="1.000000", Tp1Atr="1.000000", RefusedLog="1", Spread="0.0001200000", RollLong="-0.894700",
+               RollShort="0.425900", Commission="0.000000")
+
+
+def half_row(group=1, half=1, spread="0.0001200000", profit="654.64422607"):
+    return ["HALF", "EUR/USD", str(group), str(half), "-1", "c1", "20070521", "1.351189970970154", "20070521",
+            "1.344104290008545", "tp1", "524289", "614", "614", profit, "4.64231014", "-0.00000000", spread, "93314.90625000"]
+
+
+def write_half_log(path, rows):
+    import csv
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["kind", "asset"])
+        for r in rows:
+            w.writerow(r)
+
+
+class LevelsR1cR1d(unittest.TestCase):
+    """PERF1 Amendment 1: K0 spread level for R1c / R1d, K4 with the per-half spread, K7 against R1b run 1."""
+
+    def L(self, mult=1, **info):
+        i = dict(INFO_CD, **info)
+        sp = "%.10f" % (0.00012 * mult)
+        return dict(info=i, half=[dict(group=1, half=1, spread=0.00012 * mult), dict(group=1, half=2, spread=0.00012 * mult)],
+                    _sp=sp)
+
+    def k0(self, L, mult):
+        rep = C.Report()
+        C.check_k0_levels(rep, L, mult)
+        return rep
+
+    def test_x1_passes_d_and_x2_passes_c(self):
+        self.assertEqual(self.k0(self.L(1), 1).fails(), [])
+        self.assertEqual(self.k0(self.L(2, SpreadMult="2.000000"), 2).fails(), [])
+
+    def test_planted_spread_x2_log_fails_K0_under_mode_d(self):
+        L = self.L(2, SpreadMult="2.000000")             # an R1c log read as R1d
+        ids = {r["item"] for r in self.k0(L, C.MULT["d"]).fails()}
+        self.assertEqual(ids, {"info_levels", "half_spread"})
+        L = self.L(2)                                    # INFO says x1 but the halves paid x2
+        self.assertEqual({r["item"] for r in self.k0(L, 1).fails()}, {"half_spread"})
+        L = self.L(1, SpreadMult="2.000000")             # INFO says x2 but the halves paid x1
+        self.assertEqual({r["item"] for r in self.k0(L, 1).fails()}, {"info_levels"})
+
+    def test_k0_needs_the_new_tokens_and_unchanged_costs(self):
+        for key in ("Tp1Atr", "RefusedLog", "SpreadMult"):
+            L = self.L(1)
+            del L["info"][key]
+            self.assertEqual(len(self.k0(L, 1).fails()), 1, key)
+        self.assertEqual(len(self.k0(self.L(1, RollLong="-0.5"), 1).fails()), 1)
+        self.assertEqual(len(self.k0(self.L(1, Commission="0.5"), 1).fails()), 1)
+        self.assertEqual(len(self.k0(self.L(1, Spread="0.0002400000"), 1).fails()), 1)    # base spread changed
+
+    def test_k4_uses_each_half_spread(self):
+        sp2 = 0.00024
+        hv = [dict(group=1, half=1, dir=1, entry_ymd=20240304, entry=1.08, exit_ymd=20240305, exit=1.09, roll=0.0,
+                   comm=0.0, units=UNITS, spread=sp2,
+                   profit=0.01 * UNITS - sp2 * UNITS)]
+        rep = C.Report()
+        C.check_profit(rep, dict(half=hv), INFO, "b", per_half_spread=True)      # INFO Spread is the x1 base 0.00012
+        self.assertEqual(rep.fails(), [])
+        rep = C.Report()
+        C.check_profit(rep, dict(half=hv), INFO, "b", per_half_spread=False)     # planted: base spread used
+        self.assertEqual(len(rep.fails()), 1)
+
+    def test_k7_equal_and_altered_field(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ref, got = os.path.join(d, "ref.csv"), os.path.join(d, "got.csv")
+            rows = [half_row(1, 1), half_row(1, 2, profit="585.82293701")]
+            write_half_log(ref, rows)
+            write_half_log(got, rows)
+            rep = C.Report()
+            C.check_k7(rep, C.read_log(got), ref, "80873c4803b8c1c2xx")
+            self.assertEqual(rep.fails(), [])
+            self.assertEqual(rep.rows[0]["check"], "K7")
+            for col, val in ((14, "654.64422608"), (9, "1.344104290008546"), (10, "stop"), (17, "0.0002400000"), (3, "2")):
+                alt = [list(r) for r in rows]
+                alt[0][col] = val
+                write_half_log(got, alt)
+                rep = C.Report()
+                C.check_k7(rep, C.read_log(got), ref, "80873c4803b8c1c2xx")
+                self.assertEqual(len(rep.fails()), 1, col)
+            write_half_log(got, rows[:1])                       # a missing row
+            rep = C.Report()
+            C.check_k7(rep, C.read_log(got), ref, "80873c4803b8c1c2xx")
+            self.assertEqual(len(rep.fails()), 1)
+            write_half_log(got, rows[::-1])                     # same rows, other order
+            rep = C.Report()
+            C.check_k7(rep, C.read_log(got), ref, "80873c4803b8c1c2xx")
+            self.assertEqual(len(rep.fails()), 1)
+
+    def test_wrong_reference_sha_refuses(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ref = os.path.join(d, "ref.csv")
+            write_half_log(ref, [half_row()])
+            with self.assertRaises(C.RefusedReference):
+                C.run("d", os.path.join(d, "log.csv"), os.path.join(d, "ind.csv"), d, os.path.join(d, "out.csv"), ref)
+            self.assertEqual(C.main(["d", "l", "i", d, os.path.join(d, "o.csv"), ref]), 2)
+            self.assertFalse(os.path.exists(os.path.join(d, "o.csv")))
+            self.assertEqual(C.main(["d", "l", "i", d, "o.csv"]), 2)        # mode d without a reference path
+            self.assertEqual(C.main(["c", "l", "i", d, "o.csv", ref]), 2)   # reference only belongs to d

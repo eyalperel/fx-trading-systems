@@ -248,3 +248,27 @@ pip grid (stop = fill - 1.5 x float32 ATR) are identical to the run without it: 
 Correction to the run 5 note (after TPL_Costs run 5, 2026-11-23): Zorro **did** round fills before TR_FRC, to the 0.1-pip grid
 (1e-5); S4's fills were already on that grid (paths in 1e-5 steps), hence no change here. The (c) remark about broker orders is
 withdrawn.
+
+## Amendment 5 — 2026-11-24 (regression run 6, PERF1 logging change; before the run)
+
+**Why:** PERF1 Amendment 1 (A1.1), commit `d49c581`: logging-only template change. Every refused signal writes a
+`REFUSED,asset,ymd,reason,kind` row (bridge-too-far in the baseline-cross skip branch; lots / risk / margin after the
+existing ERROR row in `nx_size`); `nx_size` gains a kind argument (plumbing only). No condition, order, size or level
+changed (diff read in the planning chat, 2026-11-24). (b) This checker ignores row types it does not read, so REFUSED
+rows cannot change its verdict. Compare in Git Bash:
+`diff <(grep -v '^REFUSED,' NEW | tr -d '\r') <(tr -d '\r' < OLD) && echo IDENTICAL`.
+
+**Prediction (c):** same verdict and counts as run 5 (RUN PASS, 60/60, 4/4 controls, 4 DOC, 40 ENTRY_ONLY); Zorro
+`Trades 116`, no Error line. Log `TPL_Equivalence_log_run6.csv` with REFUSED rows removed is identical to run 5's log
+(sha256 `51407d9b0dfda1f4…`) up to line endings. REFUSED rows: reason `bridge-too-far`, kind `standard` only; 0 lots / risk /
+margin rows (`nx_FixedLots` > 0: `nx_size` is never called). Their count is recorded as an observation (b), not predicted.
+Runs so far: 5; this is run 6.
+
+## Run 6 — 2026-11-24 16:23 — PASS, prediction met (regression after the PERF1 logging change)
+
+Commit `94438e0` (Amendment 5). Log `C:/Zorro/Data/TPL_Equivalence_log_run6.csv` (sha256 `e3e9788d9166db4a…`); with the
+REFUSED rows removed, identical to run 5's log (line endings normalised). Checker: RUN PASS, 60/60, 4/4 controls (A6_CM3,
+A6M_CM3 2 FAIL rows each; R1_CMF, R1M_CMF 1 each), 4 DOC, 40 ENTRY_ONLY, 0 error rows. Zorro: `Trades 116`, no Error line.
+(b) REFUSED rows: 2, both `bridge-too-far,standard` (observation, not predicted).
+
+**Verdict: S4 still PASS after the PERF1 logging change.** Runs of S4: 6.

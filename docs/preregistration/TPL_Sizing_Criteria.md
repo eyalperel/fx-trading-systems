@@ -160,3 +160,29 @@ Commit `12aa643` (Amendment 1). Log `C:/Zorro/Data/TPL_Sizing_log_run2.csv` **by
 is 1e-5).
 
 **Verdict: P6 still PASS after R1.** Runs of P6: 2.
+
+## Amendment 2 — 2026-11-24 (regression run 3, PERF1 logging change; before the run)
+
+**Why:** PERF1 Amendment 1 (A1.1), commit `d49c581`: logging-only template change. Every refused signal writes a
+`REFUSED,asset,ymd,reason,kind` row (bridge-too-far in the baseline-cross skip branch; lots / risk / margin after the
+existing ERROR row in `nx_size`); `nx_size` gains a kind argument (plumbing only). No condition, order, size or level
+changed (diff read in the planning chat, 2026-11-24). (b) This checker ignores row types it does not read, so REFUSED
+rows cannot change its verdict. Compare in Git Bash:
+`diff <(grep -v '^REFUSED,' NEW | tr -d '\r') <(tr -d '\r' < OLD) && echo IDENTICAL`.
+
+**Prediction (c):** same verdict and counts as run 2 (RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA; 19 SIZE rows,
+3 ERROR rows, 32 halves); Zorro `Trades 32`, no Error line. Log `TPL_Sizing_log_run3.csv` with REFUSED rows removed is
+identical to run 2's log (sha256 `e91ad59edca18c92…`) up to line endings. **New guard seen to fire:** exactly 3 REFUSED rows
+with reason lots / risk / margin, one each in A1_GLOT / A1_CMR / A1_GMRG, each with the same asset and ymd as its ERROR row,
+kind `standard`. Any `bridge-too-far` rows: count recorded as an observation (b). Runs so far: 2; this is run 3.
+
+## Run 3 — 2026-11-24 16:26 — PASS, all predictions met (regression after the PERF1 logging change)
+
+Commit `c91305f` (Amendment 2). Log `C:/Zorro/Data/TPL_Sizing_log_run3.csv` (sha256 `43eb218322e8639e…`); with the REFUSED
+rows removed, identical to run 2's log (line endings normalised). Checker: RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA.
+Zorro: `Trades 32`, no Error line.
+**New guard fired:** exactly 3 REFUSED rows, kind `standard`, each after its ERROR row with the same asset, ymd and reason:
+EUR/AUD 20240307 risk (A1_CMR), GBP/CHF 20240307 lots (A1_GLOT), GBP/CAD 20240307 margin (A1_GMRG); scenario-to-pair
+mapping from `tools/make_scenarios.py:168-170` (b). 0 bridge-too-far rows.
+
+**Verdict: P6 still PASS after the PERF1 logging change.** Runs of P6: 3.
