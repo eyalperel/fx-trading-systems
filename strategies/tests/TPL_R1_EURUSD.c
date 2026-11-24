@@ -11,6 +11,10 @@
 // Outputs (copy after each run, both are deleted at INITRUN):
 //   Data/NNFX_Template_log.csv   -> Data/TPL_R1<a|b>_log_run<n>.csv   (template rows, BAR rows)
 //   Data/NNFX_Strategy1_ind.csv  -> Data/TPL_R1<a|b>_ind_run<n>.csv   (indicator values per bar)
+// R1c / R1d (PERF1 Amendment 1, A1.1): the run switch r1_SpreadLevel (costs on, r1_Costs = 1) sets nx_SpreadMult:
+//   r1_SpreadLevel = 1 -> R1d (x1)   copy to Data/TPL_R1d_log_run<n>.csv / TPL_R1d_ind_run<n>.csv
+//   r1_SpreadLevel = 2 -> R1c (x2)   copy to Data/TPL_R1c_log_run<n>.csv / TPL_R1c_ind_run<n>.csv
+// The INFO row also carries SpreadMult=, Tp1Atr= and RefusedLog= (read by tools/check_r1.py c|d and tools/perf_report.py).
 // r1_CompileOnly = 1: compiles and stops at INITRUN, nothing run.
 // This is a test script, not template logic: dates and modes are written here directly. Prefix r1_.
 
@@ -27,6 +31,7 @@
 
 int r1_CompileOnly = 0;   // run (compile checks 2026-11-23 clean); criteria committed before each run
 int r1_Costs = 1;         // 0 = R1a, 1 = R1b (R-D7); R1a PASS run 2
+int r1_SpreadLevel = 1;   // 1 = R1d (x1), 2 = R1c (x2); only used with r1_Costs = 1. Left at 1: R1d first.
 string r1_Asset = "EUR/USD";
 
 void run()
@@ -44,6 +49,7 @@ void run()
 	if(is(INITRUN)) {
 		nx_config_init();
 		s1_config_init();
+			nx_SpreadMult = r1_SpreadLevel;   // T7 spread level: 1 = R1b / R1d, 2 = R1c (config default is 1)
 		LookBack = s1_LookBackBars;   // R-D4; set before the first asset call
 		BarPeriod = nx_BarPeriodMin;
 		BarZone = nx_BarZone;
@@ -63,11 +69,11 @@ void run()
 		int r1_rcList = assetList("C:\\Users\\eyalp\\Documents\\fx-trading-systems\\config\\assets\\AssetsNNFX_FX.csv");
 		if(nx_TicksOn) set(TICKS);
 		asset(r1_Asset);
-		nx_log(strf("INFO,%s,0,costs=%i,type=%i,list=%i,FixedLots=%i,Capital=%.2f,RiskPct=%.6f,Leverage=%.6f,LookBack=%i,TradeModeFRC=%i,Fill=%i,Hedge=%i,TICKS=%i,BarOffset=%i,StartWeek=%i,PIP=%.10f,PIPCost=%.10f,LotAmount=%i,Spread=%.10f,RollLong=%.6f,RollShort=%.6f,Commission=%.6f,FastLimit=%.6f,SlowLimit=%.6f,FisherLen=%i,ReflexLen=%i,AtrLen=%i",
+		nx_log(strf("INFO,%s,0,costs=%i,type=%i,list=%i,FixedLots=%i,Capital=%.2f,RiskPct=%.6f,Leverage=%.6f,LookBack=%i,TradeModeFRC=%i,Fill=%i,Hedge=%i,TICKS=%i,BarOffset=%i,StartWeek=%i,PIP=%.10f,PIPCost=%.10f,LotAmount=%i,Spread=%.10f,RollLong=%.6f,RollShort=%.6f,Commission=%.6f,FastLimit=%.6f,SlowLimit=%.6f,FisherLen=%i,ReflexLen=%i,AtrLen=%i,SpreadMult=%.6f,Tp1Atr=%.6f,RefusedLog=%i",
 			r1_Asset, r1_Costs, assetType(r1_Asset), r1_rcList, nx_FixedLots, Capital, nx_RiskPct, nx_Leverage,
 			LookBack, (int)((TradeMode & TR_FRC) != 0), Fill, Hedge, (int)is(TICKS), BarOffset, StartWeek,
 			PIP, PIPCost, (int)LotAmount, Spread, RollLong, RollShort, Commission,
-			s1_FastLimit, s1_SlowLimit, s1_FisherLen, s1_ReflexLen, nx_AtrLen));
+			s1_FastLimit, s1_SlowLimit, s1_FisherLen, s1_ReflexLen, nx_AtrLen, nx_SpreadMult, nx_Tp1Atr, nx_RefusedLog));
 		return;   // R1 Amendment 1: no slot call in INITRUN; Zorro discards series state from that call (run 1, (b))
 	}
 
