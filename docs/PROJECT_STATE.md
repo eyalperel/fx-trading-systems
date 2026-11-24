@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (R1a run 2, R1b run 1; branch `eurusd-r1`); next: Phase 1 step 5, hand-calculated real trades)
+**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: first performance read of Strategy 1 on EUR/USD)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -360,8 +360,12 @@ file's first rows exactly.
    the independent replay, indicators equal the models (<= 5.6e-16), sizing / Equity / profit exact. **R1b run 1 PASS** (cost
    identity and whole-day rollover on 650 halves). Regressions: S4 run 5, P6 run 2 byte-identical; P5 run 5 PASS with 2 long-TP
    fills moved 7e-7 (Zorro rounded fills to 0.1 pip before TR_FRC). Gotchas 9d.20-9d.23.
-   **Next:** (1) review and merge `eurusd-r1`; (2) Phase 1 step 5: hand-calculated real trades picked from the R1a trade list;
-   (3) only then read performance.
+   **Step 5, 2026-11-24** (`docs/preregistration/STEP5_HandChecked_Trades.md`): 10 R1a trades (one per exit combination,
+   both same-bar days; seed 20261124) + one bridge-too-far refusal, every rule checked, decisive highs / lows confirmed against
+   exchangerates.org.uk / poundsterlinglive.com within 0.4 pip: **PASS**. Pullback entries never occurred (S4 covers them).
+   Observation: several outcomes hang on < 4-pip margins: test sensitivity to a second EUR/USD data feed later.
+   **Next:** (1) first performance read of Strategy 1 variant 0 on EUR/USD (R1a / R1b, in R, spread x1 and x2), pre-registered
+   what is reported; (2) Phase 2 (sensitivity T11, Strategy 2, other dev pairs, walk-forward, surrogates).
    **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
