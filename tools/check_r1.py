@@ -2,6 +2,9 @@
 
 Usage: python tools/check_r1.py a <template_log.csv> <ind.csv> <history_dir> <results.csv>    (R1a, no costs)
        python tools/check_r1.py b <template_log.csv> <ind.csv> <history_dir> <results.csv>    (R1b, asset-list costs)
+       python tools/check_r1.py c <template_log.csv> <ind.csv> <history_dir> <results.csv>    (R1c, costs, spread x2)
+       python tools/check_r1.py d <template_log.csv> <ind.csv> <history_dir> <results.csv> <R1b_run1_log.csv>
+                                                                                              (R1d, costs, spread x1, + K7)
 Exit 0 = PASS. Criteria: docs/preregistration/TPL_R1_Criteria.md (committed before each run).
 MECHANICS ONLY (R-D1): no P&L, win rate or R summary is computed or printed.
 
@@ -23,6 +26,11 @@ Checks (ids as in the criteria doc):
   K4  profit (a)    profit = dir (exit - entry) units;  (b) cost identity incl. spread, commission, rollover (P5)
   K5  lots          each half's lots (units / (PIPCost / PIP)) equal its signal's SIZE lots
   K6  margin        no MARGINCALL; margin share reported
+Modes c / d (PERF1 Amendment 1, A1.1): K1-K6 as R1b. K0 also expects the INFO row to carry SpreadMult = 2 (c) or 1 (d),
+  Tp1Atr = 1, RefusedLog = 1, base Spread 0.00012 and Roll / Commission as R1b, and every HALF row to carry
+  TradeSpread = 0.00012 x multiplier. K4 uses each HALF row's own spread (INFO Spread is the base before the multiplier).
+  K7 (d only) every HALF row equals R1b run 1's HALF row, field for field, in the same order (proves the template
+  change is log-only). The reference file must have sha256 prefix 80873c4803b8c1c2, else the checker refuses (exit 2).
 """
 import csv
 import math
@@ -48,13 +56,17 @@ TOL_EQ_ABS, TOL_EQ_REL = 0.01, 1e-7
 TOL_PROFIT_ABS, TOL_PROFIT_REL = 2e-3, 1e-6   # TradeProfit is float32 (gotchas 9d.11)
 IND_FIELDS = ("mama", "fama", "period", "alpha", "phase", "fish", "trig", "raw", "v1", "rng", "reflex", "sum", "ms",
               "atr", "tr")
+REF_R1B_SHA = "80873c4803b8c1c2"   # TPL_R1b_log_run1.csv (TPL_R1_Criteria.md; PERF1 P-2)
+MULT = {"c": 2, "d": 1}
+BASE_SPREAD, ROLL_LONG, ROLL_SHORT = 0.00012, -0.8947, 0.4259   # R1b INFO (asset list); x2 changes the spread only
+TOL_SPREAD = 1e-9
 WANT_A = {"costs": "0", "type": "1", "FixedLots": "0", "Capital": "100000.00", "LookBack": "520", "TradeModeFRC": "1",
           "Fill": "3", "Hedge": "2", "TICKS": "1", "BarOffset": "1020", "StartWeek": "71700", "FisherLen": "10",
           "ReflexLen": "20", "AtrLen": "14", "LotAmount": "1000"}
 
 
 def read_log(path):
-    L = dict(info={}, rbar=[], bar=[], size=[], error=[], half=[], acct=[], enter=[], fail=[])
+    L = dict(info={}, rbar=[], bar=[], size=[], error=[], half=[], acct=[], enter=[], fail=[], half_raw=[])
     with open(path, encoding="utf-8") as f:
         for r in csv.reader(f):
             if not r:
@@ -78,6 +90,7 @@ def read_log(path):
             elif k == "ASSETFAIL":
                 L["fail"].append(",".join(r))
             elif k == "HALF":
+                L["half_raw"].append(list(r))
                 L["half"].append(dict(group=int(r[2]), half=int(r[3]), dir=int(r[4]), kind=r[5], entry_ymd=int(r[6]),
                                       entry=float(r[7]), exit_ymd=int(r[8]), exit=float(r[9]), reason=r[10],
                                       profit=float(r[14]), roll=float(r[15]), comm=float(r[16]), spread=float(r[17]),
@@ -300,12 +313,13 @@ def check_equity(rep, L, close_by_ymd, mode):
     rep.add(cid, "equity", not bad, "Equity / Balance from HALF rows", f"{len(bad)} off", str(bad[:3]))
 
 
-def check_profit(rep, L, info, mode):
+def check_profit(rep, L, info, mode, per_half_spread=False):
     bad = []
     spread = float(info.get("Spread", "0"))
     for h in L["half"]:
         base = h["dir"] * (h["exit"] - h["entry"]) * h["units"]
-        want = base if mode == "a" else base - spread * h["units"] - h["comm"] + h["roll"]
+        sp = h["spread"] if per_half_spread else spread
+        want = base if mode == "a" else base - sp * h["units"] - h["comm"] + h["roll"]
         if mode == "a" and (abs(h["roll"]) > 1e-9 or abs(h["comm"]) > 1e-9):
             bad.append(("costs", h["group"], h["half"]))
         if abs(h["profit"] - want) > TOL_PROFIT_ABS + TOL_PROFIT_REL * abs(want):
@@ -338,6 +352,41 @@ def check_lots(rep, L, info):
     rep.add("K5", "half_lots", not bad, "half lots = SIZE lots of its signal", f"{len(bad)} off", str(bad[:3]))
 
 
+def check_k0_levels(rep, L, mult):
+    """K0 for R1c / R1d: INFO tokens and the spread each HALF row paid."""
+    info = L["info"]
+    bad = []
+    for key, want in (("SpreadMult", mult), ("Tp1Atr", 1), ("RefusedLog", 1)):
+        try:
+            ok = abs(float(info.get(key, "nan")) - want) < TOL_SPREAD
+        except ValueError:
+            ok = False
+        if not ok:
+            bad.append(f"{key}={info.get(key)} want {want}")
+    for key, want in (("Spread", BASE_SPREAD), ("RollLong", ROLL_LONG), ("RollShort", ROLL_SHORT), ("Commission", 0.0)):
+        try:
+            ok = abs(float(info.get(key, "nan")) - want) < 1e-6
+        except ValueError:
+            ok = False
+        if not ok:
+            bad.append(f"{key}={info.get(key)} want {want}")
+    rep.add("K0", "info_levels", not bad, f"SpreadMult {mult}, Tp1Atr 1, RefusedLog 1, base Spread/Roll/Commission as R1b",
+            "ok" if not bad else "; ".join(bad))
+    off = [(h["group"], h["half"], h["spread"]) for h in L["half"] if abs(h["spread"] - BASE_SPREAD * mult) > TOL_SPREAD]
+    rep.add("K0", "half_spread", not off and len(L["half"]) > 0, f"every HALF spread = {BASE_SPREAD} x {mult}",
+            f"{len(off)} of {len(L['half'])} off", str(off[:3]))
+
+
+def check_k7(rep, L, ref_path, ref_sha):
+    """K7 (R1d): HALF rows equal the R1b run 1 reference field for field, same order."""
+    ref = read_log(ref_path)["half_raw"]
+    got = L["half_raw"]
+    bad = [i for i, (a, b) in enumerate(zip(ref, got)) if a != b]
+    ok = len(ref) == len(got) and not bad
+    rep.add("K7", "half_rows_equal_R1b", ok, f"{len(ref)} HALF rows identical to R1b run 1 (sha256 {ref_sha[:16]})",
+            f"{len(got)} rows, {len(bad)} differ", f"first differing row index {bad[0]}" if bad else "")
+
+
 def check_margin(rep, L):
     mc = [a for a in L["acct"] if a["mcall"]]
     rep.add("K6", "no_margincall", not mc, "no MARGINCALL", len(mc))
@@ -345,9 +394,21 @@ def check_margin(rep, L):
     rep.add("K6", "max_margin_share", True, "reported", f"{share:.4f}", status="INFO")
 
 
-def run(mode, log_path, ind_path, history, out_path):
+class RefusedReference(Exception):
+    pass
+
+
+def run(mode, log_path, ind_path, history, out_path, ref_path=None):
     rep = Report()
+    ref_sha = None
+    if mode == "d":
+        import hashlib
+        with open(ref_path, "rb") as f:
+            ref_sha = hashlib.sha256(f.read()).hexdigest()
+        if not ref_sha.startswith(REF_R1B_SHA):
+            raise RefusedReference(f"reference {ref_path} has sha256 {ref_sha}, expected prefix {REF_R1B_SHA}")
     L = read_log(log_path)
+    kmode = "a" if mode == "a" else "b"     # K1-K6 as R1b for b / c / d
     ind = read_ind(ind_path)
     info = L["info"]
     want = dict(WANT_A)
@@ -356,6 +417,8 @@ def run(mode, log_path, ind_path, history, out_path):
     rep.add("K0", "info", not bad, "settings", ",".join(bad) or "ok")
     rep.add("K0", "no_error_rows", not L["error"] and not L["fail"], "none", len(L["error"]) + len(L["fail"]),
             " | ".join((L["error"] + L["fail"])[:3]))
+    if mode in MULT:
+        check_k0_levels(rep, L, MULT[mode])
     m1 = D.load_m1(history)
     var, allv = match_bars(m1, L["rbar"])
     rep.add("B1", "bars", var is not None, "RBAR = Python bars, rule (same, own) + holidays (Amendment 1)",
@@ -387,10 +450,12 @@ def run(mode, log_path, ind_path, history, out_path):
     close_by_ymd = {r["ymd"]: r["c"] for r in L["rbar"]}
     ind_by_ymd = {r["ymd"]: r for r in ind}
     check_sizing(rep, L, ind_by_ymd, close_by_ymd)
-    check_equity(rep, L, close_by_ymd, mode)
-    check_profit(rep, L, info, mode)
+    check_equity(rep, L, close_by_ymd, kmode)
+    check_profit(rep, L, info, kmode, per_half_spread=mode in MULT)
     check_lots(rep, L, info)
     check_margin(rep, L)
+    if mode == "d":
+        check_k7(rep, L, ref_path, ref_sha)
     with open(out_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["check", "item", "result", "expected", "got", "note"])
         w.writeheader()
@@ -403,10 +468,14 @@ def run(mode, log_path, ind_path, history, out_path):
 
 
 def main(argv):
-    if len(argv) != 5 or argv[0] not in ("a", "b"):
+    if not argv or argv[0] not in ("a", "b", "c", "d") or len(argv) != (6 if argv[0] == "d" else 5):
         print(__doc__)
         return 2
-    rep = run(*argv)
+    try:
+        rep = run(*argv)
+    except RefusedReference as e:
+        print("REFUSED:", e)
+        return 2
     return 0 if not rep.fails() else 1
 
 
