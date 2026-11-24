@@ -30,7 +30,7 @@ import perf_report as PR  # noqa: E402
 
 PIP = 0.0001
 SPREAD = 0.0001
-INFO_OK = "INFO,EUR/USD,0,costs=1,PIP=0.0001000000,PIPCost=1.0000000000,Spread=0.0001000000,Tp1Atr=1.000000,RefusedLog=1"
+INFO_OK = "INFO,EUR/USD,0,costs=1,PIP=0.0001000000,PIPCost=1.0000000000,Spread=0.0001000000,SpreadMult=1.000000,Tp1Atr=1.000000,RefusedLog=1"
 
 
 def half_spec(exit_ymd, exit_px, reason, profit, roll):
@@ -284,9 +284,9 @@ class Items(Base):
         self.assertEqual(sum(S["exits"].values()), S["n_halves"])
 
     def test_item11_refused_signals(self):
-        ref = [(20100401, "lots", "c1"), (20110301, "btf", "c1"), (20110401, "margin", "continuation")]
-        self.assertEqual(self.stats("all", refused=ref)["refused"], {"lots": 1, "btf": 1, "margin": 1})
-        self.assertEqual(self.stats("standard", refused=ref)["refused"], {"lots": 1, "btf": 1})
+        ref = [(20100401, "lots", "standard"), (20110301, "bridge-too-far", "standard"), (20110401, "margin", "continuation")]
+        self.assertEqual(self.stats("all", refused=ref)["refused"], {"lots": 1, "bridge-too-far": 1, "margin": 1})
+        self.assertEqual(self.stats("standard", refused=ref)["refused"], {"lots": 1, "bridge-too-far": 1})
         self.assertEqual(self.stats("continuation", refused=ref)["refused"], {"margin": 1})
 
     def test_item12_total_R_per_exit_year(self):
@@ -346,7 +346,7 @@ class Guards(Base):
 
     def test_refused_rows_must_match_error_rows(self):
         path = self.p("r.csv")
-        write_log(path, HAND, make_bars(HAND), refused=[(20100401, "lots", "c1")])
+        write_log(path, HAND, make_bars(HAND), refused=[(20100401, "lots", "standard")])
         txt = open(path, encoding="utf-8").read().replace("ERROR,EUR/USD,20100401,lots,test refusal\n", "")
         open(path, "w", encoding="utf-8").write(txt)
         with self.assertRaisesRegex(PR.DataError, "differ from ERROR rows"):
@@ -372,6 +372,52 @@ class Guards(Base):
         path = self.p("m.csv")
         write_log(path, HAND, make_bars(HAND))
         self.assertEqual(PR.missing_fields(PR.read_log(path)), [])          # all present: nothing missing
+
+
+class TemplateFormat(Base):
+    """The INFO row exactly as TPL_R1_EURUSD.c prints it (R1d / R1c) and as R1b printed it (before PERF1 A1.1)."""
+    R1B = ("INFO,EUR/USD,0,costs=1,type=1,list=29,FixedLots=0,Capital=100000.00,RiskPct=2.000000,Leverage=20.000000,"
+           "LookBack=520,TradeModeFRC=1,Fill=3,Hedge=2,TICKS=1,BarOffset=1020,StartWeek=71700,PIP=0.0001000000,"
+           "PIPCost=0.0856100023,LotAmount=1000,Spread=0.0001200000,RollLong=-0.894700,RollShort=0.425900,"
+           "Commission=0.000000,FastLimit=0.500000,SlowLimit=0.050000,FisherLen=10,ReflexLen=20,AtrLen=14")
+    R1D = R1B + ",SpreadMult=1.000000,Tp1Atr=1.000000,RefusedLog=1"
+
+    def log(self, info):
+        path = self.p("t.csv")
+        write_log(path, HAND, make_bars(HAND), info=info)
+        return PR.read_log(path)
+
+    def test_new_info_row_has_nothing_missing(self):
+        L = self.log(self.R1D)
+        self.assertEqual(L["info"]["Tp1Atr"], "1.000000")
+        self.assertEqual(PR.missing_fields(L), [])
+
+    def test_old_info_row_still_stops_with_exit_3(self):
+        miss = PR.missing_fields(self.log(self.R1B))
+        self.assertEqual(len(miss), 2)
+        self.assertTrue("Tp1Atr" in miss[0] and "RefusedLog" in miss[1])
+        l1, l2 = self.p("a.csv"), self.p("b.csv")
+        for q in (l1, l2):
+            write_log(q, HAND, make_bars(HAND), info=self.R1B)
+        hist = self.p("h")
+        os.makedirs(hist)
+        args = ["--x1", l1, "--x2", l2, "--sha-x1", PR.sha256_file(l1)[:16], "--sha-x2", PR.sha256_file(l2)[:16],
+                "--history", hist, "--out", self.p("o.md")]
+        self.assertEqual(PR.main(args), 3)
+        self.assertFalse(os.path.exists(self.p("o.md")))
+
+    def test_refused_rows_in_template_format(self):
+        ref = [(20100401, "bridge-too-far", "standard"), (20100402, "lots", "continuation"), (20100403, "risk", "standard"),
+               (20100404, "margin", "standard")]
+        path = self.p("r.csv")
+        write_log(path, HAND, make_bars(HAND), info=self.R1D, refused=ref)
+        L = PR.read_log(path)
+        PR.check_refused(L)                       # REFUSED rows agree with the ERROR rows
+        self.assertEqual(sorted(r["reason"] for r in L["refused"]), ["bridge-too-far", "lots", "margin", "risk"])
+        PR.build_model(L)
+        L["refused"].append(dict(asset="EUR/USD", ymd=20100405, reason="btf", kind="standard"))
+        with self.assertRaisesRegex(PR.DataError, "unknown reason"):
+            PR.check_refused(L)
 
 
 class Verdict(unittest.TestCase):
