@@ -176,3 +176,35 @@ REFUSED rows disagreeing with ERROR rows.
 printed 3 raw HALF rows of `TPL_R1b_log_run1.csv` (entry, exit, profit of the first signals) and row counts per
 kind (325 ENTER, 650 HALF, 208 STOP). (c) The STOP count hints at the exit mix. The verdict rule (P-3) was fixed
 before any of this was seen and is unchanged.
+
+### Amendment 2 — 2026-11-24, predictions before any click (regressions, R1d, R1c)
+
+Code checked in the planning chat before writing this: template diff `138ee09..d49c581` (log rows and kind plumbing only;
+the bridge-too-far row is written on the baseline-cross bar when flat, once per refused cross); R1 script `201f500`
+(`nx_SpreadMult = r1_SpreadLevel` after `s1_config_init()`; INFO gains SpreadMult, Tp1Atr, RefusedLog); the four checkers
+ignore unread row types (b). `nx_RefusedLog` is a printed flag: REFUSED rows are always written.
+
+**A2.1 Regressions** (predictions in each doc): S4 run 6 (`TPL_Equivalence_Criteria.md` Amendment 5), P5 run 6
+(`TPL_Costs_P5_Criteria.md` Amendment 5), P6 run 3 (`TPL_Sizing_Criteria.md` Amendment 2). All: same verdict and counts as
+the last run; logs identical to the last run once REFUSED rows are removed; P6 shows exactly 3 REFUSED rows matching its 3 ERROR rows.
+
+**A2.2 R1d run 1 (x1) — prediction (c).**
+- Zorro: `Error 047: EUR/USD no 2004 history` (accepted, R1 Amendment 2.1), `Trades 650`, no other Error line.
+- `check_r1.py d`: RUN PASS. K0: costs 1, SpreadMult 1, Tp1Atr 1, RefusedLog 1, every half pays 0.00012; K1 325 SIZE rows
+  exact; K3b, K4 (cost identity, whole-day rollover on 650 halves), K5 0 differences; K6 no MARGINCALL, max MarginTotal /
+  Equity 0.040; **K7 650 / 650 HALF rows equal R1b run 1**.
+- Log `TPL_R1d_log_run1.csv` with REFUSED rows and the INFO row removed is identical to R1b run 1's log with its INFO row
+  removed (`80873c4803b8c1c2…`), up to line endings. Indicator file identical to R1b's (`49309c429c06baf5…`).
+- REFUSED rows: 0 lots / risk / margin (R1b had 0 ERROR rows). bridge-too-far: at least 1 (step 5 found one in R1a; (c)
+  R1d's flat periods differ from R1a's, so a count is not predicted). The count is item 11 of the report: read only through
+  `perf_report.py`.
+
+**A2.3 R1c run 1 (x2) — prediction (c).** One-line switch edit `r1_SpreadLevel = 2`, committed before the click.
+- Zorro: `Error 047` as above; no other Error line. Trade count not predicted (spread moves triggers, M-D7).
+- `check_r1.py c`: RUN PASS. K0: SpreadMult 2, every half pays 0.00024; K1 every SIZE row exact; K3b, K4 cost identity on
+  every half at its own spread; K5 0 differences; K6 no MARGINCALL.
+- Indicator file identical to R1b's (`49309c429c06baf5…`): costs do not touch indicators.
+- REFUSED: 0 lots / risk / margin ((c) the spread is not in the sizing formula, M-D8.1; margin peaked at 0.040 at x1).
+
+**A2.4 Order.** S4, P5, P6 first; then R1d; then the switch edit and R1c. A FAIL anywhere stops the sequence; nothing is
+read by `perf_report.py` until R1d and R1c both PASS.
