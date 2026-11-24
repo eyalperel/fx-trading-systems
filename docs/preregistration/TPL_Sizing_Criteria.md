@@ -151,3 +151,12 @@ that is not on the pip grid (stop = fill - 1.5 x float32 ATR) now fills unrounde
 the largest change of any logged fill price vs run 1; > 0 shows that Zorro rounded before (R-D5), 0 that it did
 not on these paths. Every price change must stay within the existing tolerances. Runs so far: 1; this is run 2.
 
+
+## Run 2 — 2026-11-24 08:14 — PASS, prediction met (regression after the R1 template changes)
+
+Commit `12aa643` (Amendment 1). Log `C:/Zorro/Data/TPL_Sizing_log_run2.csv` **byte-identical to run 1** (sha256
+`e91ad59edca18c92…`); checker: RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA. Zorro: `Trades 32`, no Error line.
+(b) No fill changed: every level in this probe lies on the 1e-5 grid (TPL_Costs run 5 shows Zorro's pre-TR_FRC rounding step
+is 1e-5).
+
+**Verdict: P6 still PASS after R1.** Runs of P6: 2.

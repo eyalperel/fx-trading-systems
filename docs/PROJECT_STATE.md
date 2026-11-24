@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS** (run 1; S4 / P5 regressions byte-identical); next: merge `template-decisions`, then an EUR/USD-only real-data run)
+**As of:** 2026-11-23 (Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (R1a run 2, R1b run 1; branch `eurusd-r1`); next: Phase 1 step 5, hand-calculated real trades)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -351,8 +351,17 @@ file's first rows exactly.
    (<= 0.2% off). Regressions after P6: TPL_Equivalence run 4 and TPL_Costs run 4 byte-identical to run 3.
    Housekeeping: S4 run 3 regression after P5 PASS; gotchas §1.3 prefixes `tpc_`, `pat_`, `tsz_`, `nxz_`; 9d.19
    reworded to M-D7; P5 run-1 files moved to `History/_to_delete/`.
-   **Next:** (1) review and merge `template-decisions`; (2) EUR/USD-only real-data run (P4 on real bars, fill rounding `TR_FRC` on 5-decimal
-   quotes, ZORRO_TRADE_MECHANICS §12 R5); (3) Phase 1 step 5 hand-calculated real trades.
+   **R1 EUR/USD real data, 2026-11-23/24** (branch `eurusd-r1`; decisions R-D1..R-D7 in NNFX_TEMPLATE_DECISIONS; criteria
+   `docs/preregistration/TPL_R1_Criteria.md` + Amendments 1-2): mechanics only, no performance read (R-D1). Strategy 1 variant 0
+   (`NNFX_Strategy1.h`: FAMA (.5, .05), Fisher 10, Reflex 20, ATR 14), EUR/USD M1 2005-2026, trades 2007-04-01..2026-05-29,
+   TR_FRC on. Python side `tools/r1_data.py` (17:00 NY bars, dedup of repeated M1 records, holiday folding), `r1_replay.py`
+   (engine + M1 layer), `check_r1.py` + 21 tests. **R1a run 1 FAIL** (bar rule, holidays, INITRUN series state, Error 047),
+   **R1a run 2 PASS** under Amendment 2 (Error 047 "no 2004 history" accepted only with every bar matched): 650/650 halves equal
+   the independent replay, indicators equal the models (<= 5.6e-16), sizing / Equity / profit exact. **R1b run 1 PASS** (cost
+   identity and whole-day rollover on 650 halves). Regressions: S4 run 5, P6 run 2 byte-identical; P5 run 5 PASS with 2 long-TP
+   fills moved 7e-7 (Zorro rounded fills to 0.1 pip before TR_FRC). Gotchas 9d.20-9d.23.
+   **Next:** (1) review and merge `eurusd-r1`; (2) Phase 1 step 5: hand-calculated real trades picked from the R1a trade list;
+   (3) only then read performance.
    **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
