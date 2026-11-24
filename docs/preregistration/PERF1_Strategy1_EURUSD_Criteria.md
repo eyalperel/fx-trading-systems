@@ -228,3 +228,17 @@ Loss, MI, DD, Capital, Trades, Win, Avg, Bars, CAGR, PF, SR, UI, R2), seen by th
 `perf_report.py` was run. These figures are Zorro's account-currency summary, not the PERF1 report; they are not recorded
 here and are not used in any verdict. The verdict rule (P-3) was committed in `8c28490` before they were seen, is decided
 at x2 (R1c), and is unchanged. **A3.2** For R1c, only Error lines and the trade count are pasted; the summary is not shown.
+
+### R1c run 1 — 2026-11-24 16:33 — PASS, all predictions met (A2.3)
+
+Commit `f717088` (`r1_SpreadLevel = 2`). Log `C:/Zorro/Data/TPL_R1c_log_run1.csv` (sha256
+`640f8fb4743178afbb2fe7e44958debd14ea626360fee2dc7ca7ca40e75ffede`), indicators `TPL_R1c_ind_run1.csv`
+(`49309c429c06baf50e70a02ae50996316f2f1c428ef98844413cfd5c296071cd`, byte-identical to R1b / R1d's). Zorro (pasted as text
+per A3.2): `Error 047` only, `Trades 650` (observation; not predicted). `check_r1.py c`
+(`analysis/template/r1/results/TPL_R1c_run1.csv`): RUN PASS, 31 rows, 0 FAIL. K0 SpreadMult 2, Tp1Atr 1, RefusedLog 1,
+0 ERROR rows, 0 of 650 halves off 0.00024; B1 bars; W1 16 / 16 indicator fields; S1 0 state differences; K1 0 of 325
+SIZE rows off; K3b, K4, K5 0 off; K6 no MARGINCALL, max margin share 0.0404. (b) 0 ERROR rows, so 0 lots / risk / margin
+REFUSED rows (they are written only after an ERROR row; `perf_report.py` refuses on a mismatch).
+
+**Gate for the read (A2.4) met:** S4 run 6, P5 run 6, P6 run 3, R1d run 1, R1c run 1 all PASS. `perf_report.py` may now
+read R1d (x1, sha256 prefix `0590f0b9c9671c32`) and R1c (x2, `640f8fb4743178af`).
