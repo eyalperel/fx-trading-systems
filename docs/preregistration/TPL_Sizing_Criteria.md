@@ -160,3 +160,18 @@ Commit `12aa643` (Amendment 1). Log `C:/Zorro/Data/TPL_Sizing_log_run2.csv` **by
 is 1e-5).
 
 **Verdict: P6 still PASS after R1.** Runs of P6: 2.
+
+## Amendment 2 — 2026-11-24 (regression run 3, PERF1 logging change; before the run)
+
+**Why:** PERF1 Amendment 1 (A1.1), commit `d49c581`: logging-only template change. Every refused signal writes a
+`REFUSED,asset,ymd,reason,kind` row (bridge-too-far in the baseline-cross skip branch; lots / risk / margin after the
+existing ERROR row in `nx_size`); `nx_size` gains a kind argument (plumbing only). No condition, order, size or level
+changed (diff read in the planning chat, 2026-11-24). (b) This checker ignores row types it does not read, so REFUSED
+rows cannot change its verdict. Compare in Git Bash:
+`diff <(grep -v '^REFUSED,' NEW | tr -d '\r') <(tr -d '\r' < OLD) && echo IDENTICAL`.
+
+**Prediction (c):** same verdict and counts as run 2 (RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA; 19 SIZE rows,
+3 ERROR rows, 32 halves); Zorro `Trades 32`, no Error line. Log `TPL_Sizing_log_run3.csv` with REFUSED rows removed is
+identical to run 2's log (sha256 `e91ad59edca18c92…`) up to line endings. **New guard seen to fire:** exactly 3 REFUSED rows
+with reason lots / risk / margin, one each in A1_GLOT / A1_CMR / A1_GMRG, each with the same asset and ymd as its ERROR row,
+kind `standard`. Any `bridge-too-far` rows: count recorded as an observation (b). Runs so far: 2; this is run 3.
