@@ -263,3 +263,12 @@ rows cannot change its verdict. Compare in Git Bash:
 (sha256 `51407d9b0dfda1f4…`) up to line endings. REFUSED rows: reason `bridge-too-far`, kind `standard` only; 0 lots / risk /
 margin rows (`nx_FixedLots` > 0: `nx_size` is never called). Their count is recorded as an observation (b), not predicted.
 Runs so far: 5; this is run 6.
+
+## Run 6 — 2026-11-24 16:23 — PASS, prediction met (regression after the PERF1 logging change)
+
+Commit `94438e0` (Amendment 5). Log `C:/Zorro/Data/TPL_Equivalence_log_run6.csv` (sha256 `e3e9788d9166db4a…`); with the
+REFUSED rows removed, identical to run 5's log (line endings normalised). Checker: RUN PASS, 60/60, 4/4 controls (A6_CM3,
+A6M_CM3 2 FAIL rows each; R1_CMF, R1M_CMF 1 each), 4 DOC, 40 ENTRY_ONLY, 0 error rows. Zorro: `Trades 116`, no Error line.
+(b) REFUSED rows: 2, both `bridge-too-far,standard` (observation, not predicted).
+
+**Verdict: S4 still PASS after the PERF1 logging change.** Runs of S4: 6.
