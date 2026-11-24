@@ -208,3 +208,23 @@ the last run; logs identical to the last run once REFUSED rows are removed; P6 s
 
 **A2.4 Order.** S4, P5, P6 first; then R1d; then the switch edit and R1c. A FAIL anywhere stops the sequence; nothing is
 read by `perf_report.py` until R1d and R1c both PASS.
+
+### R1d run 1 — 2026-11-24 16:28 — PASS, all predictions met (A2.2)
+
+Commit `63fcfcd`. Log `C:/Zorro/Data/TPL_R1d_log_run1.csv` (sha256 `0590f0b9c9671c329cd9cc3e4f943e96ae72a4976f746303739b9b79bfccdcc1`),
+indicators `TPL_R1d_ind_run1.csv` (`49309c429c06baf50e70a02ae50996316f2f1c428ef98844413cfd5c296071cd`, byte-identical to R1b's).
+Zorro: `Error 047: EUR/USD no 2004 history` (accepted, R1 Amendment 2.1), `Trades 650`, no other Error line.
+`check_r1.py d` (`analysis/template/r1/results/TPL_R1d_run1.csv`): RUN PASS, 32 rows, 0 FAIL. K0 SpreadMult 1, Tp1Atr 1,
+RefusedLog 1, 0 of 650 halves off 0.00012; B1 bars rule (same, own); W1 every indicator field <= 6.4e-14 (Reflex <= 4.5e-12,
+1 row excluded, model MS = 0); S1 0 state differences; K1 0 of 325 SIZE rows off; K3b, K4, K5 0 off; K6 no MARGINCALL,
+max margin share 0.0403; **K7 650 HALF rows identical to R1b run 1**. Log with REFUSED and INFO rows removed identical to
+R1b's log without its INFO row. REFUSED: 0 lots / risk / margin; bridge-too-far present (count not read here).
+(b) So the x1 data for PERF1 are R1b's trades exactly, now with the logged INFO / REFUSED fields.
+
+### Amendment 3 — 2026-11-24, disclosure after R1d run 1 (no rule changed)
+
+**A3.1 (b).** The user's screenshot of the Zorro window after R1d run 1 showed Zorro's own summary for the x1 run (fields:
+Loss, MI, DD, Capital, Trades, Win, Avg, Bars, CAGR, PF, SR, UI, R2), seen by the user and the planning chat before
+`perf_report.py` was run. These figures are Zorro's account-currency summary, not the PERF1 report; they are not recorded
+here and are not used in any verdict. The verdict rule (P-3) was committed in `8c28490` before they were seen, is decided
+at x2 (R1c), and is unchanged. **A3.2** For R1c, only Error lines and the trade count are pasted; the summary is not shown.
