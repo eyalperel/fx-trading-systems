@@ -240,3 +240,11 @@ rows cannot change its verdict. Compare in Git Bash:
 `Trades 32`, no Error line. Log `TPL_Costs_log_run6.csv` with REFUSED rows removed is identical to run 5's log (sha256
 `6dfbe788941bde8f…`) up to line endings. REFUSED rows: `bridge-too-far` / `standard` only; 0 lots / risk / margin rows
 (`nx_FixedLots` > 0). Count recorded as an observation (b). Runs so far: 5; this is run 6.
+
+## Run 6 — 2026-11-24 16:24 — PASS, prediction met (regression after the PERF1 logging change)
+
+Commit `8eca2b9` (Amendment 5). Log `C:/Zorro/Data/TPL_Costs_log_run6.csv` (sha256 `6dfbe788941bde8f…`) **byte-identical to
+run 5**: (b) 0 REFUSED rows on these paths. Checker: RUN PASS, 0 FAIL rows, day rule H_BAR, short rule S_ASK. Zorro: `Trades 32`,
+no Error line.
+
+**Verdict: P5 still PASS after the PERF1 logging change.** Runs of P5: 6.
