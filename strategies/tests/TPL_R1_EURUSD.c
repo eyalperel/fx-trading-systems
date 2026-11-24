@@ -38,7 +38,7 @@ void run()
 	Slippage = nx_SlippageSec;
 	Hedge = nx_HedgeMode;
 	StartWeek = nx_StartWeek;
-	StartDate = 20070201;   // R-D4 amended 2026-11-23: 539 bars before it cover LookBack 520
+	StartDate = 20070401;   // R-D4, R1 Amendment 1: no Error 047 (run 1 reached for 2004)
 	EndDate = 20260529;     // R-D4: last history day (b)
 
 	if(is(INITRUN)) {
@@ -68,6 +68,7 @@ void run()
 			LookBack, (int)((TradeMode & TR_FRC) != 0), Fill, Hedge, (int)is(TICKS), BarOffset, StartWeek,
 			PIP, PIPCost, (int)LotAmount, Spread, RollLong, RollShort, Commission,
 			s1_FastLimit, s1_SlowLimit, s1_FisherLen, s1_ReflexLen, nx_AtrLen));
+		return;   // R1 Amendment 1: no slot call in INITRUN; Zorro discards series state from that call (run 1, (b))
 	}
 
 	if(!asset(r1_Asset)) { nx_log(strf("ASSETFAIL,%s,%i", r1_Asset, Bar)); return; }

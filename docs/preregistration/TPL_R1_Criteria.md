@@ -67,3 +67,47 @@ not a criterion.
 
 - 1 configuration (Strategy 1 variant 0), 2 cost modes (R1a, R1b); this is R1a run 1 and R1b run 1.
 - Regressions in the same sitting: TPL_Equivalence run 5, TPL_Costs run 5, TPL_Sizing run 2 (amendments in their files).
+
+---
+
+## R1a run 1 — 2026-11-23 18:54 — FAIL (setup and data causes; the template's trades matched)
+
+Commit `c0e7f47`. Log `C:/Zorro/Data/TPL_R1a_log_run1.csv` (sha256 `926bc6354b41841f…`), indicators
+`TPL_R1a_ind_run1.csv` (`f72a711374075084…`); checker output `analysis/template/r1/results/TPL_R1a_run1.csv`.
+Zorro: `Error 047: EUR/USD no 2004 history (History\EURUSD_2004.t6)`, `Test: TPL_R1_EURUSD EUR/USD (TICKS) 2007..2026`,
+`Trades 654`. The window's performance figures are not recorded (R-D1).
+
+- **C0 FAIL (b):** Error 047. Zorro's first real bar was 2005-01-28, exactly 520 bars before 2007-02-01, so the LookBack
+  count was right; (c) Zorro also tried to open the 2004 file, apparently by calendar reach.
+- **B1 FAIL (b):** no pre-registered variant matched every bar. Causes found:
+  1. A record stamped exactly 17:00:00 **closes** its bar (variant (same, own), as predicted; barperiod.htm's wording says
+     the opposite).
+  2. (a) date.htm: `Holidays` default `{101, 1225}`, "treated like weekends": Zorro makes no bar on 1 January / 25 December;
+     their records go into the next bar (2018-01-01, 2023-12-25, 2024-01-01).
+  3. Good Friday 2007, 15:57: the record's close 1.33759 lies above its high 1.33749; Zorro's bar close is 1.33749. 3 of
+     7.8 million records have a close outside their range.
+  4. The first RBAR row (2005-01-03, not at 17:00) is the INITRUN call (the script ran its bar part in INITRUN).
+- **W1 FAIL (b):** differences only in warm-up rows (last differing row 353; Reflex 521 at 1.7e-9). Cause: Zorro discards
+  the series state of the INITRUN call; the indicators' first real call is the first bar. Diagnostic: models started at row 1
+  agree on every field and row (max 7.9e-13, MAMA phase; every other field <= 2.1e-14).
+- **Diagnostic re-check** with the corrected bar builder (`TPL_R1a_run1_diag.csv`, not a verdict): B1 bars PASS; S1 0
+  differences; **T1 PASS: all 654 halves equal the engine + M1 layer** under (open, entry) and (open, after) (market fills at
+  the first record's open, as predicted; the entry-minute question not distinguishable, as predicted); K1 327 SIZE rows, K3,
+  K4, K5 0 differences; K6 no MARGINCALL, max margin share 0.040.
+
+## Amendment 1 — 2026-11-23 (after R1a run 1, before run 2; user: approved)
+
+Changes (setup and data model only; criteria, tolerances and checks unchanged):
+1. **Start 2007-04-01** (first trade bar 2007-04-02; first Zorro bar predicted 2005-03-29, 520 bars earlier). (c) Keeps
+   Zorro's calendar reach (~LookBack x 1.5 days = 780 days) inside 2005.
+2. **Bar rule fixed to (same, own)** with holiday folding (Holidays {101, 1225}) and close clipping into each record's
+   range (`tools/r1_data.py`: `BAR_RULE`, `_fold_holidays`, `load_m1`). B1 passes only for this rule; the other variants
+   are still computed and reported.
+3. **No slot call in INITRUN:** the script returns at the end of its INITRUN block, so the first IND / RBAR row is the first
+   real bar and the models start there.
+4. Checker: Python days between Zorro's first and second bar are left out of the bar comparison (partial first bar,
+   gotchas 9d.14). Tests: 21 (holiday folding, fixed-rule rejection of another variant added).
+
+Prediction for R1a run 2 (c): C0 met (no Error line); B1 PASS (first bar 2005-03-29 may be partial: exempt); W1 PASS on every
+row (Reflex MS = 0 rows excluded); S1 0 differences; T1 PASS under (open, entry) and (open, after) and no (close, ·)
+alternative; K1, K3, K4, K5 0 differences; no MARGINCALL. Runs so far: R1a 1 (FAIL). Variants unchanged.

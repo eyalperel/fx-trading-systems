@@ -119,11 +119,14 @@ def match_bars(m1, rbar):
     z = {r["ymd"]: r for r in rbar}
     zdays = [r["ymd"] for r in rbar]
     lo, hi = min(zdays), max(zdays)
+    second = zdays[1] if len(zdays) > 1 else hi
     out = {}
     for var in D.BAR_VARIANTS:
         b = D.daily_bars(m1, edge=var[0], friday=var[1])
         ymd = np.array([D.ymd_int(d) for d in b["day"]])
-        sel = (ymd >= lo) & (ymd <= hi)
+        # Zorro's first bar may be partial or span several days (gotchas 9d.14; R1a run 1: 2005-01-03 held the records up
+        # to 2005-01-27): Python days after the first and before Zorro's second bar are left out.
+        sel = (ymd >= lo) & (ymd <= hi) & ~((ymd > lo) & (ymd < second))
         py = ymd[sel]
         bad = 0
         if list(py) != zdays:
@@ -137,7 +140,7 @@ def match_bars(m1, rbar):
         cut = {k: (v[sel] if k not in ("keep",) else v) for k, v in b.items()}
         out[var] = (bad, cut)
     fits = [v for v, (bad, _) in out.items() if bad == 0]
-    return (fits[0] if fits else None), out
+    return (D.BAR_RULE if D.BAR_RULE in fits else None), out   # Amendment 1: the fixed rule must fit
 
 
 def check_bar_times(rep, rbar):
@@ -355,7 +358,7 @@ def run(mode, log_path, ind_path, history, out_path):
             " | ".join((L["error"] + L["fail"])[:3]))
     m1 = D.load_m1(history)
     var, allv = match_bars(m1, L["rbar"])
-    rep.add("B1", "bars", var is not None, "RBAR = one Python variant",
+    rep.add("B1", "bars", var is not None, "RBAR = Python bars, rule (same, own) + holidays (Amendment 1)",
             f"fits {var}; " + "; ".join(f"{k}: {v[0]}" for k, v in allv.items()))
     check_bar_times(rep, L["rbar"])
     if var is None:

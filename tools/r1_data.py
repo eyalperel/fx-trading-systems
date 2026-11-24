@@ -58,8 +58,13 @@ def load_m1(history, stem="EURUSD", years=range(2005, 2027), report=None):
         same &= kept[f][pos] == drop[f]
     if not np.all(same):
         raise ValueError(f"{int((~same).sum())} repeated records differ from the kept record with the same time")
+    # R1 Amendment 1 (b, R1a run 1): a record whose close lies outside its own high-low range has the close clipped
+    # into it (Good Friday 2007, 15:57: close 1.33759 > high 1.33749; Zorro's bar close = 1.33749). 3 such records.
+    kept = kept.copy()
+    bad = (kept["c"] > kept["h"]) | (kept["c"] < kept["l"])
+    kept["c"] = np.minimum(np.maximum(kept["c"], kept["l"]), kept["h"])
     if report is not None:
-        report.update(records=len(a), kept=len(kept), dropped=len(drop))
+        report.update(records=len(a), kept=len(kept), dropped=len(drop), close_clipped=int(bad.sum()))
     return kept
 
 
@@ -116,16 +121,35 @@ def weekend_counts(m1):
     return dict(friday_after_close=int(fri_late.sum()), weekend_gap=int(gap.sum()))
 
 
-BAR_VARIANTS = (("next", "own"), ("next", "drop"), ("next", "monday"), ("same", "own"))
+BAR_VARIANTS = (("same", "own"), ("next", "own"), ("next", "drop"), ("next", "monday"))
+BAR_RULE = ("same", "own")      # R1 Amendment 1 (b, R1a run 1): the only variant matching Zorro's bars
+HOLIDAYS = (101, 1225)          # (a) date.htm: Holidays default { 101, 1225, 0 }; "treated like weekends"
 
 
-def daily_bars(m1, gap="drop", edge="next", friday="own"):
+def _fold_holidays(bday, holidays=HOLIDAYS):
+    """Bars dated on a holiday (mmdd) do not exist: their records go to the next day that is neither a weekend day nor
+    a holiday (R1 Amendment 1; (b) R1a run 1: 2018-01-01, 2023-12-25, 2024-01-01 folded into the next bar)."""
+    bday = bday.copy()
+    for d in np.unique(bday):
+        y, m, dd = _ymd(d)
+        if m * 100 + dd not in holidays:
+            continue
+        nd = d + 1
+        while weekday(nd) >= 5 or (lambda q: q[1] * 100 + q[2])(_ymd(nd)) in holidays:
+            nd += 1
+        bday[bday == d] = nd
+    return bday
+
+
+def daily_bars(m1, gap="drop", edge="same", friday="own", holidays=True):
     """17:00 New York daily bars as a dict of arrays: day (OLE day number), end_ole (UTC), o, h, l, c, i0, i1 (first / last
     record index into m1). gap = "drop": weekend-gap records left out; "fold": kept where their time puts them.
     edge: see classify(). friday (edge "next" only), for records at/after Friday 17:00 (b: 453 records, all exactly 17:00):
     "own" = a bar of their own dated Saturday; "drop" = left out; "monday" = folded into the next Monday bar.
     Alternatives for the R1 bar check (BAR_VARIANTS); the run decides which one Zorro uses."""
     bday, g, fri = classify(m1["t"], edge)
+    if holidays:
+        bday = _fold_holidays(bday)
     keep = ~g if gap == "drop" else np.ones(len(bday), bool)
     if edge == "next" and friday == "drop":
         keep &= ~fri

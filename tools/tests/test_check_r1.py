@@ -41,10 +41,13 @@ def rbar_from(b):
 class Bars(unittest.TestCase):
     def test_match_and_planted_ohlc(self):
         m1 = m1_days()
-        b = D.daily_bars(m1, edge="next", friday="own")
+        b = D.daily_bars(m1)                       # Amendment 1 rule (same, own) + holidays
         rb = rbar_from(b)
         var, _ = C.match_bars(m1, rb)
-        self.assertIsNotNone(var)
+        self.assertEqual(var, D.BAR_RULE)
+        rb_other = rbar_from(D.daily_bars(m1, edge="next"))   # Zorro bars built by another rule: rejected
+        var, _ = C.match_bars(m1, rb_other)
+        self.assertIsNone(var)
         rb[1] = dict(rb[1], c=rb[1]["c"] + 1e-5)
         var, _ = C.match_bars(m1, rb)
         self.assertIsNone(var)
@@ -199,3 +202,19 @@ class Wiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class Data(unittest.TestCase):
+    def test_holiday_folds_into_next_bar(self):
+        recs = []
+        for day, hh in ((dt.date(2018, 1, 1), 10), (dt.date(2018, 1, 2), 10)):      # Monday 1 January is a holiday
+            t = dt.datetime(day.year, day.month, day.day, hh, tzinfo=D.NY)
+            recs.append((D.dt_to_ole(t.astimezone(D.UTC)), 1.2, 1.1, 1.15, 1.16))
+        a = np.zeros(len(recs), dtype=D.REC_DT)
+        for i, (w, h, l, o, c) in enumerate(recs):
+            a[i] = (w, h, l, o, c, 0, 0)
+        b = D.daily_bars(a)
+        self.assertEqual([D.ymd_int(d) for d in b["day"]], [20180102])
+        b = D.daily_bars(a, holidays=False)
+        self.assertEqual([D.ymd_int(d) for d in b["day"]], [20180101, 20180102])
