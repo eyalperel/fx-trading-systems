@@ -1,0 +1,31 @@
+check,item,result,expected,got,note
+K0,info,PASS,settings,ok,
+K0,no_error_rows,PASS,none,0,
+B1,bars,PASS,"RBAR = Python bars, rule (same, own) + holidays (Amendment 1)","fits ('same', 'own'); ('same', 'own'): 0; ('next', 'own'): 452; ('next', 'drop'): 4827; ('next', 'monday'): 5",
+B1,bar_end_17NY,PASS,every RBAR ends 17:00 New York,0 off,
+B1,first_bar,INFO,Zorro first bar used,"20050329, max diff to the full bar 4.940e-11",
+W1,mama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.882e-16,excluded 0
+W1,fama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.882e-16,excluded 0
+W1,period,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 2.132e-14,excluded 0
+W1,alpha,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.016e-14,excluded 0
+W1,phase,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 7.887e-13,excluded 0
+W1,fish,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.777e-10,excluded 0
+W1,trig,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.777e-10,excluded 0
+W1,raw,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 3.184e-10,excluded 0
+W1,v1,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.051e-10,excluded 0
+W1,rng,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.667e-12,excluded 0
+W1,reflex,FAIL,|z - m| <= 1e-10 + 1e-9|m|,1 rows off; max err 8.434e-09,excluded 1
+W1,sum,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 6.844e-13,excluded 0
+W1,ms,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.556e-15,excluded 0
+W1,atr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.996e-16,excluded 0
+W1,tr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.000e-16,excluded 0
+W1,ind_prices,PASS,IND prices = bars,4.940e-11,
+S1,states,PASS,template states = model,0 differ,near-threshold 0 (counted)
+T1,replay,PASS,Zorro halves = engine + M1 layer under one alternative,"fits [('open', 'entry'), ('open', 'after')]; ('open', 'entry'): 0 diffs; ('open', 'after'): 0 diffs; ('close', 'entry'): 613 diffs; ('close', 'after'): 613 diffs",
+T1,same_bar_conflicts,INFO,reported,2,
+K1,size_rows,PASS,every SIZE row recomputes,0 of 325 off,
+K3,equity,PASS,Equity / Balance from HALF rows,0 off,[]
+K4,profit,PASS,profit identity per half,0 off,[]
+K5,half_lots,PASS,half lots = SIZE lots of its signal,0 off,[]
+K6,no_margincall,PASS,no MARGINCALL,0,
+K6,max_margin_share,INFO,reported,0.0402,

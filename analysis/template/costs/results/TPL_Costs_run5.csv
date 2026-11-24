@@ -1,0 +1,283 @@
+scenario,check,status,expected,got
+A1,K0_info,PASS,INFO row,ok
+A1,K0_assetType,PASS,1 (FOREX),1
+A1,K0_costed,PASS,0,0
+A1,K1_info,PASS,INFO row,ok
+A1,K1_assetType,PASS,1 (FOREX),1
+A1,K1_costed,PASS,1,1
+A1,n_halves,PASS,2 / 2,2 / 2
+A1,h1_half,PASS,1,1
+A1,h1_dir,PASS,1,1
+A1,h1_kind,PASS,c1,c1
+A1,h1_entry_day,PASS,20240308,20240308
+A1,h1_exit_day,PASS,20240308,20240308
+A1,h1_reason,PASS,stop,stop
+A1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1,h1_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1,h1_roll_integer_days,PASS,integer,0.0000
+A1,h1_K0_cost_identity,PASS,-14.999985694885032,-14.99998569
+A1,h1_K1_cost_identity,PASS,-15.29998569488503,-15.29998589
+A1,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A1,h1_entry_position,PASS,1.0,1.0
+A1,h1_exit_position,PASS,+0.00000,+0.00000000
+A1,h2_half,PASS,2,2
+A1,h2_dir,PASS,1,1
+A1,h2_kind,PASS,c1,c1
+A1,h2_entry_day,PASS,20240308,20240308
+A1,h2_exit_day,PASS,20240308,20240308
+A1,h2_reason,PASS,stop,stop
+A1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1,h2_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1,h2_roll_integer_days,PASS,integer,0.0000
+A1,h2_K0_cost_identity,PASS,-14.999985694885032,-14.99998569
+A1,h2_K1_cost_identity,PASS,-15.29998569488503,-15.29998589
+A1,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A1,h2_entry_position,PASS,1.0,1.0
+A1,h2_exit_position,PASS,+0.00000,+0.00000000
+A1M,K0_info,PASS,INFO row,ok
+A1M,K0_assetType,PASS,1 (FOREX),1
+A1M,K0_costed,PASS,0,0
+A1M,K1_info,PASS,INFO row,ok
+A1M,K1_assetType,PASS,1 (FOREX),1
+A1M,K1_costed,PASS,1,1
+A1M,n_halves,PASS,2 / 2,2 / 2
+A1M,h1_half,PASS,1,1
+A1M,h1_dir,PASS,-1,-1
+A1M,h1_kind,PASS,c1,c1
+A1M,h1_entry_day,PASS,20240308,20240308
+A1M,h1_exit_day,PASS,20240308,20240308
+A1M,h1_reason,PASS,stop,stop
+A1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1M,h1_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1M,h1_roll_integer_days,PASS,integer,0.0000
+A1M,h1_K0_cost_identity,PASS,-14.999985694885032,-14.99998569
+A1M,h1_K1_cost_identity,PASS,-15.29998569488503,-15.29998589
+A1M,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A1M,h1_entry_position,PASS,1.0,1.0
+A1M,h1_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+A1M,h2_half,PASS,2,2
+A1M,h2_dir,PASS,-1,-1
+A1M,h2_kind,PASS,c1,c1
+A1M,h2_entry_day,PASS,20240308,20240308
+A1M,h2_exit_day,PASS,20240308,20240308
+A1M,h2_reason,PASS,stop,stop
+A1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1M,h2_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1M,h2_roll_integer_days,PASS,integer,0.0000
+A1M,h2_K0_cost_identity,PASS,-14.999985694885032,-14.99998569
+A1M,h2_K1_cost_identity,PASS,-15.29998569488503,-15.29998589
+A1M,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A1M,h2_entry_position,PASS,1.0,1.0
+A1M,h2_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+A2,K0_info,PASS,INFO row,ok
+A2,K0_assetType,PASS,1 (FOREX),1
+A2,K0_costed,PASS,0,0
+A2,K1_info,PASS,INFO row,ok
+A2,K1_assetType,PASS,1 (FOREX),1
+A2,K1_costed,PASS,1,1
+A2,n_halves,PASS,2 / 2,2 / 2
+A2,h1_half,PASS,1,1
+A2,h1_dir,PASS,1,1
+A2,h1_kind,PASS,c1,c1
+A2,h1_entry_day,PASS,20240308,20240308
+A2,h1_exit_day,PASS,20240308,20240308
+A2,h1_reason,PASS,tp1,tp1
+A2,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2,h1_K0_profit_is_price,PASS,9.999990463257058,9.99999046
+A2,h1_roll_integer_days,PASS,integer,0.0000
+A2,h1_K0_cost_identity,PASS,9.999990463257058,9.99999046
+A2,h1_K1_cost_identity,PASS,9.890725326538087,9.89072514
+A2,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A2,h1_entry_position,PASS,1.0,1.0
+A2,h1_exit_position,PASS,+0.00020,+0.00019073
+A2,h2_half,PASS,2,2
+A2,h2_dir,PASS,1,1
+A2,h2_kind,PASS,c1,c1
+A2,h2_entry_day,PASS,20240308,20240308
+A2,h2_exit_day,PASS,20240311,20240311
+A2,h2_reason,PASS,be,be
+A2,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2,h2_K0_profit_is_price,PASS,0.0,0.0
+A2,h2_roll_integer_days,PASS,integer,3.0000
+A2,h2_K0_cost_identity,PASS,0.0,0.0
+A2,h2_K1_cost_identity,PASS,-0.60000001,-0.60000002
+A2,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A2,h2_entry_position,PASS,1.0,1.0
+A2,h2_exit_position,PASS,+0.00000,+0.00000000
+A2M,K0_info,PASS,INFO row,ok
+A2M,K0_assetType,PASS,1 (FOREX),1
+A2M,K0_costed,PASS,0,0
+A2M,K1_info,PASS,INFO row,ok
+A2M,K1_assetType,PASS,1 (FOREX),1
+A2M,K1_costed,PASS,1,1
+A2M,n_halves,PASS,2 / 2,2 / 2
+A2M,h1_half,PASS,1,1
+A2M,h1_dir,PASS,-1,-1
+A2M,h1_kind,PASS,c1,c1
+A2M,h1_entry_day,PASS,20240308,20240308
+A2M,h1_exit_day,PASS,20240308,20240308
+A2M,h1_reason,PASS,tp1,tp1
+A2M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2M,h1_K0_profit_is_price,PASS,9.999990463256946,9.99999046
+A2M,h1_roll_integer_days,PASS,integer,0.0000
+A2M,h1_K0_cost_identity,PASS,9.999990463256946,9.99999046
+A2M,h1_K1_cost_identity,PASS,9.699990463256947,9.69999027
+A2M,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A2M,h1_entry_position,PASS,1.0,1.0
+A2M,h1_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+A2M,h2_half,PASS,2,2
+A2M,h2_dir,PASS,-1,-1
+A2M,h2_kind,PASS,c1,c1
+A2M,h2_entry_day,PASS,20240308,20240308
+A2M,h2_exit_day,PASS,20240311,20240311
+A2M,h2_reason,PASS,be,be
+A2M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2M,h2_K0_profit_is_price,PASS,-0.0,0.0
+A2M,h2_roll_integer_days,PASS,integer,3.0000
+A2M,h2_K0_cost_identity,PASS,0.0,0.0
+A2M,h2_K1_cost_identity,PASS,-0.14999999000000006,-0.14999998
+A2M,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+A2M,h2_entry_position,PASS,1.0,1.0
+A2M,h2_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+B1,K0_info,PASS,INFO row,ok
+B1,K0_assetType,PASS,1 (FOREX),1
+B1,K0_costed,PASS,0,0
+B1,K1_info,PASS,INFO row,ok
+B1,K1_assetType,PASS,1 (FOREX),1
+B1,K1_costed,PASS,1,1
+B1,n_halves,PASS,2 / 2,2 / 2
+B1,h1_half,PASS,1,1
+B1,h1_dir,PASS,1,1
+B1,h1_kind,PASS,c1,c1
+B1,h1_entry_day,PASS,20240308,20240308
+B1,h1_exit_day,PASS,20240308,20240308
+B1,h1_reason,PASS,tp1,tp1
+B1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1,h1_K0_profit_is_price,PASS,9.999990463257058,9.99999046
+B1,h1_roll_integer_days,PASS,integer,0.0000
+B1,h1_K0_cost_identity,PASS,9.999990463257058,9.99999046
+B1,h1_K1_cost_identity,PASS,9.890725326538087,9.89072514
+B1,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+B1,h1_entry_position,PASS,1.0,1.0
+B1,h1_exit_position,PASS,+0.00020,+0.00019073
+B1,h2_half,PASS,2,2
+B1,h2_dir,PASS,1,1
+B1,h2_kind,PASS,c1,c1
+B1,h2_entry_day,PASS,20240308,20240308
+B1,h2_exit_day,PASS,20240314,20240314
+B1,h2_reason,PASS,trail,trail
+B1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1,h2_K0_profit_is_price,PASS,14.999985694885032,14.99998569
+B1,h2_roll_integer_days,PASS,integer,6.0000
+B1,h2_K0_cost_identity,PASS,14.999985694885032,14.99998569
+B1,h2_K1_cost_identity,PASS,14.099985674885033,14.09998512
+B1,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+B1,h2_entry_position,PASS,1.0,1.0
+B1,h2_exit_position,PASS,+0.00000,+0.00000000
+B1M,K0_info,PASS,INFO row,ok
+B1M,K0_assetType,PASS,1 (FOREX),1
+B1M,K0_costed,PASS,0,0
+B1M,K1_info,PASS,INFO row,ok
+B1M,K1_assetType,PASS,1 (FOREX),1
+B1M,K1_costed,PASS,1,1
+B1M,n_halves,PASS,2 / 2,2 / 2
+B1M,h1_half,PASS,1,1
+B1M,h1_dir,PASS,-1,-1
+B1M,h1_kind,PASS,c1,c1
+B1M,h1_entry_day,PASS,20240308,20240308
+B1M,h1_exit_day,PASS,20240308,20240308
+B1M,h1_reason,PASS,tp1,tp1
+B1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1M,h1_K0_profit_is_price,PASS,9.999990463256946,9.99999046
+B1M,h1_roll_integer_days,PASS,integer,0.0000
+B1M,h1_K0_cost_identity,PASS,9.999990463256946,9.99999046
+B1M,h1_K1_cost_identity,PASS,9.699990463256947,9.69999027
+B1M,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+B1M,h1_entry_position,PASS,1.0,1.0
+B1M,h1_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+B1M,h2_half,PASS,2,2
+B1M,h2_dir,PASS,-1,-1
+B1M,h2_kind,PASS,c1,c1
+B1M,h2_entry_day,PASS,20240308,20240308
+B1M,h2_exit_day,PASS,20240314,20240314
+B1M,h2_reason,PASS,trail,trail
+B1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1M,h2_K0_profit_is_price,PASS,14.999985694885032,14.99998569
+B1M,h2_roll_integer_days,PASS,integer,6.0000
+B1M,h2_K0_cost_identity,PASS,14.999985694885032,14.99998569
+B1M,h2_K1_cost_identity,PASS,14.999985704885033,14.99998569
+B1M,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+B1M,h2_entry_position,PASS,1.0,1.0
+B1M,h2_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+C1,K0_info,PASS,INFO row,ok
+C1,K0_assetType,PASS,1 (FOREX),1
+C1,K0_costed,PASS,0,0
+C1,K1_info,PASS,INFO row,ok
+C1,K1_assetType,PASS,1 (FOREX),1
+C1,K1_costed,PASS,1,1
+C1,n_halves,PASS,2 / 2,2 / 2
+C1,h1_half,PASS,1,1
+C1,h1_dir,PASS,1,1
+C1,h1_kind,PASS,c1,c1
+C1,h1_entry_day,PASS,20240308,20240308
+C1,h1_exit_day,PASS,20240312,20240312
+C1,h1_reason,PASS,c1_flip,c1_flip
+C1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1,h1_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1,h1_roll_integer_days,PASS,integer,4.0000
+C1,h1_K0_cost_identity,PASS,1.5000104904170364,1.50001049
+C1,h1_K1_cost_identity,PASS,0.8000104804170363,0.80001044
+C1,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+C1,h1_entry_position,PASS,1.0,1.0
+C1,h1_exit_position,PASS,+0.00000,+0.00000000
+C1,h2_half,PASS,2,2
+C1,h2_dir,PASS,1,1
+C1,h2_kind,PASS,c1,c1
+C1,h2_entry_day,PASS,20240308,20240308
+C1,h2_exit_day,PASS,20240312,20240312
+C1,h2_reason,PASS,c1_flip,c1_flip
+C1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1,h2_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1,h2_roll_integer_days,PASS,integer,4.0000
+C1,h2_K0_cost_identity,PASS,1.5000104904170364,1.50001049
+C1,h2_K1_cost_identity,PASS,0.8000104804170363,0.80001044
+C1,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+C1,h2_entry_position,PASS,1.0,1.0
+C1,h2_exit_position,PASS,+0.00000,+0.00000000
+C1M,K0_info,PASS,INFO row,ok
+C1M,K0_assetType,PASS,1 (FOREX),1
+C1M,K0_costed,PASS,0,0
+C1M,K1_info,PASS,INFO row,ok
+C1M,K1_assetType,PASS,1 (FOREX),1
+C1M,K1_costed,PASS,1,1
+C1M,n_halves,PASS,2 / 2,2 / 2
+C1M,h1_half,PASS,1,1
+C1M,h1_dir,PASS,-1,-1
+C1M,h1_kind,PASS,c1,c1
+C1M,h1_entry_day,PASS,20240308,20240308
+C1M,h1_exit_day,PASS,20240312,20240312
+C1M,h1_reason,PASS,c1_flip,c1_flip
+C1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1M,h1_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1M,h1_roll_integer_days,PASS,integer,4.0000
+C1M,h1_K0_cost_identity,PASS,1.5000104904170364,1.50001049
+C1M,h1_K1_cost_identity,PASS,1.4000104904170363,1.40001047
+C1M,h1_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+C1M,h1_entry_position,PASS,1.0,1.0
+C1M,h1_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+C1M,h2_half,PASS,2,2
+C1M,h2_dir,PASS,-1,-1
+C1M,h2_kind,PASS,c1,c1
+C1M,h2_entry_day,PASS,20240308,20240308
+C1M,h2_exit_day,PASS,20240312,20240312
+C1M,h2_reason,PASS,c1_flip,c1_flip
+C1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1M,h2_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1M,h2_roll_integer_days,PASS,integer,4.0000
+C1M,h2_K0_cost_identity,PASS,1.5000104904170364,1.50001049
+C1M,h2_K1_cost_identity,PASS,1.4000104904170363,1.40001047
+C1M,h2_K1_commission,PASS,Commission 1 (= 0.1 per lot),1.0
+C1M,h2_entry_position,PASS,1.0,1.0
+C1M,h2_exit_position,PASS,S_ASK 0 / S_BID -spread,+0.00000000
+RUN,day_rule_fits,PASS,one of H_UTC/H_NY/H_BAR,H_BAR
+RUN,short_rule_fits,PASS,S_ASK or S_BID,S_ASK

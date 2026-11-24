@@ -1,0 +1,235 @@
+scenario,check,status,expected,got
+A1,K0_info,PASS,INFO row,ok
+A1,K0_assetType,FAIL,1 (FOREX),0
+A1,K0_costed,PASS,0,0
+A1,K1_info,PASS,INFO row,ok
+A1,K1_assetType,FAIL,1 (FOREX),0
+A1,K1_costed,PASS,1,1
+A1,n_halves,PASS,2 / 2,2 / 2
+A1,h1_half,PASS,1,1
+A1,h1_dir,PASS,1,1
+A1,h1_kind,PASS,c1,c1
+A1,h1_entry_day,PASS,20240308,20240308
+A1,h1_exit_day,PASS,20240308,20240308
+A1,h1_reason,PASS,stop,stop
+A1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1,h1_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1,h1_roll_integer_days,PASS,integer,0.0000
+A1,h1_long_prices_equal,PASS,1.0 / 0.985000014305115,1.0 / 0.985000014305115
+A1,h1_long_cost_identity,FAIL,0.30000000000000004,1000.2000265199999
+A1,h2_half,PASS,2,2
+A1,h2_dir,PASS,1,1
+A1,h2_kind,PASS,c1,c1
+A1,h2_entry_day,PASS,20240308,20240308
+A1,h2_exit_day,PASS,20240308,20240308
+A1,h2_reason,PASS,stop,stop
+A1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1,h2_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1,h2_roll_integer_days,PASS,integer,0.0000
+A1,h2_long_prices_equal,PASS,1.0 / 0.985000014305115,1.0 / 0.985000014305115
+A1,h2_long_cost_identity,FAIL,0.30000000000000004,1000.2000265199999
+A1M,K0_info,PASS,INFO row,ok
+A1M,K0_assetType,FAIL,1 (FOREX),0
+A1M,K0_costed,PASS,0,0
+A1M,K1_info,PASS,INFO row,ok
+A1M,K1_assetType,FAIL,1 (FOREX),0
+A1M,K1_costed,PASS,1,1
+A1M,n_halves,PASS,2 / 2,2 / 2
+A1M,h1_half,PASS,1,1
+A1M,h1_dir,PASS,-1,-1
+A1M,h1_kind,PASS,c1,c1
+A1M,h1_entry_day,PASS,20240308,20240308
+A1M,h1_exit_day,PASS,20240308,20240308
+A1M,h1_reason,PASS,stop,stop
+A1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1M,h1_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1M,h1_roll_integer_days,PASS,integer,0.0000
+A1M,h1_short_cost_identity,FAIL,S_ASK 0.300000 / S_BID 0.100000,1000.2000265199999
+A1M,h1_short_K1_entry,INFO,recorded,1.0
+A1M,h2_half,PASS,2,2
+A1M,h2_dir,PASS,-1,-1
+A1M,h2_kind,PASS,c1,c1
+A1M,h2_entry_day,PASS,20240308,20240308
+A1M,h2_exit_day,PASS,20240308,20240308
+A1M,h2_reason,PASS,stop,stop
+A1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A1M,h2_K0_profit_is_price,PASS,-14.999985694885032,-14.99998569
+A1M,h2_roll_integer_days,PASS,integer,0.0000
+A1M,h2_short_cost_identity,FAIL,S_ASK 0.300000 / S_BID 0.100000,1000.2000265199999
+A1M,h2_short_K1_entry,INFO,recorded,1.0
+A2,K0_info,PASS,INFO row,ok
+A2,K0_assetType,FAIL,1 (FOREX),0
+A2,K0_costed,PASS,0,0
+A2,K1_info,PASS,INFO row,ok
+A2,K1_assetType,FAIL,1 (FOREX),0
+A2,K1_costed,PASS,1,1
+A2,n_halves,PASS,2 / 2,2 / 2
+A2,h1_half,PASS,1,1
+A2,h1_dir,PASS,1,1
+A2,h1_kind,PASS,c1,c1
+A2,h1_entry_day,PASS,20240308,20240308
+A2,h1_exit_day,PASS,20240308,20240308
+A2,h1_reason,PASS,tp1,tp1
+A2,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2,h1_K0_profit_is_price,PASS,9.999990463257058,9.99999046
+A2,h1_roll_integer_days,PASS,integer,0.0000
+A2,h1_long_prices_equal,FAIL,1.0 / 1.009999990463257,1.0 / 1.010200023651123
+A2,h1_long_cost_identity,FAIL,0.30000000000000004,999.99999046
+A2,h2_half,PASS,2,2
+A2,h2_dir,PASS,1,1
+A2,h2_kind,PASS,c1,c1
+A2,h2_entry_day,PASS,20240308,20240308
+A2,h2_exit_day,PASS,20240311,20240311
+A2,h2_reason,PASS,be,be
+A2,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2,h2_K0_profit_is_price,PASS,0.0,0.0
+A2,h2_roll_integer_days,PASS,integer,30000.0000
+A2,h2_long_prices_equal,PASS,1.0 / 1.0,1.0 / 1.0
+A2,h2_long_cost_identity,FAIL,3000.3,4000.19995117
+A2M,K0_info,PASS,INFO row,ok
+A2M,K0_assetType,FAIL,1 (FOREX),0
+A2M,K0_costed,PASS,0,0
+A2M,K1_info,PASS,INFO row,ok
+A2M,K1_assetType,FAIL,1 (FOREX),0
+A2M,K1_costed,PASS,1,1
+A2M,n_halves,PASS,2 / 2,2 / 2
+A2M,h1_half,PASS,1,1
+A2M,h1_dir,PASS,-1,-1
+A2M,h1_kind,PASS,c1,c1
+A2M,h1_entry_day,PASS,20240308,20240308
+A2M,h1_exit_day,PASS,20240308,20240308
+A2M,h1_reason,PASS,tp1,tp1
+A2M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2M,h1_K0_profit_is_price,PASS,9.999990463256946,9.99999046
+A2M,h1_roll_integer_days,PASS,integer,0.0000
+A2M,h1_short_cost_identity,FAIL,S_ASK 0.300000 / S_BID 0.100000,1000.20000267
+A2M,h1_short_K1_entry,INFO,recorded,1.0
+A2M,h2_half,PASS,2,2
+A2M,h2_dir,PASS,-1,-1
+A2M,h2_kind,PASS,c1,c1
+A2M,h2_entry_day,PASS,20240308,20240308
+A2M,h2_exit_day,PASS,20240311,20240311
+A2M,h2_reason,PASS,be,be
+A2M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+A2M,h2_K0_profit_is_price,PASS,-0.0,0.0
+A2M,h2_roll_integer_days,PASS,integer,30000.0000
+A2M,h2_short_cost_identity,FAIL,S_ASK -1499.700000 / S_BID -1499.900000,-499.80004883
+A2M,h2_short_K1_entry,INFO,recorded,1.0
+B1,K0_info,PASS,INFO row,ok
+B1,K0_assetType,FAIL,1 (FOREX),0
+B1,K0_costed,PASS,0,0
+B1,K1_info,PASS,INFO row,ok
+B1,K1_assetType,FAIL,1 (FOREX),0
+B1,K1_costed,PASS,1,1
+B1,n_halves,PASS,2 / 2,2 / 2
+B1,h1_half,PASS,1,1
+B1,h1_dir,PASS,1,1
+B1,h1_kind,PASS,c1,c1
+B1,h1_entry_day,PASS,20240308,20240308
+B1,h1_exit_day,PASS,20240308,20240308
+B1,h1_reason,PASS,tp1,tp1
+B1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1,h1_K0_profit_is_price,PASS,9.999990463257058,9.99999046
+B1,h1_roll_integer_days,PASS,integer,0.0000
+B1,h1_long_prices_equal,FAIL,1.0 / 1.009999990463257,1.0 / 1.010200023651123
+B1,h1_long_cost_identity,FAIL,0.30000000000000004,999.99999046
+B1,h2_half,PASS,2,2
+B1,h2_dir,PASS,1,1
+B1,h2_kind,PASS,c1,c1
+B1,h2_entry_day,PASS,20240308,20240308
+B1,h2_exit_day,PASS,20240314,20240314
+B1,h2_reason,PASS,trail,trail
+B1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1,h2_K0_profit_is_price,PASS,14.999985694885032,14.99998569
+B1,h2_roll_integer_days,PASS,integer,60000.0000
+B1,h2_long_prices_equal,PASS,1.0 / 1.014999985694885,1.0 / 1.014999985694885
+B1,h2_long_cost_identity,FAIL,6000.3,7000.200181
+B1M,K0_info,PASS,INFO row,ok
+B1M,K0_assetType,FAIL,1 (FOREX),0
+B1M,K0_costed,PASS,0,0
+B1M,K1_info,PASS,INFO row,ok
+B1M,K1_assetType,FAIL,1 (FOREX),0
+B1M,K1_costed,PASS,1,1
+B1M,n_halves,PASS,2 / 2,2 / 2
+B1M,h1_half,PASS,1,1
+B1M,h1_dir,PASS,-1,-1
+B1M,h1_kind,PASS,c1,c1
+B1M,h1_entry_day,PASS,20240308,20240308
+B1M,h1_exit_day,PASS,20240308,20240308
+B1M,h1_reason,PASS,tp1,tp1
+B1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1M,h1_K0_profit_is_price,PASS,9.999990463256946,9.99999046
+B1M,h1_roll_integer_days,PASS,integer,0.0000
+B1M,h1_short_cost_identity,FAIL,S_ASK 0.300000 / S_BID 0.100000,1000.20000267
+B1M,h1_short_K1_entry,INFO,recorded,1.0
+B1M,h2_half,PASS,2,2
+B1M,h2_dir,PASS,-1,-1
+B1M,h2_kind,PASS,c1,c1
+B1M,h2_entry_day,PASS,20240308,20240308
+B1M,h2_exit_day,PASS,20240314,20240314
+B1M,h2_reason,PASS,trail,trail
+B1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+B1M,h2_K0_profit_is_price,PASS,14.999985694885032,14.99998569
+B1M,h2_roll_integer_days,PASS,integer,60000.0000
+B1M,h2_short_cost_identity,FAIL,S_ASK -2999.700000 / S_BID -2999.700000,-1999.80006314
+B1M,h2_short_K1_entry,INFO,recorded,1.0
+C1,K0_info,PASS,INFO row,ok
+C1,K0_assetType,FAIL,1 (FOREX),0
+C1,K0_costed,PASS,0,0
+C1,K1_info,PASS,INFO row,ok
+C1,K1_assetType,FAIL,1 (FOREX),0
+C1,K1_costed,PASS,1,1
+C1,n_halves,PASS,2 / 2,2 / 2
+C1,h1_half,PASS,1,1
+C1,h1_dir,PASS,1,1
+C1,h1_kind,PASS,c1,c1
+C1,h1_entry_day,PASS,20240308,20240308
+C1,h1_exit_day,PASS,20240312,20240312
+C1,h1_reason,PASS,c1_flip,c1_flip
+C1,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1,h1_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1,h1_roll_integer_days,PASS,integer,40000.0000
+C1,h1_long_prices_equal,PASS,1.0 / 1.001500010490417,1.0 / 1.001500010490417
+C1,h1_long_cost_identity,FAIL,4000.3,5000.2002058
+C1,h2_half,PASS,2,2
+C1,h2_dir,PASS,1,1
+C1,h2_kind,PASS,c1,c1
+C1,h2_entry_day,PASS,20240308,20240308
+C1,h2_exit_day,PASS,20240312,20240312
+C1,h2_reason,PASS,c1_flip,c1_flip
+C1,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1,h2_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1,h2_roll_integer_days,PASS,integer,40000.0000
+C1,h2_long_prices_equal,PASS,1.0 / 1.001500010490417,1.0 / 1.001500010490417
+C1,h2_long_cost_identity,FAIL,4000.3,5000.2002058
+C1M,K0_info,PASS,INFO row,ok
+C1M,K0_assetType,FAIL,1 (FOREX),0
+C1M,K0_costed,PASS,0,0
+C1M,K1_info,PASS,INFO row,ok
+C1M,K1_assetType,FAIL,1 (FOREX),0
+C1M,K1_costed,PASS,1,1
+C1M,n_halves,PASS,2 / 2,2 / 2
+C1M,h1_half,PASS,1,1
+C1M,h1_dir,PASS,-1,-1
+C1M,h1_kind,PASS,c1,c1
+C1M,h1_entry_day,PASS,20240308,20240308
+C1M,h1_exit_day,PASS,20240312,20240312
+C1M,h1_reason,PASS,c1_flip,c1_flip
+C1M,h1_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1M,h1_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1M,h1_roll_integer_days,PASS,integer,40000.0000
+C1M,h1_short_cost_identity,FAIL,S_ASK -1999.700000 / S_BID -1999.700000,-999.80003834
+C1M,h1_short_K1_entry,INFO,recorded,1.0
+C1M,h2_half,PASS,2,2
+C1M,h2_dir,PASS,-1,-1
+C1M,h2_kind,PASS,c1,c1
+C1M,h2_entry_day,PASS,20240308,20240308
+C1M,h2_exit_day,PASS,20240312,20240312
+C1M,h2_reason,PASS,c1_flip,c1_flip
+C1M,h2_K0_zero_costs,PASS,"roll 0, comm 0","0.0, -0.0"
+C1M,h2_K0_profit_is_price,PASS,1.5000104904170364,1.50001049
+C1M,h2_roll_integer_days,PASS,integer,40000.0000
+C1M,h2_short_cost_identity,FAIL,S_ASK -1999.700000 / S_BID -1999.700000,-999.80003834
+C1M,h2_short_K1_entry,INFO,recorded,1.0
+RUN,day_rule_fits,FAIL,one of H_UTC/H_NY/H_BAR,none
+RUN,short_rule_fits,FAIL,S_ASK or S_BID,none

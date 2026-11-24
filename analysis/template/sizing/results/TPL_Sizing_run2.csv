@@ -1,0 +1,87 @@
+check,asset,result,expected,got,note
+K0,-,PASS,no ASSETFAIL,0,
+K0,-,PASS,15,15,
+K0,EUR/USD,PASS,settings,ok,
+K0,GBP/USD,PASS,settings,ok,
+K0,AUD/USD,PASS,settings,ok,
+K0,NZD/USD,PASS,settings,ok,
+K0,USD/JPY,PASS,settings,ok,
+K0,EUR/JPY,PASS,settings,ok,
+K0,USD/CHF,PASS,settings,ok,
+K0,USD/CAD,PASS,settings,ok,
+K0,EUR/GBP,PASS,settings,ok,
+K0,EUR/CHF,PASS,settings,ok,
+K0,AUD/CAD,PASS,settings,ok,
+K0,EUR/CAD,PASS,settings,ok,
+K0,EUR/AUD,PASS,settings,ok,
+K0,GBP/CHF,PASS,settings,ok,
+K0,GBP/CAD,PASS,settings,ok,
+K1,R1_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,R1M_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,E1_S,PASS,lots 77 at pct 1.0,lots 77 at pct 1.0,ymd 20240307
+K1,E1M_S,PASS,lots 77 at pct 1.0,lots 77 at pct 1.0,ymd 20240307
+K1,B1_S,PASS,lots 11474 at pct 1.0,lots 11474 at pct 1.0,ymd 20240307
+K1,B1M_S,PASS,lots 11474 at pct 1.0,lots 11474 at pct 1.0,ymd 20240307
+K1,A2_S,PASS,lots 77 at pct 1.0,lots 77 at pct 1.0,ymd 20240307
+K1,A2M_S,PASS,lots 77 at pct 1.0,lots 77 at pct 1.0,ymd 20240307
+K1,A5_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,C1_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,A1_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,A1M_S,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,A1_CMR,DETECTED,lots 66 at pct 1.0,lots 133 at pct 2.0,"control (planted risk %), ymd 20240307"
+K1,A1_GLOT,PASS,lots 0 at pct 1.0,lots 0 at pct 1.0,ymd 20240307
+K1,A1_GMRG,PASS,lots 66 at pct 1.0,lots 66 at pct 1.0,ymd 20240307
+K1,R1_S,PASS,lots 68 at pct 1.0,lots 68 at pct 1.0,ymd 20240311
+K1,R1M_S,PASS,lots 68 at pct 1.0,lots 68 at pct 1.0,ymd 20240311
+K1,E1_S,PASS,lots 81 at pct 1.0,lots 81 at pct 1.0,ymd 20240313
+K1,E1M_S,PASS,lots 81 at pct 1.0,lots 81 at pct 1.0,ymd 20240313
+K2,R1_S,PASS,"no ERROR, 4 halves","ERROR None, 4 halves",
+K2,R1M_S,PASS,"no ERROR, 4 halves","ERROR None, 4 halves",
+K2,E1_S,PASS,"no ERROR, 4 halves","ERROR None, 4 halves",
+K2,E1M_S,PASS,"no ERROR, 4 halves","ERROR None, 4 halves",
+K2,B1_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,B1M_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A2_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A2M_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A5_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,C1_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A1_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A1M_S,PASS,"no ERROR, 2 halves","ERROR None, 2 halves",
+K2,A1_CMR,PASS,"ERROR risk, 0 halves","ERROR ['risk'], 0 halves",
+K2,A1_GLOT,PASS,"ERROR lots, 0 halves","ERROR ['lots'], 0 halves",
+K2,A1_GMRG,PASS,"ERROR margin, 0 halves","ERROR ['margin'], 0 halves",
+K2,-,PASS,no MARGINCALL,0,
+K3,-,PASS,SIZE rows match TA or TB,"fits ['TA']; TA bad 0, TB bad 4",
+K3,-,PASS,ACCT Equity = model at bar close,0 of 19 rows off,
+K4,B1_S,PASS,11474,11474,half 1 entry 20240308
+K4,B1M_S,PASS,11474,11474,half 1 entry 20240308
+K4,A2_S,PASS,77,77,half 1 entry 20240308
+K4,A2M_S,PASS,77,77,half 1 entry 20240308
+K4,A1_S,PASS,66,66,half 1 entry 20240308
+K4,A1_S,PASS,66,66,half 2 entry 20240308
+K4,A1M_S,PASS,66,66,half 1 entry 20240308
+K4,A1M_S,PASS,66,66,half 2 entry 20240308
+K4,A2_S,PASS,77,77,half 2 entry 20240308
+K4,A2M_S,PASS,77,77,half 2 entry 20240308
+K4,A5_S,PASS,66,66,half 1 entry 20240308
+K4,R1_S,PASS,66,66,half 1 entry 20240308
+K4,R1_S,PASS,66,66,half 2 entry 20240308
+K4,R1M_S,PASS,66,66,half 1 entry 20240308
+K4,R1M_S,PASS,66,66,half 2 entry 20240308
+K4,E1_S,PASS,77,77,half 1 entry 20240308
+K4,E1_S,PASS,77,77,half 2 entry 20240308
+K4,E1M_S,PASS,77,77,half 1 entry 20240308
+K4,E1M_S,PASS,77,77,half 2 entry 20240308
+K4,C1_S,PASS,66,66,half 1 entry 20240308
+K4,C1_S,PASS,66,66,half 2 entry 20240308
+K4,R1_S,PASS,68,68,half 1 entry 20240312
+K4,R1M_S,PASS,68,68,half 1 entry 20240312
+K4,B1_S,PASS,11474,11474,half 2 entry 20240308
+K4,B1M_S,PASS,11474,11474,half 2 entry 20240308
+K4,R1_S,PASS,68,68,half 2 entry 20240312
+K4,R1M_S,PASS,68,68,half 2 entry 20240312
+K4,E1_S,PASS,81,81,half 1 entry 20240314
+K4,E1_S,PASS,81,81,half 2 entry 20240314
+K4,E1M_S,PASS,81,81,half 1 entry 20240314
+K4,E1M_S,PASS,81,81,half 2 entry 20240314
+K4,A5_S,PASS,66,66,half 2 entry 20240308

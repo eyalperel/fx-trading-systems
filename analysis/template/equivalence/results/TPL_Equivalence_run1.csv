@@ -1,0 +1,1573 @@
+scenario,check,status,expected,got
+A2,info_present,PASS,INFO row,ok
+A2,states_rows,PASS,14,14
+A2,setup_Fill,PASS,3,3
+A2,setup_Hedge,PASS,2,2
+A2,setup_TICKS,PASS,1,1
+A2,setup_BarOffset,PASS,1020,1020
+A2,n_halves,PASS,2,2
+A2,h0_half,PASS,1,1
+A2,h0_dir,PASS,1,1
+A2,h0_kind,PASS,c1,c1
+A2,h0_entry_day,PASS,2024-03-08,2024-03-08
+A2,h0_entry,PASS,1.0,1.0
+A2,h0_reason,PASS,tp1,tp1
+A2,h0_exit_day,PASS,2024-03-08,2024-03-08
+A2,h0_exit,PASS,1.0099999997764826,1.009999990463257
+A2,h1_half,PASS,2,2
+A2,h1_dir,PASS,1,1
+A2,h1_kind,PASS,c1,c1
+A2,h1_entry_day,PASS,2024-03-08,2024-03-08
+A2,h1_entry,PASS,1.0,1.0
+A2,h1_reason,PASS,be,be
+A2,h1_exit_day,PASS,2024-03-11,2024-03-11
+A2,h1_exit,PASS,1.0,1.0
+A2,g1h1_reason_known,PASS,not other,tp1
+A2,g1h2_reason_known,PASS,not other,be
+A2,same_bar_count,PASS,0,0
+A2,be_adverse_count,PASS,0,0
+A2,none_open_at_end,PASS,0,0
+A3,info_present,PASS,INFO row,ok
+A3,states_rows,PASS,13,13
+A3,setup_Fill,PASS,3,3
+A3,setup_Hedge,PASS,2,2
+A3,setup_TICKS,PASS,1,1
+A3,setup_BarOffset,PASS,1020,1020
+A3,n_halves,PASS,2,2
+A3,h0_half,PASS,1,1
+A3,h0_dir,PASS,1,1
+A3,h0_kind,PASS,c1,c1
+A3,h0_entry_day,PASS,2024-03-08,2024-03-08
+A3,h0_entry,PASS,1.0,1.0
+A3,h0_reason,PASS,stop,stop
+A3,h0_exit_day,PASS,2024-03-08,2024-03-08
+A3,h0_exit,PASS,0.9850000003352761,0.985000014305115
+A3,h1_half,PASS,2,2
+A3,h1_dir,PASS,1,1
+A3,h1_kind,PASS,c1,c1
+A3,h1_entry_day,PASS,2024-03-08,2024-03-08
+A3,h1_entry,PASS,1.0,1.0
+A3,h1_reason,PASS,stop,stop
+A3,h1_exit_day,PASS,2024-03-08,2024-03-08
+A3,h1_exit,PASS,0.9850000003352761,0.985000014305115
+A3,g1h1_reason_known,PASS,not other,stop
+A3,g1h2_reason_known,PASS,not other,stop
+A3,same_bar_count,PASS,1,1
+A3,be_adverse_count,PASS,0,0
+A3,none_open_at_end,PASS,0,0
+A3HF,info_present,PASS,INFO row,ok
+A3HF,states_rows,PASS,13,13
+A3HF,setup_Fill,PASS,3,3
+A3HF,setup_Hedge,PASS,2,2
+A3HF,setup_TICKS,PASS,1,1
+A3HF,setup_BarOffset,PASS,1020,1020
+A3HF,n_halves,PASS,2,2
+A3HF,h0_half,PASS,1,1
+A3HF,h0_dir,PASS,1,1
+A3HF,h0_kind,PASS,c1,c1
+A3HF,h0_entry_day,PASS,2024-03-08,2024-03-08
+A3HF,h0_entry,PASS,1.0,1.0
+A3HF,h0_docdiff,DOC,tp1@1.01 (engine stop@0.9850000003352761),tp1@1.009999990463257
+A3HF,h1_half,PASS,2,2
+A3HF,h1_dir,PASS,1,1
+A3HF,h1_kind,PASS,c1,c1
+A3HF,h1_entry_day,PASS,2024-03-08,2024-03-08
+A3HF,h1_entry,PASS,1.0,1.0
+A3HF,h1_docdiff,DOC,stop@0.985 (engine stop@0.9850000003352761),stop@0.985000014305115
+A3HF,g1h1_reason_known,PASS,not other,tp1
+A3HF,g1h2_reason_known,PASS,not other,stop
+A3HF,same_bar_count,PASS,1,1
+A3HF,be_adverse_count,PASS,0,0
+A3HF,none_open_at_end,PASS,0,0
+P1,info_present,PASS,INFO row,ok
+P1,states_rows,PASS,14,14
+P1,setup_Fill,PASS,3,3
+P1,setup_Hedge,PASS,2,2
+P1,setup_TICKS,PASS,1,1
+P1,setup_BarOffset,PASS,1020,1020
+P1,n_halves,PASS,2,2
+P1,h0_half,PASS,1,1
+P1,h0_dir,PASS,1,1
+P1,h0_kind,PASS,c1,c1
+P1,h0_entry_day,PASS,2024-03-08,2024-03-08
+P1,h0_entry,PASS,1.0010000467300415,1.001000046730042
+P1,h0_exit,ENTRY_ONLY,end,end
+P1,h1_half,PASS,2,2
+P1,h1_dir,PASS,1,1
+P1,h1_kind,PASS,c1,c1
+P1,h1_entry_day,PASS,2024-03-08,2024-03-08
+P1,h1_entry,PASS,1.0010000467300415,1.001000046730042
+P1,h1_exit,ENTRY_ONLY,end,end
+P1,g1h1_reason_known,PASS,not other,end
+P1,g1h2_reason_known,PASS,not other,end
+P1,same_bar_count,PASS,0,0
+P1,be_adverse_count,PASS,0,0
+P1,none_open_at_end,PASS,0,0
+A5,info_present,PASS,INFO row,ok
+A5,states_rows,PASS,14,14
+A5,setup_Fill,PASS,3,3
+A5,setup_Hedge,PASS,2,2
+A5,setup_TICKS,PASS,1,1
+A5,setup_BarOffset,PASS,1020,1020
+A5,n_halves,PASS,2,2
+A5,h0_half,PASS,1,1
+A5,h0_dir,PASS,1,1
+A5,h0_kind,PASS,c1,c1
+A5,h0_entry_day,PASS,2024-03-08,2024-03-08
+A5,h0_entry,PASS,1.0,1.0
+A5,h0_reason,PASS,tp1,tp1
+A5,h0_exit_day,PASS,2024-03-11,2024-03-11
+A5,h0_exit,FAIL,1.0130000114440918,1.01199996471405
+A5,h1_half,PASS,2,2
+A5,h1_dir,PASS,1,1
+A5,h1_kind,PASS,c1,c1
+A5,h1_entry_day,PASS,2024-03-08,2024-03-08
+A5,h1_entry,PASS,1.0,1.0
+A5,h1_exit,ENTRY_ONLY,end,end
+A5,g1h1_reason_known,PASS,not other,tp1
+A5,g1h2_reason_known,PASS,not other,end
+A5,same_bar_count,PASS,0,0
+A5,be_adverse_count,PASS,0,0
+A5,none_open_at_end,PASS,0,0
+A6,info_present,PASS,INFO row,ok
+A6,states_rows,PASS,14,14
+A6,setup_Fill,PASS,3,3
+A6,setup_Hedge,PASS,2,2
+A6,setup_TICKS,PASS,1,1
+A6,setup_BarOffset,PASS,1020,1020
+A6,n_halves,PASS,2,2
+A6,h0_half,PASS,1,1
+A6,h0_dir,PASS,1,1
+A6,h0_kind,PASS,c1,c1
+A6,h0_entry_day,PASS,2024-03-08,2024-03-08
+A6,h0_entry,PASS,1.0,1.0
+A6,h0_reason,PASS,tp1,tp1
+A6,h0_exit_day,PASS,2024-03-08,2024-03-08
+A6,h0_exit,PASS,1.0099999997764826,1.009999990463257
+A6,h1_half,PASS,2,2
+A6,h1_dir,PASS,1,1
+A6,h1_kind,PASS,c1,c1
+A6,h1_entry_day,PASS,2024-03-08,2024-03-08
+A6,h1_entry,PASS,1.0,1.0
+A6,h1_reason,PASS,be_adverse,be_adverse
+A6,h1_exit_day,PASS,2024-03-11,2024-03-11
+A6,h1_exit,FAIL,0.9975000023841858,0.996500015258789
+A6,g1h1_reason_known,PASS,not other,tp1
+A6,g1h2_reason_known,PASS,not other,be_adverse
+A6,same_bar_count,PASS,0,0
+A6,be_adverse_count,PASS,1,1
+A6,none_open_at_end,PASS,0,0
+B1,info_present,PASS,INFO row,ok
+B1,states_rows,PASS,17,17
+B1,setup_Fill,PASS,3,3
+B1,setup_Hedge,PASS,2,2
+B1,setup_TICKS,PASS,1,1
+B1,setup_BarOffset,PASS,1020,1020
+B1,n_halves,PASS,2,2
+B1,h0_half,PASS,1,1
+B1,h0_dir,PASS,1,1
+B1,h0_kind,PASS,c1,c1
+B1,h0_entry_day,PASS,2024-03-08,2024-03-08
+B1,h0_entry,PASS,1.0,1.0
+B1,h0_reason,PASS,tp1,tp1
+B1,h0_exit_day,PASS,2024-03-08,2024-03-08
+B1,h0_exit,PASS,1.0099999997764826,1.009999990463257
+B1,h1_half,PASS,2,2
+B1,h1_dir,PASS,1,1
+B1,h1_kind,PASS,c1,c1
+B1,h1_entry_day,PASS,2024-03-08,2024-03-08
+B1,h1_entry,PASS,1.0,1.0
+B1,h1_reason,PASS,trail,trail
+B1,h1_exit_day,PASS,2024-03-14,2024-03-14
+B1,h1_exit,PASS,1.0149999717250466,1.014999985694885
+B1,g1h1_reason_known,PASS,not other,tp1
+B1,g1h2_reason_known,PASS,not other,trail
+B1,same_bar_count,PASS,0,0
+B1,be_adverse_count,PASS,0,0
+B1,none_open_at_end,PASS,0,0
+B2,info_present,PASS,INFO row,ok
+B2,states_rows,PASS,16,16
+B2,setup_Fill,PASS,3,3
+B2,setup_Hedge,PASS,2,2
+B2,setup_TICKS,PASS,1,1
+B2,setup_BarOffset,PASS,1020,1020
+B2,n_halves,PASS,2,2
+B2,h0_half,PASS,1,1
+B2,h0_dir,PASS,1,1
+B2,h0_kind,PASS,c1,c1
+B2,h0_entry_day,PASS,2024-03-08,2024-03-08
+B2,h0_entry,PASS,1.0,1.0
+B2,h0_reason,PASS,tp1,tp1
+B2,h0_exit_day,PASS,2024-03-08,2024-03-08
+B2,h0_exit,PASS,1.0099999997764826,1.009999990463257
+B2,h1_half,PASS,2,2
+B2,h1_dir,PASS,1,1
+B2,h1_kind,PASS,c1,c1
+B2,h1_entry_day,PASS,2024-03-08,2024-03-08
+B2,h1_entry,PASS,1.0,1.0
+B2,h1_reason,PASS,be,be
+B2,h1_exit_day,PASS,2024-03-13,2024-03-13
+B2,h1_exit,PASS,1.0,1.0
+B2,g1h1_reason_known,PASS,not other,tp1
+B2,g1h2_reason_known,PASS,not other,be
+B2,same_bar_count,PASS,0,0
+B2,be_adverse_count,PASS,0,0
+B2,none_open_at_end,PASS,0,0
+C1,info_present,PASS,INFO row,ok
+C1,states_rows,PASS,15,15
+C1,setup_Fill,PASS,3,3
+C1,setup_Hedge,PASS,2,2
+C1,setup_TICKS,PASS,1,1
+C1,setup_BarOffset,PASS,1020,1020
+C1,n_halves,PASS,2,2
+C1,h0_half,PASS,1,1
+C1,h0_dir,PASS,1,1
+C1,h0_kind,PASS,c1,c1
+C1,h0_entry_day,PASS,2024-03-08,2024-03-08
+C1,h0_entry,PASS,1.0,1.0
+C1,h0_reason,PASS,c1_flip,c1_flip
+C1,h0_exit_day,PASS,2024-03-12,2024-03-12
+C1,h0_exit,PASS,1.0015000104904175,1.001500010490417
+C1,h1_half,PASS,2,2
+C1,h1_dir,PASS,1,1
+C1,h1_kind,PASS,c1,c1
+C1,h1_entry_day,PASS,2024-03-08,2024-03-08
+C1,h1_entry,PASS,1.0,1.0
+C1,h1_reason,PASS,c1_flip,c1_flip
+C1,h1_exit_day,PASS,2024-03-12,2024-03-12
+C1,h1_exit,PASS,1.0015000104904175,1.001500010490417
+C1,g1h1_reason_known,PASS,not other,c1_flip
+C1,g1h2_reason_known,PASS,not other,c1_flip
+C1,same_bar_count,PASS,0,0
+C1,be_adverse_count,PASS,0,0
+C1,none_open_at_end,PASS,0,0
+C2,info_present,PASS,INFO row,ok
+C2,states_rows,PASS,15,15
+C2,setup_Fill,PASS,3,3
+C2,setup_Hedge,PASS,2,2
+C2,setup_TICKS,PASS,1,1
+C2,setup_BarOffset,PASS,1020,1020
+C2,n_halves,PASS,2,2
+C2,h0_half,PASS,1,1
+C2,h0_dir,PASS,1,1
+C2,h0_kind,PASS,c1,c1
+C2,h0_entry_day,PASS,2024-03-08,2024-03-08
+C2,h0_entry,PASS,1.0,1.0
+C2,h0_reason,PASS,baseline,baseline
+C2,h0_exit_day,PASS,2024-03-12,2024-03-12
+C2,h0_exit,PASS,0.9944999814033508,0.994499981403351
+C2,h1_half,PASS,2,2
+C2,h1_dir,PASS,1,1
+C2,h1_kind,PASS,c1,c1
+C2,h1_entry_day,PASS,2024-03-08,2024-03-08
+C2,h1_entry,PASS,1.0,1.0
+C2,h1_reason,PASS,baseline,baseline
+C2,h1_exit_day,PASS,2024-03-12,2024-03-12
+C2,h1_exit,PASS,0.9944999814033508,0.994499981403351
+C2,g1h1_reason_known,PASS,not other,baseline
+C2,g1h2_reason_known,PASS,not other,baseline
+C2,same_bar_count,PASS,0,0
+C2,be_adverse_count,PASS,0,0
+C2,none_open_at_end,PASS,0,0
+C3,info_present,PASS,INFO row,ok
+C3,states_rows,PASS,15,15
+C3,setup_Fill,PASS,3,3
+C3,setup_Hedge,PASS,2,2
+C3,setup_TICKS,PASS,1,1
+C3,setup_BarOffset,PASS,1020,1020
+C3,n_halves,PASS,2,2
+C3,h0_half,PASS,1,1
+C3,h0_dir,PASS,1,1
+C3,h0_kind,PASS,c1,c1
+C3,h0_entry_day,PASS,2024-03-08,2024-03-08
+C3,h0_entry,PASS,1.0,1.0
+C3,h0_exit,ENTRY_ONLY,end,end
+C3,h1_half,PASS,2,2
+C3,h1_dir,PASS,1,1
+C3,h1_kind,PASS,c1,c1
+C3,h1_entry_day,PASS,2024-03-08,2024-03-08
+C3,h1_entry,PASS,1.0,1.0
+C3,h1_exit,ENTRY_ONLY,end,end
+C3,g1h1_reason_known,PASS,not other,end
+C3,g1h2_reason_known,PASS,not other,end
+C3,same_bar_count,PASS,0,0
+C3,be_adverse_count,PASS,0,0
+C3,none_open_at_end,PASS,0,0
+A1,info_present,PASS,INFO row,ok
+A1,states_rows,PASS,13,13
+A1,setup_Fill,PASS,3,3
+A1,setup_Hedge,PASS,2,2
+A1,setup_TICKS,PASS,1,1
+A1,setup_BarOffset,PASS,1020,1020
+A1,n_halves,PASS,2,2
+A1,h0_half,PASS,1,1
+A1,h0_dir,PASS,1,1
+A1,h0_kind,PASS,c1,c1
+A1,h0_entry_day,PASS,2024-03-08,2024-03-08
+A1,h0_entry,PASS,1.0,1.0
+A1,h0_reason,PASS,stop,stop
+A1,h0_exit_day,PASS,2024-03-08,2024-03-08
+A1,h0_exit,PASS,0.9850000003352761,0.985000014305115
+A1,h1_half,PASS,2,2
+A1,h1_dir,PASS,1,1
+A1,h1_kind,PASS,c1,c1
+A1,h1_entry_day,PASS,2024-03-08,2024-03-08
+A1,h1_entry,PASS,1.0,1.0
+A1,h1_reason,PASS,stop,stop
+A1,h1_exit_day,PASS,2024-03-08,2024-03-08
+A1,h1_exit,PASS,0.9850000003352761,0.985000014305115
+A1,g1h1_reason_known,PASS,not other,stop
+A1,g1h2_reason_known,PASS,not other,stop
+A1,same_bar_count,PASS,0,0
+A1,be_adverse_count,PASS,0,0
+A1,none_open_at_end,PASS,0,0
+A4,info_present,PASS,INFO row,ok
+A4,states_rows,PASS,14,14
+A4,setup_Fill,PASS,3,3
+A4,setup_Hedge,PASS,2,2
+A4,setup_TICKS,PASS,1,1
+A4,setup_BarOffset,PASS,1020,1020
+A4,n_halves,PASS,2,2
+A4,h0_half,PASS,1,1
+A4,h0_dir,PASS,1,1
+A4,h0_kind,PASS,c1,c1
+A4,h0_entry_day,PASS,2024-03-08,2024-03-08
+A4,h0_entry,PASS,1.0,1.0
+A4,h0_reason,PASS,stop,stop
+A4,h0_exit_day,PASS,2024-03-11,2024-03-11
+A4,h0_exit,FAIL,0.9800000190734863,0.977999985218048
+A4,h1_half,PASS,2,2
+A4,h1_dir,PASS,1,1
+A4,h1_kind,PASS,c1,c1
+A4,h1_entry_day,PASS,2024-03-08,2024-03-08
+A4,h1_entry,PASS,1.0,1.0
+A4,h1_reason,PASS,stop,stop
+A4,h1_exit_day,PASS,2024-03-11,2024-03-11
+A4,h1_exit,FAIL,0.9800000190734863,0.977999985218048
+A4,g1h1_reason_known,PASS,not other,stop
+A4,g1h2_reason_known,PASS,not other,stop
+A4,same_bar_count,PASS,0,0
+A4,be_adverse_count,PASS,0,0
+A4,none_open_at_end,PASS,0,0
+D1a,info_present,PASS,INFO row,ok
+D1a,states_rows,PASS,13,13
+D1a,setup_Fill,PASS,3,3
+D1a,setup_Hedge,PASS,2,2
+D1a,setup_TICKS,PASS,1,1
+D1a,setup_BarOffset,PASS,1020,1020
+D1a,n_halves,PASS,0,0
+D1a,same_bar_count,PASS,0,0
+D1a,be_adverse_count,PASS,0,0
+D1a,none_open_at_end,PASS,0,0
+D1b,info_present,PASS,INFO row,ok
+D1b,states_rows,PASS,13,13
+D1b,setup_Fill,PASS,3,3
+D1b,setup_Hedge,PASS,2,2
+D1b,setup_TICKS,PASS,1,1
+D1b,setup_BarOffset,PASS,1020,1020
+D1b,n_halves,PASS,0,0
+D1b,same_bar_count,PASS,0,0
+D1b,be_adverse_count,PASS,0,0
+D1b,none_open_at_end,PASS,0,0
+D1d,info_present,PASS,INFO row,ok
+D1d,states_rows,PASS,14,14
+D1d,setup_Fill,PASS,3,3
+D1d,setup_Hedge,PASS,2,2
+D1d,setup_TICKS,PASS,1,1
+D1d,setup_BarOffset,PASS,1020,1020
+D1d,n_halves,PASS,0,0
+D1d,same_bar_count,PASS,0,0
+D1d,be_adverse_count,PASS,0,0
+D1d,none_open_at_end,PASS,0,0
+D2,info_present,PASS,INFO row,ok
+D2,states_rows,PASS,13,13
+D2,setup_Fill,PASS,3,3
+D2,setup_Hedge,PASS,2,2
+D2,setup_TICKS,PASS,1,1
+D2,setup_BarOffset,PASS,1020,1020
+D2,n_halves,PASS,0,0
+D2,same_bar_count,PASS,0,0
+D2,be_adverse_count,PASS,0,0
+D2,none_open_at_end,PASS,0,0
+D5,info_present,PASS,INFO row,ok
+D5,states_rows,PASS,15,15
+D5,setup_Fill,PASS,3,3
+D5,setup_Hedge,PASS,2,2
+D5,setup_TICKS,PASS,1,1
+D5,setup_BarOffset,PASS,1020,1020
+D5,n_halves,PASS,2,2
+D5,h0_half,PASS,1,1
+D5,h0_dir,PASS,1,1
+D5,h0_kind,PASS,baseline,baseline
+D5,h0_entry_day,PASS,2024-03-12,2024-03-12
+D5,h0_entry,PASS,1.003000020980835,1.003000020980835
+D5,h0_exit,ENTRY_ONLY,end,end
+D5,h1_half,PASS,2,2
+D5,h1_dir,PASS,1,1
+D5,h1_kind,PASS,baseline,baseline
+D5,h1_entry_day,PASS,2024-03-12,2024-03-12
+D5,h1_entry,PASS,1.003000020980835,1.003000020980835
+D5,h1_exit,ENTRY_ONLY,end,end
+D5,g1h1_reason_known,PASS,not other,end
+D5,g1h2_reason_known,PASS,not other,end
+D5,same_bar_count,PASS,0,0
+D5,be_adverse_count,PASS,0,0
+D5,none_open_at_end,PASS,0,0
+D6,info_present,PASS,INFO row,ok
+D6,states_rows,PASS,15,15
+D6,setup_Fill,PASS,3,3
+D6,setup_Hedge,PASS,2,2
+D6,setup_TICKS,PASS,1,1
+D6,setup_BarOffset,PASS,1020,1020
+D6,n_halves,PASS,2,2
+D6,h0_half,PASS,1,1
+D6,h0_dir,PASS,1,1
+D6,h0_kind,PASS,baseline,baseline
+D6,h0_entry_day,PASS,2024-03-13,2024-03-13
+D6,h0_entry,PASS,1.003499984741211,1.003499984741211
+D6,h0_exit,ENTRY_ONLY,end,end
+D6,h1_half,PASS,2,2
+D6,h1_dir,PASS,1,1
+D6,h1_kind,PASS,baseline,baseline
+D6,h1_entry_day,PASS,2024-03-13,2024-03-13
+D6,h1_entry,PASS,1.003499984741211,1.003499984741211
+D6,h1_exit,ENTRY_ONLY,end,end
+D6,g1h1_reason_known,PASS,not other,end
+D6,g1h2_reason_known,PASS,not other,end
+D6,same_bar_count,PASS,0,0
+D6,be_adverse_count,PASS,0,0
+D6,none_open_at_end,PASS,0,0
+D7a,info_present,PASS,INFO row,ok
+D7a,states_rows,PASS,20,20
+D7a,setup_Fill,PASS,3,3
+D7a,setup_Hedge,PASS,2,2
+D7a,setup_TICKS,PASS,1,1
+D7a,setup_BarOffset,PASS,1020,1020
+D7a,n_halves,PASS,0,0
+D7a,same_bar_count,PASS,0,0
+D7a,be_adverse_count,PASS,0,0
+D7a,none_open_at_end,PASS,0,0
+D7b,info_present,PASS,INFO row,ok
+D7b,states_rows,PASS,19,19
+D7b,setup_Fill,PASS,3,3
+D7b,setup_Hedge,PASS,2,2
+D7b,setup_TICKS,PASS,1,1
+D7b,setup_BarOffset,PASS,1020,1020
+D7b,n_halves,PASS,2,2
+D7b,h0_half,PASS,1,1
+D7b,h0_dir,PASS,1,1
+D7b,h0_kind,PASS,baseline,baseline
+D7b,h0_entry_day,PASS,2024-03-18,2024-03-18
+D7b,h0_entry,FAIL,0.9990000128746033,0.998000025749207
+D7b,h0_exit,ENTRY_ONLY,end,end
+D7b,h1_half,PASS,2,2
+D7b,h1_dir,PASS,1,1
+D7b,h1_kind,PASS,baseline,baseline
+D7b,h1_entry_day,PASS,2024-03-18,2024-03-18
+D7b,h1_entry,FAIL,0.9990000128746033,0.998000025749207
+D7b,h1_exit,ENTRY_ONLY,end,end
+D7b,g1h1_reason_known,PASS,not other,end
+D7b,g1h2_reason_known,PASS,not other,end
+D7b,same_bar_count,PASS,0,0
+D7b,be_adverse_count,PASS,0,0
+D7b,none_open_at_end,PASS,0,0
+D7c,info_present,PASS,INFO row,ok
+D7c,states_rows,PASS,20,20
+D7c,setup_Fill,PASS,3,3
+D7c,setup_Hedge,PASS,2,2
+D7c,setup_TICKS,PASS,1,1
+D7c,setup_BarOffset,PASS,1020,1020
+D7c,n_halves,FAIL,2,0
+D7c,same_bar_count,PASS,0,0
+D7c,be_adverse_count,PASS,0,0
+D7c,none_open_at_end,PASS,0,0
+D8,info_present,PASS,INFO row,ok
+D8,states_rows,PASS,16,16
+D8,setup_Fill,PASS,3,3
+D8,setup_Hedge,PASS,2,2
+D8,setup_TICKS,PASS,1,1
+D8,setup_BarOffset,PASS,1020,1020
+D8,n_halves,PASS,2,2
+D8,h0_half,PASS,1,1
+D8,h0_dir,PASS,1,1
+D8,h0_kind,PASS,pullback,pullback
+D8,h0_entry_day,PASS,2024-03-12,2024-03-12
+D8,h0_entry,PASS,1.003999948501587,1.003999948501587
+D8,h0_exit,ENTRY_ONLY,end,end
+D8,h1_half,PASS,2,2
+D8,h1_dir,PASS,1,1
+D8,h1_kind,PASS,pullback,pullback
+D8,h1_entry_day,PASS,2024-03-12,2024-03-12
+D8,h1_entry,PASS,1.003999948501587,1.003999948501587
+D8,h1_exit,ENTRY_ONLY,end,end
+D8,g1h1_reason_known,PASS,not other,end
+D8,g1h2_reason_known,PASS,not other,end
+D8,same_bar_count,PASS,0,0
+D8,be_adverse_count,PASS,0,0
+D8,none_open_at_end,PASS,0,0
+D9,info_present,PASS,INFO row,ok
+D9,states_rows,PASS,16,16
+D9,setup_Fill,PASS,3,3
+D9,setup_Hedge,PASS,2,2
+D9,setup_TICKS,PASS,1,1
+D9,setup_BarOffset,PASS,1020,1020
+D9,n_halves,PASS,0,0
+D9,same_bar_count,PASS,0,0
+D9,be_adverse_count,PASS,0,0
+D9,none_open_at_end,PASS,0,0
+E1,info_present,PASS,INFO row,ok
+E1,states_rows,PASS,17,17
+E1,setup_Fill,PASS,3,3
+E1,setup_Hedge,PASS,2,2
+E1,setup_TICKS,PASS,1,1
+E1,setup_BarOffset,PASS,1020,1020
+E1,n_halves,PASS,4,4
+E1,h0_half,PASS,1,1
+E1,h0_dir,PASS,1,1
+E1,h0_kind,PASS,c1,c1
+E1,h0_entry_day,PASS,2024-03-08,2024-03-08
+E1,h0_entry,PASS,1.0,1.0
+E1,h0_reason,PASS,c1_flip,c1_flip
+E1,h0_exit_day,PASS,2024-03-12,2024-03-12
+E1,h0_exit,PASS,1.0015000104904175,1.001500010490417
+E1,h1_half,PASS,2,2
+E1,h1_dir,PASS,1,1
+E1,h1_kind,PASS,c1,c1
+E1,h1_entry_day,PASS,2024-03-08,2024-03-08
+E1,h1_entry,PASS,1.0,1.0
+E1,h1_reason,PASS,c1_flip,c1_flip
+E1,h1_exit_day,PASS,2024-03-12,2024-03-12
+E1,h1_exit,PASS,1.0015000104904175,1.001500010490417
+E1,h2_half,PASS,1,1
+E1,h2_dir,PASS,1,1
+E1,h2_kind,PASS,continuation,continuation
+E1,h2_entry_day,PASS,2024-03-14,2024-03-14
+E1,h2_entry,PASS,1.0099999904632568,1.009999990463257
+E1,h2_exit,ENTRY_ONLY,end,end
+E1,h3_half,PASS,2,2
+E1,h3_dir,PASS,1,1
+E1,h3_kind,PASS,continuation,continuation
+E1,h3_entry_day,PASS,2024-03-14,2024-03-14
+E1,h3_entry,PASS,1.0099999904632568,1.009999990463257
+E1,h3_exit,ENTRY_ONLY,end,end
+E1,g1h1_reason_known,PASS,not other,c1_flip
+E1,g1h2_reason_known,PASS,not other,c1_flip
+E1,g2h1_reason_known,PASS,not other,end
+E1,g2h2_reason_known,PASS,not other,end
+E1,same_bar_count,PASS,0,0
+E1,be_adverse_count,PASS,0,0
+E1,none_open_at_end,PASS,0,0
+E2,info_present,PASS,INFO row,ok
+E2,states_rows,PASS,17,17
+E2,setup_Fill,PASS,3,3
+E2,setup_Hedge,PASS,2,2
+E2,setup_TICKS,PASS,1,1
+E2,setup_BarOffset,PASS,1020,1020
+E2,n_halves,PASS,2,2
+E2,h0_half,PASS,1,1
+E2,h0_dir,PASS,1,1
+E2,h0_kind,PASS,c1,c1
+E2,h0_entry_day,PASS,2024-03-08,2024-03-08
+E2,h0_entry,PASS,1.0,1.0
+E2,h0_reason,PASS,c1_flip,c1_flip
+E2,h0_exit_day,PASS,2024-03-12,2024-03-12
+E2,h0_exit,PASS,1.0015000104904175,1.001500010490417
+E2,h1_half,PASS,2,2
+E2,h1_dir,PASS,1,1
+E2,h1_kind,PASS,c1,c1
+E2,h1_entry_day,PASS,2024-03-08,2024-03-08
+E2,h1_entry,PASS,1.0,1.0
+E2,h1_reason,PASS,c1_flip,c1_flip
+E2,h1_exit_day,PASS,2024-03-12,2024-03-12
+E2,h1_exit,PASS,1.0015000104904175,1.001500010490417
+E2,g1h1_reason_known,PASS,not other,c1_flip
+E2,g1h2_reason_known,PASS,not other,c1_flip
+E2,same_bar_count,PASS,0,0
+E2,be_adverse_count,PASS,0,0
+E2,none_open_at_end,PASS,0,0
+E3,info_present,PASS,INFO row,ok
+E3,states_rows,PASS,17,17
+E3,setup_Fill,PASS,3,3
+E3,setup_Hedge,PASS,2,2
+E3,setup_TICKS,PASS,1,1
+E3,setup_BarOffset,PASS,1020,1020
+E3,n_halves,PASS,2,2
+E3,h0_half,PASS,1,1
+E3,h0_dir,PASS,1,1
+E3,h0_kind,PASS,c1,c1
+E3,h0_entry_day,PASS,2024-03-08,2024-03-08
+E3,h0_entry,PASS,1.0,1.0
+E3,h0_reason,PASS,c1_flip,c1_flip
+E3,h0_exit_day,PASS,2024-03-12,2024-03-12
+E3,h0_exit,PASS,1.0015000104904175,1.001500010490417
+E3,h1_half,PASS,2,2
+E3,h1_dir,PASS,1,1
+E3,h1_kind,PASS,c1,c1
+E3,h1_entry_day,PASS,2024-03-08,2024-03-08
+E3,h1_entry,PASS,1.0,1.0
+E3,h1_reason,PASS,c1_flip,c1_flip
+E3,h1_exit_day,PASS,2024-03-12,2024-03-12
+E3,h1_exit,PASS,1.0015000104904175,1.001500010490417
+E3,g1h1_reason_known,PASS,not other,c1_flip
+E3,g1h2_reason_known,PASS,not other,c1_flip
+E3,same_bar_count,PASS,0,0
+E3,be_adverse_count,PASS,0,0
+E3,none_open_at_end,PASS,0,0
+E4a,info_present,PASS,INFO row,ok
+E4a,states_rows,PASS,17,17
+E4a,setup_Fill,PASS,3,3
+E4a,setup_Hedge,PASS,2,2
+E4a,setup_TICKS,PASS,1,1
+E4a,setup_BarOffset,PASS,1020,1020
+E4a,n_halves,PASS,4,4
+E4a,h0_half,PASS,1,1
+E4a,h0_dir,PASS,1,1
+E4a,h0_kind,PASS,c1,c1
+E4a,h0_entry_day,PASS,2024-03-08,2024-03-08
+E4a,h0_entry,PASS,1.0,1.0
+E4a,h0_reason,PASS,stop,stop
+E4a,h0_exit_day,PASS,2024-03-08,2024-03-08
+E4a,h0_exit,PASS,0.9850000003352761,0.985000014305115
+E4a,h1_half,PASS,2,2
+E4a,h1_dir,PASS,1,1
+E4a,h1_kind,PASS,c1,c1
+E4a,h1_entry_day,PASS,2024-03-08,2024-03-08
+E4a,h1_entry,PASS,1.0,1.0
+E4a,h1_reason,PASS,stop,stop
+E4a,h1_exit_day,PASS,2024-03-08,2024-03-08
+E4a,h1_exit,PASS,0.9850000003352761,0.985000014305115
+E4a,h2_half,PASS,1,1
+E4a,h2_dir,PASS,1,1
+E4a,h2_kind,PASS,continuation,continuation
+E4a,h2_entry_day,PASS,2024-03-14,2024-03-14
+E4a,h2_entry,PASS,1.0099999904632568,1.009999990463257
+E4a,h2_exit,ENTRY_ONLY,end,end
+E4a,h3_half,PASS,2,2
+E4a,h3_dir,PASS,1,1
+E4a,h3_kind,PASS,continuation,continuation
+E4a,h3_entry_day,PASS,2024-03-14,2024-03-14
+E4a,h3_entry,PASS,1.0099999904632568,1.009999990463257
+E4a,h3_exit,ENTRY_ONLY,end,end
+E4a,g1h1_reason_known,PASS,not other,stop
+E4a,g1h2_reason_known,PASS,not other,stop
+E4a,g2h1_reason_known,PASS,not other,end
+E4a,g2h2_reason_known,PASS,not other,end
+E4a,same_bar_count,PASS,0,0
+E4a,be_adverse_count,PASS,0,0
+E4a,none_open_at_end,PASS,0,0
+E4b,info_present,PASS,INFO row,ok
+E4b,states_rows,PASS,17,17
+E4b,setup_Fill,PASS,3,3
+E4b,setup_Hedge,PASS,2,2
+E4b,setup_TICKS,PASS,1,1
+E4b,setup_BarOffset,PASS,1020,1020
+E4b,n_halves,PASS,2,2
+E4b,h0_half,PASS,1,1
+E4b,h0_dir,PASS,1,1
+E4b,h0_kind,PASS,c1,c1
+E4b,h0_entry_day,PASS,2024-03-08,2024-03-08
+E4b,h0_entry,PASS,1.0,1.0
+E4b,h0_reason,PASS,stop,stop
+E4b,h0_exit_day,PASS,2024-03-08,2024-03-08
+E4b,h0_exit,PASS,0.9850000003352761,0.985000014305115
+E4b,h1_half,PASS,2,2
+E4b,h1_dir,PASS,1,1
+E4b,h1_kind,PASS,c1,c1
+E4b,h1_entry_day,PASS,2024-03-08,2024-03-08
+E4b,h1_entry,PASS,1.0,1.0
+E4b,h1_reason,PASS,stop,stop
+E4b,h1_exit_day,PASS,2024-03-08,2024-03-08
+E4b,h1_exit,PASS,0.9850000003352761,0.985000014305115
+E4b,g1h1_reason_known,PASS,not other,stop
+E4b,g1h2_reason_known,PASS,not other,stop
+E4b,same_bar_count,PASS,0,0
+E4b,be_adverse_count,PASS,0,0
+E4b,none_open_at_end,PASS,0,0
+R1,info_present,PASS,INFO row,ok
+R1,states_rows,PASS,16,16
+R1,setup_Fill,PASS,3,3
+R1,setup_Hedge,PASS,2,2
+R1,setup_TICKS,PASS,1,1
+R1,setup_BarOffset,PASS,1020,1020
+R1,n_halves,PASS,4,4
+R1,h0_half,PASS,1,1
+R1,h0_dir,PASS,1,1
+R1,h0_kind,PASS,c1,c1
+R1,h0_entry_day,PASS,2024-03-08,2024-03-08
+R1,h0_entry,PASS,1.0,1.0
+R1,h0_reason,PASS,c1_flip,c1_flip
+R1,h0_exit_day,PASS,2024-03-12,2024-03-12
+R1,h0_exit,PASS,0.9934999942779541,0.993499994277954
+R1,h1_half,PASS,2,2
+R1,h1_dir,PASS,1,1
+R1,h1_kind,PASS,c1,c1
+R1,h1_entry_day,PASS,2024-03-08,2024-03-08
+R1,h1_entry,PASS,1.0,1.0
+R1,h1_reason,PASS,c1_flip,c1_flip
+R1,h1_exit_day,PASS,2024-03-12,2024-03-12
+R1,h1_exit,PASS,0.9934999942779541,0.993499994277954
+R1,h2_half,PASS,1,1
+R1,h2_dir,PASS,-1,-1
+R1,h2_kind,PASS,c1,c1
+R1,h2_entry_day,PASS,2024-03-12,2024-03-12
+R1,h2_entry,PASS,0.9934999942779541,0.993499994277954
+R1,h2_reason,PASS,tp1,tp1
+R1,h2_exit_day,PASS,2024-03-13,2024-03-13
+R1,h2_exit,PASS,0.9834999945014715,0.983500003814697
+R1,h3_half,PASS,2,2
+R1,h3_dir,PASS,-1,-1
+R1,h3_kind,PASS,c1,c1
+R1,h3_entry_day,PASS,2024-03-12,2024-03-12
+R1,h3_entry,PASS,0.9934999942779541,0.993499994277954
+R1,h3_exit,ENTRY_ONLY,end,end
+R1,g1h1_reason_known,PASS,not other,c1_flip
+R1,g1h2_reason_known,PASS,not other,c1_flip
+R1,g2h1_reason_known,PASS,not other,tp1
+R1,g2h2_reason_known,PASS,not other,end
+R1,same_bar_count,PASS,0,0
+R1,be_adverse_count,PASS,0,0
+R1,none_open_at_end,PASS,0,0
+A2M,info_present,PASS,INFO row,ok
+A2M,states_rows,PASS,14,14
+A2M,setup_Fill,PASS,3,3
+A2M,setup_Hedge,PASS,2,2
+A2M,setup_TICKS,PASS,1,1
+A2M,setup_BarOffset,PASS,1020,1020
+A2M,n_halves,PASS,2,2
+A2M,h0_half,PASS,1,1
+A2M,h0_dir,PASS,-1,-1
+A2M,h0_kind,PASS,c1,c1
+A2M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A2M,h0_entry,PASS,1.0,1.0
+A2M,h0_reason,PASS,tp1,tp1
+A2M,h0_exit_day,PASS,2024-03-08,2024-03-08
+A2M,h0_exit,PASS,0.9900000002235174,0.990000009536743
+A2M,h1_half,PASS,2,2
+A2M,h1_dir,PASS,-1,-1
+A2M,h1_kind,PASS,c1,c1
+A2M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A2M,h1_entry,PASS,1.0,1.0
+A2M,h1_reason,PASS,be,be
+A2M,h1_exit_day,PASS,2024-03-11,2024-03-11
+A2M,h1_exit,PASS,1.0,1.0
+A2M,g1h1_reason_known,PASS,not other,tp1
+A2M,g1h2_reason_known,PASS,not other,be
+A2M,same_bar_count,PASS,0,0
+A2M,be_adverse_count,PASS,0,0
+A2M,none_open_at_end,PASS,0,0
+A3M,info_present,PASS,INFO row,ok
+A3M,states_rows,PASS,13,13
+A3M,setup_Fill,PASS,3,3
+A3M,setup_Hedge,PASS,2,2
+A3M,setup_TICKS,PASS,1,1
+A3M,setup_BarOffset,PASS,1020,1020
+A3M,n_halves,PASS,2,2
+A3M,h0_half,PASS,1,1
+A3M,h0_dir,PASS,-1,-1
+A3M,h0_kind,PASS,c1,c1
+A3M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A3M,h0_entry,PASS,1.0,1.0
+A3M,h0_reason,PASS,stop,stop
+A3M,h0_exit_day,PASS,2024-03-08,2024-03-08
+A3M,h0_exit,PASS,1.0149999996647239,1.014999985694885
+A3M,h1_half,PASS,2,2
+A3M,h1_dir,PASS,-1,-1
+A3M,h1_kind,PASS,c1,c1
+A3M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A3M,h1_entry,PASS,1.0,1.0
+A3M,h1_reason,PASS,stop,stop
+A3M,h1_exit_day,PASS,2024-03-08,2024-03-08
+A3M,h1_exit,PASS,1.0149999996647239,1.014999985694885
+A3M,g1h1_reason_known,PASS,not other,stop
+A3M,g1h2_reason_known,PASS,not other,stop
+A3M,same_bar_count,PASS,1,1
+A3M,be_adverse_count,PASS,0,0
+A3M,none_open_at_end,PASS,0,0
+A3HFM,info_present,PASS,INFO row,ok
+A3HFM,states_rows,PASS,13,13
+A3HFM,setup_Fill,PASS,3,3
+A3HFM,setup_Hedge,PASS,2,2
+A3HFM,setup_TICKS,PASS,1,1
+A3HFM,setup_BarOffset,PASS,1020,1020
+A3HFM,n_halves,PASS,2,2
+A3HFM,h0_half,PASS,1,1
+A3HFM,h0_dir,PASS,-1,-1
+A3HFM,h0_kind,PASS,c1,c1
+A3HFM,h0_entry_day,PASS,2024-03-08,2024-03-08
+A3HFM,h0_entry,PASS,1.0,1.0
+A3HFM,h0_docdiff,DOC,tp1@0.99 (engine stop@1.0149999996647239),tp1@0.990000009536743
+A3HFM,h1_half,PASS,2,2
+A3HFM,h1_dir,PASS,-1,-1
+A3HFM,h1_kind,PASS,c1,c1
+A3HFM,h1_entry_day,PASS,2024-03-08,2024-03-08
+A3HFM,h1_entry,PASS,1.0,1.0
+A3HFM,h1_docdiff,DOC,stop@1.015 (engine stop@1.0149999996647239),stop@1.014999985694885
+A3HFM,g1h1_reason_known,PASS,not other,tp1
+A3HFM,g1h2_reason_known,PASS,not other,stop
+A3HFM,same_bar_count,PASS,1,1
+A3HFM,be_adverse_count,PASS,0,0
+A3HFM,none_open_at_end,PASS,0,0
+P1M,info_present,PASS,INFO row,ok
+P1M,states_rows,PASS,14,14
+P1M,setup_Fill,PASS,3,3
+P1M,setup_Hedge,PASS,2,2
+P1M,setup_TICKS,PASS,1,1
+P1M,setup_BarOffset,PASS,1020,1020
+P1M,n_halves,PASS,2,2
+P1M,h0_half,PASS,1,1
+P1M,h0_dir,PASS,-1,-1
+P1M,h0_kind,PASS,c1,c1
+P1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+P1M,h0_entry,PASS,0.9990000128746033,0.999000012874603
+P1M,h0_exit,ENTRY_ONLY,end,end
+P1M,h1_half,PASS,2,2
+P1M,h1_dir,PASS,-1,-1
+P1M,h1_kind,PASS,c1,c1
+P1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+P1M,h1_entry,PASS,0.9990000128746033,0.999000012874603
+P1M,h1_exit,ENTRY_ONLY,end,end
+P1M,g1h1_reason_known,PASS,not other,end
+P1M,g1h2_reason_known,PASS,not other,end
+P1M,same_bar_count,PASS,0,0
+P1M,be_adverse_count,PASS,0,0
+P1M,none_open_at_end,PASS,0,0
+A5M,info_present,PASS,INFO row,ok
+A5M,states_rows,PASS,14,14
+A5M,setup_Fill,PASS,3,3
+A5M,setup_Hedge,PASS,2,2
+A5M,setup_TICKS,PASS,1,1
+A5M,setup_BarOffset,PASS,1020,1020
+A5M,n_halves,PASS,2,2
+A5M,h0_half,PASS,1,1
+A5M,h0_dir,PASS,-1,-1
+A5M,h0_kind,PASS,c1,c1
+A5M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A5M,h0_entry,PASS,1.0,1.0
+A5M,h0_reason,PASS,tp1,tp1
+A5M,h0_exit_day,PASS,2024-03-11,2024-03-11
+A5M,h0_exit,FAIL,0.9869999885559082,0.987999975681305
+A5M,h1_half,PASS,2,2
+A5M,h1_dir,PASS,-1,-1
+A5M,h1_kind,PASS,c1,c1
+A5M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A5M,h1_entry,PASS,1.0,1.0
+A5M,h1_exit,ENTRY_ONLY,end,end
+A5M,g1h1_reason_known,PASS,not other,tp1
+A5M,g1h2_reason_known,PASS,not other,end
+A5M,same_bar_count,PASS,0,0
+A5M,be_adverse_count,PASS,0,0
+A5M,none_open_at_end,PASS,0,0
+A6M,info_present,PASS,INFO row,ok
+A6M,states_rows,PASS,14,14
+A6M,setup_Fill,PASS,3,3
+A6M,setup_Hedge,PASS,2,2
+A6M,setup_TICKS,PASS,1,1
+A6M,setup_BarOffset,PASS,1020,1020
+A6M,n_halves,PASS,2,2
+A6M,h0_half,PASS,1,1
+A6M,h0_dir,PASS,-1,-1
+A6M,h0_kind,PASS,c1,c1
+A6M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A6M,h0_entry,PASS,1.0,1.0
+A6M,h0_reason,PASS,tp1,tp1
+A6M,h0_exit_day,PASS,2024-03-08,2024-03-08
+A6M,h0_exit,PASS,0.9900000002235174,0.990000009536743
+A6M,h1_half,PASS,2,2
+A6M,h1_dir,PASS,-1,-1
+A6M,h1_kind,PASS,c1,c1
+A6M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A6M,h1_entry,PASS,1.0,1.0
+A6M,h1_reason,PASS,be_adverse,be_adverse
+A6M,h1_exit_day,PASS,2024-03-11,2024-03-11
+A6M,h1_exit,FAIL,1.002500057220459,1.003499984741211
+A6M,g1h1_reason_known,PASS,not other,tp1
+A6M,g1h2_reason_known,PASS,not other,be_adverse
+A6M,same_bar_count,PASS,0,0
+A6M,be_adverse_count,PASS,1,1
+A6M,none_open_at_end,PASS,0,0
+B1M,info_present,PASS,INFO row,ok
+B1M,states_rows,PASS,17,17
+B1M,setup_Fill,PASS,3,3
+B1M,setup_Hedge,PASS,2,2
+B1M,setup_TICKS,PASS,1,1
+B1M,setup_BarOffset,PASS,1020,1020
+B1M,n_halves,PASS,2,2
+B1M,h0_half,PASS,1,1
+B1M,h0_dir,PASS,-1,-1
+B1M,h0_kind,PASS,c1,c1
+B1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+B1M,h0_entry,PASS,1.0,1.0
+B1M,h0_reason,PASS,tp1,tp1
+B1M,h0_exit_day,PASS,2024-03-08,2024-03-08
+B1M,h0_exit,PASS,0.9900000002235174,0.990000009536743
+B1M,h1_half,PASS,2,2
+B1M,h1_dir,PASS,-1,-1
+B1M,h1_kind,PASS,c1,c1
+B1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+B1M,h1_entry,PASS,1.0,1.0
+B1M,h1_reason,PASS,trail,trail
+B1M,h1_exit_day,PASS,2024-03-14,2024-03-14
+B1M,h1_exit,PASS,0.9850000282749534,0.985000014305115
+B1M,g1h1_reason_known,PASS,not other,tp1
+B1M,g1h2_reason_known,PASS,not other,trail
+B1M,same_bar_count,PASS,0,0
+B1M,be_adverse_count,PASS,0,0
+B1M,none_open_at_end,PASS,0,0
+B2M,info_present,PASS,INFO row,ok
+B2M,states_rows,PASS,16,16
+B2M,setup_Fill,PASS,3,3
+B2M,setup_Hedge,PASS,2,2
+B2M,setup_TICKS,PASS,1,1
+B2M,setup_BarOffset,PASS,1020,1020
+B2M,n_halves,PASS,2,2
+B2M,h0_half,PASS,1,1
+B2M,h0_dir,PASS,-1,-1
+B2M,h0_kind,PASS,c1,c1
+B2M,h0_entry_day,PASS,2024-03-08,2024-03-08
+B2M,h0_entry,PASS,1.0,1.0
+B2M,h0_reason,PASS,tp1,tp1
+B2M,h0_exit_day,PASS,2024-03-08,2024-03-08
+B2M,h0_exit,PASS,0.9900000002235174,0.990000009536743
+B2M,h1_half,PASS,2,2
+B2M,h1_dir,PASS,-1,-1
+B2M,h1_kind,PASS,c1,c1
+B2M,h1_entry_day,PASS,2024-03-08,2024-03-08
+B2M,h1_entry,PASS,1.0,1.0
+B2M,h1_reason,PASS,be,be
+B2M,h1_exit_day,PASS,2024-03-13,2024-03-13
+B2M,h1_exit,PASS,1.0,1.0
+B2M,g1h1_reason_known,PASS,not other,tp1
+B2M,g1h2_reason_known,PASS,not other,be
+B2M,same_bar_count,PASS,0,0
+B2M,be_adverse_count,PASS,0,0
+B2M,none_open_at_end,PASS,0,0
+C1M,info_present,PASS,INFO row,ok
+C1M,states_rows,PASS,15,15
+C1M,setup_Fill,PASS,3,3
+C1M,setup_Hedge,PASS,2,2
+C1M,setup_TICKS,PASS,1,1
+C1M,setup_BarOffset,PASS,1020,1020
+C1M,n_halves,PASS,2,2
+C1M,h0_half,PASS,1,1
+C1M,h0_dir,PASS,-1,-1
+C1M,h0_kind,PASS,c1,c1
+C1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+C1M,h0_entry,PASS,1.0,1.0
+C1M,h0_reason,PASS,c1_flip,c1_flip
+C1M,h0_exit_day,PASS,2024-03-12,2024-03-12
+C1M,h0_exit,PASS,0.9984999895095825,0.998499989509583
+C1M,h1_half,PASS,2,2
+C1M,h1_dir,PASS,-1,-1
+C1M,h1_kind,PASS,c1,c1
+C1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+C1M,h1_entry,PASS,1.0,1.0
+C1M,h1_reason,PASS,c1_flip,c1_flip
+C1M,h1_exit_day,PASS,2024-03-12,2024-03-12
+C1M,h1_exit,PASS,0.9984999895095825,0.998499989509583
+C1M,g1h1_reason_known,PASS,not other,c1_flip
+C1M,g1h2_reason_known,PASS,not other,c1_flip
+C1M,same_bar_count,PASS,0,0
+C1M,be_adverse_count,PASS,0,0
+C1M,none_open_at_end,PASS,0,0
+C2M,info_present,PASS,INFO row,ok
+C2M,states_rows,PASS,15,15
+C2M,setup_Fill,PASS,3,3
+C2M,setup_Hedge,PASS,2,2
+C2M,setup_TICKS,PASS,1,1
+C2M,setup_BarOffset,PASS,1020,1020
+C2M,n_halves,PASS,2,2
+C2M,h0_half,PASS,1,1
+C2M,h0_dir,PASS,-1,-1
+C2M,h0_kind,PASS,c1,c1
+C2M,h0_entry_day,PASS,2024-03-08,2024-03-08
+C2M,h0_entry,PASS,1.0,1.0
+C2M,h0_reason,PASS,baseline,baseline
+C2M,h0_exit_day,PASS,2024-03-12,2024-03-12
+C2M,h0_exit,PASS,1.0054999589920044,1.005499958992004
+C2M,h1_half,PASS,2,2
+C2M,h1_dir,PASS,-1,-1
+C2M,h1_kind,PASS,c1,c1
+C2M,h1_entry_day,PASS,2024-03-08,2024-03-08
+C2M,h1_entry,PASS,1.0,1.0
+C2M,h1_reason,PASS,baseline,baseline
+C2M,h1_exit_day,PASS,2024-03-12,2024-03-12
+C2M,h1_exit,PASS,1.0054999589920044,1.005499958992004
+C2M,g1h1_reason_known,PASS,not other,baseline
+C2M,g1h2_reason_known,PASS,not other,baseline
+C2M,same_bar_count,PASS,0,0
+C2M,be_adverse_count,PASS,0,0
+C2M,none_open_at_end,PASS,0,0
+C3M,info_present,PASS,INFO row,ok
+C3M,states_rows,PASS,15,15
+C3M,setup_Fill,PASS,3,3
+C3M,setup_Hedge,PASS,2,2
+C3M,setup_TICKS,PASS,1,1
+C3M,setup_BarOffset,PASS,1020,1020
+C3M,n_halves,PASS,2,2
+C3M,h0_half,PASS,1,1
+C3M,h0_dir,PASS,-1,-1
+C3M,h0_kind,PASS,c1,c1
+C3M,h0_entry_day,PASS,2024-03-08,2024-03-08
+C3M,h0_entry,PASS,1.0,1.0
+C3M,h0_exit,ENTRY_ONLY,end,end
+C3M,h1_half,PASS,2,2
+C3M,h1_dir,PASS,-1,-1
+C3M,h1_kind,PASS,c1,c1
+C3M,h1_entry_day,PASS,2024-03-08,2024-03-08
+C3M,h1_entry,PASS,1.0,1.0
+C3M,h1_exit,ENTRY_ONLY,end,end
+C3M,g1h1_reason_known,PASS,not other,end
+C3M,g1h2_reason_known,PASS,not other,end
+C3M,same_bar_count,PASS,0,0
+C3M,be_adverse_count,PASS,0,0
+C3M,none_open_at_end,PASS,0,0
+A1M,info_present,PASS,INFO row,ok
+A1M,states_rows,PASS,13,13
+A1M,setup_Fill,PASS,3,3
+A1M,setup_Hedge,PASS,2,2
+A1M,setup_TICKS,PASS,1,1
+A1M,setup_BarOffset,PASS,1020,1020
+A1M,n_halves,PASS,2,2
+A1M,h0_half,PASS,1,1
+A1M,h0_dir,PASS,-1,-1
+A1M,h0_kind,PASS,c1,c1
+A1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A1M,h0_entry,PASS,1.0,1.0
+A1M,h0_reason,PASS,stop,stop
+A1M,h0_exit_day,PASS,2024-03-08,2024-03-08
+A1M,h0_exit,PASS,1.0149999996647239,1.014999985694885
+A1M,h1_half,PASS,2,2
+A1M,h1_dir,PASS,-1,-1
+A1M,h1_kind,PASS,c1,c1
+A1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A1M,h1_entry,PASS,1.0,1.0
+A1M,h1_reason,PASS,stop,stop
+A1M,h1_exit_day,PASS,2024-03-08,2024-03-08
+A1M,h1_exit,PASS,1.0149999996647239,1.014999985694885
+A1M,g1h1_reason_known,PASS,not other,stop
+A1M,g1h2_reason_known,PASS,not other,stop
+A1M,same_bar_count,PASS,0,0
+A1M,be_adverse_count,PASS,0,0
+A1M,none_open_at_end,PASS,0,0
+A4M,info_present,PASS,INFO row,ok
+A4M,states_rows,PASS,14,14
+A4M,setup_Fill,PASS,3,3
+A4M,setup_Hedge,PASS,2,2
+A4M,setup_TICKS,PASS,1,1
+A4M,setup_BarOffset,PASS,1020,1020
+A4M,n_halves,PASS,2,2
+A4M,h0_half,PASS,1,1
+A4M,h0_dir,PASS,-1,-1
+A4M,h0_kind,PASS,c1,c1
+A4M,h0_entry_day,PASS,2024-03-08,2024-03-08
+A4M,h0_entry,PASS,1.0,1.0
+A4M,h0_reason,PASS,stop,stop
+A4M,h0_exit_day,PASS,2024-03-11,2024-03-11
+A4M,h0_exit,FAIL,1.0199999809265137,1.021999955177307
+A4M,h1_half,PASS,2,2
+A4M,h1_dir,PASS,-1,-1
+A4M,h1_kind,PASS,c1,c1
+A4M,h1_entry_day,PASS,2024-03-08,2024-03-08
+A4M,h1_entry,PASS,1.0,1.0
+A4M,h1_reason,PASS,stop,stop
+A4M,h1_exit_day,PASS,2024-03-11,2024-03-11
+A4M,h1_exit,FAIL,1.0199999809265137,1.021999955177307
+A4M,g1h1_reason_known,PASS,not other,stop
+A4M,g1h2_reason_known,PASS,not other,stop
+A4M,same_bar_count,PASS,0,0
+A4M,be_adverse_count,PASS,0,0
+A4M,none_open_at_end,PASS,0,0
+D1aM,info_present,PASS,INFO row,ok
+D1aM,states_rows,PASS,13,13
+D1aM,setup_Fill,PASS,3,3
+D1aM,setup_Hedge,PASS,2,2
+D1aM,setup_TICKS,PASS,1,1
+D1aM,setup_BarOffset,PASS,1020,1020
+D1aM,n_halves,PASS,0,0
+D1aM,same_bar_count,PASS,0,0
+D1aM,be_adverse_count,PASS,0,0
+D1aM,none_open_at_end,PASS,0,0
+D1bM,info_present,PASS,INFO row,ok
+D1bM,states_rows,PASS,13,13
+D1bM,setup_Fill,PASS,3,3
+D1bM,setup_Hedge,PASS,2,2
+D1bM,setup_TICKS,PASS,1,1
+D1bM,setup_BarOffset,PASS,1020,1020
+D1bM,n_halves,PASS,0,0
+D1bM,same_bar_count,PASS,0,0
+D1bM,be_adverse_count,PASS,0,0
+D1bM,none_open_at_end,PASS,0,0
+D1dM,info_present,PASS,INFO row,ok
+D1dM,states_rows,PASS,14,14
+D1dM,setup_Fill,PASS,3,3
+D1dM,setup_Hedge,PASS,2,2
+D1dM,setup_TICKS,PASS,1,1
+D1dM,setup_BarOffset,PASS,1020,1020
+D1dM,n_halves,PASS,0,0
+D1dM,same_bar_count,PASS,0,0
+D1dM,be_adverse_count,PASS,0,0
+D1dM,none_open_at_end,PASS,0,0
+D2M,info_present,PASS,INFO row,ok
+D2M,states_rows,PASS,13,13
+D2M,setup_Fill,PASS,3,3
+D2M,setup_Hedge,PASS,2,2
+D2M,setup_TICKS,PASS,1,1
+D2M,setup_BarOffset,PASS,1020,1020
+D2M,n_halves,PASS,0,0
+D2M,same_bar_count,PASS,0,0
+D2M,be_adverse_count,PASS,0,0
+D2M,none_open_at_end,PASS,0,0
+D5M,info_present,PASS,INFO row,ok
+D5M,states_rows,PASS,15,15
+D5M,setup_Fill,PASS,3,3
+D5M,setup_Hedge,PASS,2,2
+D5M,setup_TICKS,PASS,1,1
+D5M,setup_BarOffset,PASS,1020,1020
+D5M,n_halves,PASS,2,2
+D5M,h0_half,PASS,1,1
+D5M,h0_dir,PASS,-1,-1
+D5M,h0_kind,PASS,baseline,baseline
+D5M,h0_entry_day,PASS,2024-03-12,2024-03-12
+D5M,h0_entry,PASS,0.996999979019165,0.996999979019165
+D5M,h0_exit,ENTRY_ONLY,end,end
+D5M,h1_half,PASS,2,2
+D5M,h1_dir,PASS,-1,-1
+D5M,h1_kind,PASS,baseline,baseline
+D5M,h1_entry_day,PASS,2024-03-12,2024-03-12
+D5M,h1_entry,PASS,0.996999979019165,0.996999979019165
+D5M,h1_exit,ENTRY_ONLY,end,end
+D5M,g1h1_reason_known,PASS,not other,end
+D5M,g1h2_reason_known,PASS,not other,end
+D5M,same_bar_count,PASS,0,0
+D5M,be_adverse_count,PASS,0,0
+D5M,none_open_at_end,PASS,0,0
+D6M,info_present,PASS,INFO row,ok
+D6M,states_rows,PASS,15,15
+D6M,setup_Fill,PASS,3,3
+D6M,setup_Hedge,PASS,2,2
+D6M,setup_TICKS,PASS,1,1
+D6M,setup_BarOffset,PASS,1020,1020
+D6M,n_halves,PASS,2,2
+D6M,h0_half,PASS,1,1
+D6M,h0_dir,PASS,-1,-1
+D6M,h0_kind,PASS,baseline,baseline
+D6M,h0_entry_day,PASS,2024-03-13,2024-03-13
+D6M,h0_entry,PASS,0.9965000152587891,0.996500015258789
+D6M,h0_exit,ENTRY_ONLY,end,end
+D6M,h1_half,PASS,2,2
+D6M,h1_dir,PASS,-1,-1
+D6M,h1_kind,PASS,baseline,baseline
+D6M,h1_entry_day,PASS,2024-03-13,2024-03-13
+D6M,h1_entry,PASS,0.9965000152587891,0.996500015258789
+D6M,h1_exit,ENTRY_ONLY,end,end
+D6M,g1h1_reason_known,PASS,not other,end
+D6M,g1h2_reason_known,PASS,not other,end
+D6M,same_bar_count,PASS,0,0
+D6M,be_adverse_count,PASS,0,0
+D6M,none_open_at_end,PASS,0,0
+D7aM,info_present,PASS,INFO row,ok
+D7aM,states_rows,PASS,20,20
+D7aM,setup_Fill,PASS,3,3
+D7aM,setup_Hedge,PASS,2,2
+D7aM,setup_TICKS,PASS,1,1
+D7aM,setup_BarOffset,PASS,1020,1020
+D7aM,n_halves,PASS,0,0
+D7aM,same_bar_count,PASS,0,0
+D7aM,be_adverse_count,PASS,0,0
+D7aM,none_open_at_end,PASS,0,0
+D7bM,info_present,PASS,INFO row,ok
+D7bM,states_rows,PASS,19,19
+D7bM,setup_Fill,PASS,3,3
+D7bM,setup_Hedge,PASS,2,2
+D7bM,setup_TICKS,PASS,1,1
+D7bM,setup_BarOffset,PASS,1020,1020
+D7bM,n_halves,PASS,2,2
+D7bM,h0_half,PASS,1,1
+D7bM,h0_dir,PASS,-1,-1
+D7bM,h0_kind,PASS,baseline,baseline
+D7bM,h0_entry_day,PASS,2024-03-18,2024-03-18
+D7bM,h0_entry,FAIL,1.0010000467300415,1.001999974250793
+D7bM,h0_exit,ENTRY_ONLY,end,end
+D7bM,h1_half,PASS,2,2
+D7bM,h1_dir,PASS,-1,-1
+D7bM,h1_kind,PASS,baseline,baseline
+D7bM,h1_entry_day,PASS,2024-03-18,2024-03-18
+D7bM,h1_entry,FAIL,1.0010000467300415,1.001999974250793
+D7bM,h1_exit,ENTRY_ONLY,end,end
+D7bM,g1h1_reason_known,PASS,not other,end
+D7bM,g1h2_reason_known,PASS,not other,end
+D7bM,same_bar_count,PASS,0,0
+D7bM,be_adverse_count,PASS,0,0
+D7bM,none_open_at_end,PASS,0,0
+D7cM,info_present,PASS,INFO row,ok
+D7cM,states_rows,PASS,20,20
+D7cM,setup_Fill,PASS,3,3
+D7cM,setup_Hedge,PASS,2,2
+D7cM,setup_TICKS,PASS,1,1
+D7cM,setup_BarOffset,PASS,1020,1020
+D7cM,n_halves,FAIL,2,0
+D7cM,same_bar_count,PASS,0,0
+D7cM,be_adverse_count,PASS,0,0
+D7cM,none_open_at_end,PASS,0,0
+D8M,info_present,PASS,INFO row,ok
+D8M,states_rows,PASS,16,16
+D8M,setup_Fill,PASS,3,3
+D8M,setup_Hedge,PASS,2,2
+D8M,setup_TICKS,PASS,1,1
+D8M,setup_BarOffset,PASS,1020,1020
+D8M,n_halves,PASS,2,2
+D8M,h0_half,PASS,1,1
+D8M,h0_dir,PASS,-1,-1
+D8M,h0_kind,PASS,pullback,pullback
+D8M,h0_entry_day,PASS,2024-03-12,2024-03-12
+D8M,h0_entry,PASS,0.9959999918937683,0.995999991893768
+D8M,h0_exit,ENTRY_ONLY,end,end
+D8M,h1_half,PASS,2,2
+D8M,h1_dir,PASS,-1,-1
+D8M,h1_kind,PASS,pullback,pullback
+D8M,h1_entry_day,PASS,2024-03-12,2024-03-12
+D8M,h1_entry,PASS,0.9959999918937683,0.995999991893768
+D8M,h1_exit,ENTRY_ONLY,end,end
+D8M,g1h1_reason_known,PASS,not other,end
+D8M,g1h2_reason_known,PASS,not other,end
+D8M,same_bar_count,PASS,0,0
+D8M,be_adverse_count,PASS,0,0
+D8M,none_open_at_end,PASS,0,0
+D9M,info_present,PASS,INFO row,ok
+D9M,states_rows,PASS,16,16
+D9M,setup_Fill,PASS,3,3
+D9M,setup_Hedge,PASS,2,2
+D9M,setup_TICKS,PASS,1,1
+D9M,setup_BarOffset,PASS,1020,1020
+D9M,n_halves,PASS,0,0
+D9M,same_bar_count,PASS,0,0
+D9M,be_adverse_count,PASS,0,0
+D9M,none_open_at_end,PASS,0,0
+E1M,info_present,PASS,INFO row,ok
+E1M,states_rows,PASS,17,17
+E1M,setup_Fill,PASS,3,3
+E1M,setup_Hedge,PASS,2,2
+E1M,setup_TICKS,PASS,1,1
+E1M,setup_BarOffset,PASS,1020,1020
+E1M,n_halves,PASS,4,4
+E1M,h0_half,PASS,1,1
+E1M,h0_dir,PASS,-1,-1
+E1M,h0_kind,PASS,c1,c1
+E1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+E1M,h0_entry,PASS,1.0,1.0
+E1M,h0_reason,PASS,c1_flip,c1_flip
+E1M,h0_exit_day,PASS,2024-03-12,2024-03-12
+E1M,h0_exit,PASS,0.9984999895095825,0.998499989509583
+E1M,h1_half,PASS,2,2
+E1M,h1_dir,PASS,-1,-1
+E1M,h1_kind,PASS,c1,c1
+E1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+E1M,h1_entry,PASS,1.0,1.0
+E1M,h1_reason,PASS,c1_flip,c1_flip
+E1M,h1_exit_day,PASS,2024-03-12,2024-03-12
+E1M,h1_exit,PASS,0.9984999895095825,0.998499989509583
+E1M,h2_half,PASS,1,1
+E1M,h2_dir,PASS,-1,-1
+E1M,h2_kind,PASS,continuation,continuation
+E1M,h2_entry_day,PASS,2024-03-14,2024-03-14
+E1M,h2_entry,PASS,0.9900000095367432,0.990000009536743
+E1M,h2_exit,ENTRY_ONLY,end,end
+E1M,h3_half,PASS,2,2
+E1M,h3_dir,PASS,-1,-1
+E1M,h3_kind,PASS,continuation,continuation
+E1M,h3_entry_day,PASS,2024-03-14,2024-03-14
+E1M,h3_entry,PASS,0.9900000095367432,0.990000009536743
+E1M,h3_exit,ENTRY_ONLY,end,end
+E1M,g1h1_reason_known,PASS,not other,c1_flip
+E1M,g1h2_reason_known,PASS,not other,c1_flip
+E1M,g2h1_reason_known,PASS,not other,end
+E1M,g2h2_reason_known,PASS,not other,end
+E1M,same_bar_count,PASS,0,0
+E1M,be_adverse_count,PASS,0,0
+E1M,none_open_at_end,PASS,0,0
+E2M,info_present,PASS,INFO row,ok
+E2M,states_rows,PASS,17,17
+E2M,setup_Fill,PASS,3,3
+E2M,setup_Hedge,PASS,2,2
+E2M,setup_TICKS,PASS,1,1
+E2M,setup_BarOffset,PASS,1020,1020
+E2M,n_halves,PASS,2,2
+E2M,h0_half,PASS,1,1
+E2M,h0_dir,PASS,-1,-1
+E2M,h0_kind,PASS,c1,c1
+E2M,h0_entry_day,PASS,2024-03-08,2024-03-08
+E2M,h0_entry,PASS,1.0,1.0
+E2M,h0_reason,PASS,c1_flip,c1_flip
+E2M,h0_exit_day,PASS,2024-03-12,2024-03-12
+E2M,h0_exit,PASS,0.9984999895095825,0.998499989509583
+E2M,h1_half,PASS,2,2
+E2M,h1_dir,PASS,-1,-1
+E2M,h1_kind,PASS,c1,c1
+E2M,h1_entry_day,PASS,2024-03-08,2024-03-08
+E2M,h1_entry,PASS,1.0,1.0
+E2M,h1_reason,PASS,c1_flip,c1_flip
+E2M,h1_exit_day,PASS,2024-03-12,2024-03-12
+E2M,h1_exit,PASS,0.9984999895095825,0.998499989509583
+E2M,g1h1_reason_known,PASS,not other,c1_flip
+E2M,g1h2_reason_known,PASS,not other,c1_flip
+E2M,same_bar_count,PASS,0,0
+E2M,be_adverse_count,PASS,0,0
+E2M,none_open_at_end,PASS,0,0
+E3M,info_present,PASS,INFO row,ok
+E3M,states_rows,PASS,17,17
+E3M,setup_Fill,PASS,3,3
+E3M,setup_Hedge,PASS,2,2
+E3M,setup_TICKS,PASS,1,1
+E3M,setup_BarOffset,PASS,1020,1020
+E3M,n_halves,PASS,2,2
+E3M,h0_half,PASS,1,1
+E3M,h0_dir,PASS,-1,-1
+E3M,h0_kind,PASS,c1,c1
+E3M,h0_entry_day,PASS,2024-03-08,2024-03-08
+E3M,h0_entry,PASS,1.0,1.0
+E3M,h0_reason,PASS,c1_flip,c1_flip
+E3M,h0_exit_day,PASS,2024-03-12,2024-03-12
+E3M,h0_exit,PASS,0.9984999895095825,0.998499989509583
+E3M,h1_half,PASS,2,2
+E3M,h1_dir,PASS,-1,-1
+E3M,h1_kind,PASS,c1,c1
+E3M,h1_entry_day,PASS,2024-03-08,2024-03-08
+E3M,h1_entry,PASS,1.0,1.0
+E3M,h1_reason,PASS,c1_flip,c1_flip
+E3M,h1_exit_day,PASS,2024-03-12,2024-03-12
+E3M,h1_exit,PASS,0.9984999895095825,0.998499989509583
+E3M,g1h1_reason_known,PASS,not other,c1_flip
+E3M,g1h2_reason_known,PASS,not other,c1_flip
+E3M,same_bar_count,PASS,0,0
+E3M,be_adverse_count,PASS,0,0
+E3M,none_open_at_end,PASS,0,0
+E4aM,info_present,PASS,INFO row,ok
+E4aM,states_rows,PASS,17,17
+E4aM,setup_Fill,PASS,3,3
+E4aM,setup_Hedge,PASS,2,2
+E4aM,setup_TICKS,PASS,1,1
+E4aM,setup_BarOffset,PASS,1020,1020
+E4aM,n_halves,PASS,4,4
+E4aM,h0_half,PASS,1,1
+E4aM,h0_dir,PASS,-1,-1
+E4aM,h0_kind,PASS,c1,c1
+E4aM,h0_entry_day,PASS,2024-03-08,2024-03-08
+E4aM,h0_entry,PASS,1.0,1.0
+E4aM,h0_reason,PASS,stop,stop
+E4aM,h0_exit_day,PASS,2024-03-08,2024-03-08
+E4aM,h0_exit,PASS,1.0149999996647239,1.014999985694885
+E4aM,h1_half,PASS,2,2
+E4aM,h1_dir,PASS,-1,-1
+E4aM,h1_kind,PASS,c1,c1
+E4aM,h1_entry_day,PASS,2024-03-08,2024-03-08
+E4aM,h1_entry,PASS,1.0,1.0
+E4aM,h1_reason,PASS,stop,stop
+E4aM,h1_exit_day,PASS,2024-03-08,2024-03-08
+E4aM,h1_exit,PASS,1.0149999996647239,1.014999985694885
+E4aM,h2_half,PASS,1,1
+E4aM,h2_dir,PASS,-1,-1
+E4aM,h2_kind,PASS,continuation,continuation
+E4aM,h2_entry_day,PASS,2024-03-14,2024-03-14
+E4aM,h2_entry,PASS,0.9900000095367432,0.990000009536743
+E4aM,h2_exit,ENTRY_ONLY,end,end
+E4aM,h3_half,PASS,2,2
+E4aM,h3_dir,PASS,-1,-1
+E4aM,h3_kind,PASS,continuation,continuation
+E4aM,h3_entry_day,PASS,2024-03-14,2024-03-14
+E4aM,h3_entry,PASS,0.9900000095367432,0.990000009536743
+E4aM,h3_exit,ENTRY_ONLY,end,end
+E4aM,g1h1_reason_known,PASS,not other,stop
+E4aM,g1h2_reason_known,PASS,not other,stop
+E4aM,g2h1_reason_known,PASS,not other,end
+E4aM,g2h2_reason_known,PASS,not other,end
+E4aM,same_bar_count,PASS,0,0
+E4aM,be_adverse_count,PASS,0,0
+E4aM,none_open_at_end,PASS,0,0
+E4bM,info_present,PASS,INFO row,ok
+E4bM,states_rows,PASS,17,17
+E4bM,setup_Fill,PASS,3,3
+E4bM,setup_Hedge,PASS,2,2
+E4bM,setup_TICKS,PASS,1,1
+E4bM,setup_BarOffset,PASS,1020,1020
+E4bM,n_halves,PASS,2,2
+E4bM,h0_half,PASS,1,1
+E4bM,h0_dir,PASS,-1,-1
+E4bM,h0_kind,PASS,c1,c1
+E4bM,h0_entry_day,PASS,2024-03-08,2024-03-08
+E4bM,h0_entry,PASS,1.0,1.0
+E4bM,h0_reason,PASS,stop,stop
+E4bM,h0_exit_day,PASS,2024-03-08,2024-03-08
+E4bM,h0_exit,PASS,1.0149999996647239,1.014999985694885
+E4bM,h1_half,PASS,2,2
+E4bM,h1_dir,PASS,-1,-1
+E4bM,h1_kind,PASS,c1,c1
+E4bM,h1_entry_day,PASS,2024-03-08,2024-03-08
+E4bM,h1_entry,PASS,1.0,1.0
+E4bM,h1_reason,PASS,stop,stop
+E4bM,h1_exit_day,PASS,2024-03-08,2024-03-08
+E4bM,h1_exit,PASS,1.0149999996647239,1.014999985694885
+E4bM,g1h1_reason_known,PASS,not other,stop
+E4bM,g1h2_reason_known,PASS,not other,stop
+E4bM,same_bar_count,PASS,0,0
+E4bM,be_adverse_count,PASS,0,0
+E4bM,none_open_at_end,PASS,0,0
+R1M,info_present,PASS,INFO row,ok
+R1M,states_rows,PASS,16,16
+R1M,setup_Fill,PASS,3,3
+R1M,setup_Hedge,PASS,2,2
+R1M,setup_TICKS,PASS,1,1
+R1M,setup_BarOffset,PASS,1020,1020
+R1M,n_halves,PASS,4,4
+R1M,h0_half,PASS,1,1
+R1M,h0_dir,PASS,-1,-1
+R1M,h0_kind,PASS,c1,c1
+R1M,h0_entry_day,PASS,2024-03-08,2024-03-08
+R1M,h0_entry,PASS,1.0,1.0
+R1M,h0_reason,PASS,c1_flip,c1_flip
+R1M,h0_exit_day,PASS,2024-03-12,2024-03-12
+R1M,h0_exit,PASS,1.006500005722046,1.006500005722046
+R1M,h1_half,PASS,2,2
+R1M,h1_dir,PASS,-1,-1
+R1M,h1_kind,PASS,c1,c1
+R1M,h1_entry_day,PASS,2024-03-08,2024-03-08
+R1M,h1_entry,PASS,1.0,1.0
+R1M,h1_reason,PASS,c1_flip,c1_flip
+R1M,h1_exit_day,PASS,2024-03-12,2024-03-12
+R1M,h1_exit,PASS,1.006500005722046,1.006500005722046
+R1M,h2_half,PASS,1,1
+R1M,h2_dir,PASS,1,1
+R1M,h2_kind,PASS,c1,c1
+R1M,h2_entry_day,PASS,2024-03-12,2024-03-12
+R1M,h2_entry,PASS,1.006500005722046,1.006500005722046
+R1M,h2_reason,PASS,tp1,tp1
+R1M,h2_exit_day,PASS,2024-03-13,2024-03-13
+R1M,h2_exit,PASS,1.0165000054985285,1.016499996185303
+R1M,h3_half,PASS,2,2
+R1M,h3_dir,PASS,1,1
+R1M,h3_kind,PASS,c1,c1
+R1M,h3_entry_day,PASS,2024-03-12,2024-03-12
+R1M,h3_entry,PASS,1.006500005722046,1.006500005722046
+R1M,h3_exit,ENTRY_ONLY,end,end
+R1M,g1h1_reason_known,PASS,not other,c1_flip
+R1M,g1h2_reason_known,PASS,not other,c1_flip
+R1M,g2h1_reason_known,PASS,not other,tp1
+R1M,g2h2_reason_known,PASS,not other,end
+R1M,same_bar_count,PASS,0,0
+R1M,be_adverse_count,PASS,0,0
+R1M,none_open_at_end,PASS,0,0
+A6_CM3,control_detected,PASS,>= 1 FAIL row,3
+A6_CM3,info_present,CTL_PASS,INFO row,ok
+A6_CM3,states_rows,CTL_PASS,14,14
+A6_CM3,setup_Fill,CTL_PASS,3,3
+A6_CM3,setup_Hedge,CTL_PASS,2,2
+A6_CM3,setup_TICKS,CTL_PASS,1,1
+A6_CM3,setup_BarOffset,CTL_PASS,1020,1020
+A6_CM3,n_halves,CTL_PASS,2,2
+A6_CM3,h0_half,CTL_PASS,1,1
+A6_CM3,h0_dir,CTL_PASS,1,1
+A6_CM3,h0_kind,CTL_PASS,c1,c1
+A6_CM3,h0_entry_day,CTL_PASS,2024-03-08,2024-03-08
+A6_CM3,h0_entry,CTL_PASS,1.0,1.0
+A6_CM3,h0_reason,CTL_PASS,tp1,tp1
+A6_CM3,h0_exit_day,CTL_PASS,2024-03-08,2024-03-08
+A6_CM3,h0_exit,CTL_PASS,1.0099999997764826,1.009999990463257
+A6_CM3,h1_half,CTL_PASS,2,2
+A6_CM3,h1_dir,CTL_PASS,1,1
+A6_CM3,h1_kind,CTL_PASS,c1,c1
+A6_CM3,h1_entry_day,CTL_PASS,2024-03-08,2024-03-08
+A6_CM3,h1_entry,CTL_PASS,1.0,1.0
+A6_CM3,h1_reason,CTL_FAIL,be_adverse,be
+A6_CM3,h1_exit_day,CTL_PASS,2024-03-11,2024-03-11
+A6_CM3,h1_exit,CTL_FAIL,0.9975000023841858,0.996500015258789
+A6_CM3,g1h1_reason_known,CTL_PASS,not other,tp1
+A6_CM3,g1h2_reason_known,CTL_PASS,not other,be
+A6_CM3,same_bar_count,CTL_PASS,0,0
+A6_CM3,be_adverse_count,CTL_FAIL,1,0
+A6_CM3,none_open_at_end,CTL_PASS,0,0
+A6M_CM3,control_detected,PASS,>= 1 FAIL row,3
+A6M_CM3,info_present,CTL_PASS,INFO row,ok
+A6M_CM3,states_rows,CTL_PASS,14,14
+A6M_CM3,setup_Fill,CTL_PASS,3,3
+A6M_CM3,setup_Hedge,CTL_PASS,2,2
+A6M_CM3,setup_TICKS,CTL_PASS,1,1
+A6M_CM3,setup_BarOffset,CTL_PASS,1020,1020
+A6M_CM3,n_halves,CTL_PASS,2,2
+A6M_CM3,h0_half,CTL_PASS,1,1
+A6M_CM3,h0_dir,CTL_PASS,-1,-1
+A6M_CM3,h0_kind,CTL_PASS,c1,c1
+A6M_CM3,h0_entry_day,CTL_PASS,2024-03-08,2024-03-08
+A6M_CM3,h0_entry,CTL_PASS,1.0,1.0
+A6M_CM3,h0_reason,CTL_PASS,tp1,tp1
+A6M_CM3,h0_exit_day,CTL_PASS,2024-03-08,2024-03-08
+A6M_CM3,h0_exit,CTL_PASS,0.9900000002235174,0.990000009536743
+A6M_CM3,h1_half,CTL_PASS,2,2
+A6M_CM3,h1_dir,CTL_PASS,-1,-1
+A6M_CM3,h1_kind,CTL_PASS,c1,c1
+A6M_CM3,h1_entry_day,CTL_PASS,2024-03-08,2024-03-08
+A6M_CM3,h1_entry,CTL_PASS,1.0,1.0
+A6M_CM3,h1_reason,CTL_FAIL,be_adverse,be
+A6M_CM3,h1_exit_day,CTL_PASS,2024-03-11,2024-03-11
+A6M_CM3,h1_exit,CTL_FAIL,1.002500057220459,1.003499984741211
+A6M_CM3,g1h1_reason_known,CTL_PASS,not other,tp1
+A6M_CM3,g1h2_reason_known,CTL_PASS,not other,be
+A6M_CM3,same_bar_count,CTL_PASS,0,0
+A6M_CM3,be_adverse_count,CTL_FAIL,1,0
+A6M_CM3,none_open_at_end,CTL_PASS,0,0
+R1_CMF,control_detected,PASS,>= 1 FAIL row,1
+R1_CMF,info_present,CTL_PASS,INFO row,ok
+R1_CMF,states_rows,CTL_PASS,16,16
+R1_CMF,setup_Fill,CTL_PASS,3,3
+R1_CMF,setup_Hedge,CTL_PASS,2,2
+R1_CMF,setup_TICKS,CTL_PASS,1,1
+R1_CMF,setup_BarOffset,CTL_PASS,1020,1020
+R1_CMF,n_halves,CTL_FAIL,4,2
+R1_CMF,h0_half,CTL_PASS,1,1
+R1_CMF,h0_dir,CTL_PASS,1,1
+R1_CMF,h0_kind,CTL_PASS,c1,c1
+R1_CMF,h0_entry_day,CTL_PASS,2024-03-08,2024-03-08
+R1_CMF,h0_entry,CTL_PASS,1.0,1.0
+R1_CMF,h0_reason,CTL_PASS,c1_flip,c1_flip
+R1_CMF,h0_exit_day,CTL_PASS,2024-03-12,2024-03-12
+R1_CMF,h0_exit,CTL_PASS,0.9934999942779541,0.993499994277954
+R1_CMF,h1_half,CTL_PASS,2,2
+R1_CMF,h1_dir,CTL_PASS,1,1
+R1_CMF,h1_kind,CTL_PASS,c1,c1
+R1_CMF,h1_entry_day,CTL_PASS,2024-03-08,2024-03-08
+R1_CMF,h1_entry,CTL_PASS,1.0,1.0
+R1_CMF,h1_reason,CTL_PASS,c1_flip,c1_flip
+R1_CMF,h1_exit_day,CTL_PASS,2024-03-12,2024-03-12
+R1_CMF,h1_exit,CTL_PASS,0.9934999942779541,0.993499994277954
+R1_CMF,g1h1_reason_known,CTL_PASS,not other,c1_flip
+R1_CMF,g1h2_reason_known,CTL_PASS,not other,c1_flip
+R1_CMF,same_bar_count,CTL_PASS,0,0
+R1_CMF,be_adverse_count,CTL_PASS,0,0
+R1_CMF,none_open_at_end,CTL_PASS,0,0
+R1M_CMF,control_detected,PASS,>= 1 FAIL row,1
+R1M_CMF,info_present,CTL_PASS,INFO row,ok
+R1M_CMF,states_rows,CTL_PASS,16,16
+R1M_CMF,setup_Fill,CTL_PASS,3,3
+R1M_CMF,setup_Hedge,CTL_PASS,2,2
+R1M_CMF,setup_TICKS,CTL_PASS,1,1
+R1M_CMF,setup_BarOffset,CTL_PASS,1020,1020
+R1M_CMF,n_halves,CTL_FAIL,4,2
+R1M_CMF,h0_half,CTL_PASS,1,1
+R1M_CMF,h0_dir,CTL_PASS,-1,-1
+R1M_CMF,h0_kind,CTL_PASS,c1,c1
+R1M_CMF,h0_entry_day,CTL_PASS,2024-03-08,2024-03-08
+R1M_CMF,h0_entry,CTL_PASS,1.0,1.0
+R1M_CMF,h0_reason,CTL_PASS,c1_flip,c1_flip
+R1M_CMF,h0_exit_day,CTL_PASS,2024-03-12,2024-03-12
+R1M_CMF,h0_exit,CTL_PASS,1.006500005722046,1.006500005722046
+R1M_CMF,h1_half,CTL_PASS,2,2
+R1M_CMF,h1_dir,CTL_PASS,-1,-1
+R1M_CMF,h1_kind,CTL_PASS,c1,c1
+R1M_CMF,h1_entry_day,CTL_PASS,2024-03-08,2024-03-08
+R1M_CMF,h1_entry,CTL_PASS,1.0,1.0
+R1M_CMF,h1_reason,CTL_PASS,c1_flip,c1_flip
+R1M_CMF,h1_exit_day,CTL_PASS,2024-03-12,2024-03-12
+R1M_CMF,h1_exit,CTL_PASS,1.006500005722046,1.006500005722046
+R1M_CMF,g1h1_reason_known,CTL_PASS,not other,c1_flip
+R1M_CMF,g1h2_reason_known,CTL_PASS,not other,c1_flip
+R1M_CMF,same_bar_count,CTL_PASS,0,0
+R1M_CMF,be_adverse_count,CTL_PASS,0,0
+R1M_CMF,none_open_at_end,CTL_PASS,0,0
