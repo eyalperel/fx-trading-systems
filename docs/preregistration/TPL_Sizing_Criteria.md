@@ -175,3 +175,14 @@ rows cannot change its verdict. Compare in Git Bash:
 identical to run 2's log (sha256 `e91ad59edca18c92…`) up to line endings. **New guard seen to fire:** exactly 3 REFUSED rows
 with reason lots / risk / margin, one each in A1_GLOT / A1_CMR / A1_GMRG, each with the same asset and ymd as its ERROR row,
 kind `standard`. Any `bridge-too-far` rows: count recorded as an observation (b). Runs so far: 2; this is run 3.
+
+## Run 3 — 2026-11-24 16:26 — PASS, all predictions met (regression after the PERF1 logging change)
+
+Commit `c91305f` (Amendment 2). Log `C:/Zorro/Data/TPL_Sizing_log_run3.csv` (sha256 `43eb218322e8639e…`); with the REFUSED
+rows removed, identical to run 2's log (line endings normalised). Checker: RUN PASS, 86 rows, 0 FAIL, 1 DETECTED, timing TA.
+Zorro: `Trades 32`, no Error line.
+**New guard fired:** exactly 3 REFUSED rows, kind `standard`, each after its ERROR row with the same asset, ymd and reason:
+EUR/AUD 20240307 risk (A1_CMR), GBP/CHF 20240307 lots (A1_GLOT), GBP/CAD 20240307 margin (A1_GMRG); scenario-to-pair
+mapping from `tools/make_scenarios.py:168-170` (b). 0 bridge-too-far rows.
+
+**Verdict: P6 still PASS after the PERF1 logging change.** Runs of P6: 3.
