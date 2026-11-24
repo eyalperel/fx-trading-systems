@@ -544,3 +544,34 @@ bars with real indicators (until now every run used scripted states on synthetic
   in 2008 / 2024, max 9.3 pips); (a) spread.htm: used only with `Spread = marketVal()`. Historical spreads are a later
   T7 sensitivity level.
 
+## T3 amendment 1 — Strategy 2 C1 reading (decided 2026-11-24, user: as recommended, option B)
+
+Closes T3.4 (Strategy 2 C1 and C2 of the same type, against V20). Taken before any Strategy 2 run.
+
+- (a) V20: C2 should be a different type from C1 ("if C1 is a two-lines cross, C2 should be a zero-cross
+  or chart indicator"); the two "accomplish the same goal but operate differently". V05: three C1 types
+  (zero cross, two-lines cross, chart indicator). V18: an SMA applied to a one-line indicator's data makes
+  it a two-lines cross ("just leave it on ten", SMA 10). V34: bridge-too-far is defined for a two-lines-cross C1.
+- (a) Neither source gives a second line: the MESA Stochastic sidebar (TASC V.32:1) plots one line with
+  .8 / .2 levels; Laguerre RSI (*Cybernetic Analysis* p. 221) is one line with .2 / .8.
+- (b) Laguerre RSI is exactly 1 on a rising and exactly 0 on a falling ramp, and pins at 0 / 1 on long
+  cycles (LRSI run 1: ramp_exact, O_PIN). An SMA of a pinned run equals it, so "LRSI vs its SMA" would
+  read state 0 (indeterminate, T3.1) in exactly the strongest trends.
+- (c) MESA Stochastic vs its SMA(10) is our adaptation by VP's V18 method, not a MESA source rule (as the
+  0.5 midline reading was). MESA vs MESA[1] (the Fisher article's trigger rule) was not chosen: it is the
+  Fisher source's rule, and on a smooth oscillator it flips at every turning point.
+
+Options considered: A keep both midline (breaks V20); **B** C1 = MESA vs SMA(10) of MESA, C2 = Laguerre RSI
+0.5 midline; C C1 midline, C2 = LRSI vs SMA(10) (blind in strong trends, (b) above); D replace one indicator
+(changes the strategy, needs a new unverified indicator).
+
+**Decision (B).**
+1. Strategy 2 variant 0: C1 = MESA Stochastic (20, 48, 10) vs SMA(10) of its own output, two-lines cross
+   [V18, V20]; state +1 above, -1 below, 0 exactly equal (T3.1). C2 = Laguerre RSI (gamma 0.5) above / below
+   0.5, unchanged (c).
+2. Bridge-too-far **on** for Strategy 2 (two-lines-cross C1, V34); replaces T3.3 for Strategy 2.
+3. The SMA is new slot code: it gets a reference model and the R1-style real-data check before any
+   Strategy 2 result is read. Which Zorro function (or own running mean) computes it is taken from the
+   Zorro 3.11 manual, not memory.
+4. Variant count: this redefines variant 0 before any run, so it adds no variant. The 0.5 midline MESA
+   reading is a possible later counted variant; SMA lengths other than 10 are T11 sensitivity levels.
