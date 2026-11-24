@@ -171,3 +171,10 @@ Amendment 2.1, B1 passes), `Trades 650`; performance figures not recorded (R-D1)
 
 **Verdict: R1b PASS (run 1).** **R1 complete:** R1a PASS (run 2) and R1b PASS (run 1). Runs: R1a 2, R1b 1.
 Variants: 1 configuration, 2 cost modes.
+
+## Amendment 3 — 2026-11-24 (R1c / R1d for PERF1; before the runs)
+
+Two more runs of this script on the logging template (PERF1 Amendment 1, A1.1): **R1d** (`r1_SpreadLevel = 1`, x1) and
+**R1c** (`r1_SpreadLevel = 2`, x2), checked by `tools/check_r1.py d` / `c` (`5b7ba43`). Their predictions are in
+`PERF1_Strategy1_EURUSD_Criteria.md` Amendment 2; results are recorded there. Mechanics only, as R1 (R-D1); the
+performance read happens only through `tools/perf_report.py` under PERF1.
