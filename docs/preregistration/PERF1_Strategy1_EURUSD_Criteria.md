@@ -242,3 +242,32 @@ REFUSED rows (they are written only after an ERROR row; `perf_report.py` refuses
 
 **Gate for the read (A2.4) met:** S4 run 6, P5 run 6, P6 run 3, R1d run 1, R1c run 1 all PASS. `perf_report.py` may now
 read R1d (x1, sha256 prefix `0590f0b9c9671c32`) and R1c (x2, `640f8fb4743178af`).
+
+## PERF1 read 1 — 2026-11-24 16:37 — **STOP**
+
+Commit `7099a89` (gate met). `python tools/perf_report.py --x1 C:/Zorro/Data/TPL_R1d_log_run1.csv --x2
+C:/Zorro/Data/TPL_R1c_log_run1.csv --sha-x1 0590f0b9c9671c32 --sha-x2 640f8fb4743178af --history C:/Zorro/History --out
+analysis/template/r1/results/PERF1_read1_report.md` (both sha prefixes verified by the script). Full report:
+`analysis/template/r1/results/PERF1_read1_report.md` (items 1-13, information-only items, P-4 near-miss table, history sha256).
+
+**Verdict at x2 (P-3) (b):** 325 signals, mean signal-R **-0.0304**, sd 0.629, **t = -0.87**; total R -9.87; best year 2007
+(+2.99) removed: **-12.87**. Every STOP condition holds (mean <= 0; total without best year <= 0). x1 (reading only): mean
+-0.0235, t = -0.68, would also read STOP.
+
+**Selected items (b), reported, not gated:** win rate 44.6% (x1 and x2); max drawdown 16.9 / 18.2 signal-R (x1 / x2); swap
+-3.48 / -3.57 R; spread cost 2.98 / 5.97 R; standard 256 signals (-5.27 R at x2), continuation 69 (-4.60 R); longs 180
+(-12.16 R), shorts 145 (+2.29 R); 9 of 20 exit years positive; refusals: 35 bridge-too-far, 0 lots / risk / margin;
+same-bar stop + TP1: 2 signals; long TP1 halves: 65. Near-miss (P-4): halves that could flip at 0.5 / 1 / 2 pips: 8 / 12 / 28 of 650.
+
+**Consistency checks (b):** exit reasons sum to 650 halves at x1 and x2; spread cost at x2 = 2 x x1 exactly; final equity
+differs from Zorro's summary (different accounting, A3.1; not used).
+
+**Reading (c).** No evidence of an edge rather than evidence of a losing one: t = -0.87 is well inside the noise. Adding
+back the x1 costs (spread +2.98 R, swap +3.48 R) gives about -1.2 R over 325 signals, roughly flat before costs (approximate:
+trades shift slightly when costs change, M-D7). (c) The near-miss counts cannot plausibly turn the mean into t >= 2; the
+second-feed check (P-4.3) is not run for a stopped system.
+
+**Decision (user: accept, 2026-11-24).** STOP as pre-registered. Recorded as a failure (PROJECT_STATE §2.9). Strategy 1 is
+not tuned on EUR/USD to rescue it; the subgroup observations above (longs / shorts, continuation, years) are not used to
+choose any variant. Next: Strategy 2 variant 0 on EUR/USD under its own pre-registration, with the x2 bar unchanged.
+**Strategy variants tested, project-wide: 1.**
