@@ -144,4 +144,35 @@ Project-wide strategy variants tested after this read: 1.
 
 ## Amendments
 
-(none)
+### Amendment 1 — 2026-11-24, before any performance number (user: accept, option A)
+
+Reason (b): `tools/perf_report.py` (`9a202d6`, tests `9eb7bc3`, 48/48) stops on the R1b log with exit 3: two inputs
+are not logged. (1) TP1 distance / level (item 8, P-4): no row holds `Tp1Atr` or the TP1 level; the template's
+same-bar counter `nx_aNSameBar` is never logged. (2) Refusals (item 11): bridge-too-far skips leave no row; `ERROR`
+rows (lots, risk, margin) carry no signal kind.
+
+**A1.1 Data (replaces the P-2 table rows x1 / x2).**
+- Template change, **logging only**: an `INFO` row carries `Tp1Atr=` and `RefusedLog=1`; every refused signal writes
+  `REFUSED,asset,ymd,reason,kind` (reason: bridge-too-far, lots, risk, margin; kind: standard / continuation).
+  Row format proposed by Claude Code, adopted.
+- **x1 = new run R1d** (logging template, costs on, `nx_SpreadMult = 1`). Gate: the R1b checks (K0-K6) PASS **and**
+  R1d's HALF rows equal R1b run 1's 650 HALF rows exactly (proves the change is log-only). R1b run 1 stays the reference.
+- **x2 = new run R1c** (logging template, `nx_SpreadMult = 2`), gate as P-2.
+- Regressions after the template change: S4, P5, P6 re-run, each equal to its last PASS.
+- Both log sha256 recorded before `perf_report.py` reads them.
+
+**A1.2 Choices left open by P-1 / P-3 / P-4, adopted as implemented (c).**
+- Item 12 and the best-year removal: a signal is placed whole in the calendar year its last half closed.
+- Drawdown: the peak starts at 0; halves closing on the same day are applied in log order.
+- Near-miss and same-bar: a half's life includes its exit bar only for level exits (tp1, stop, be, trail);
+  close-decided exits fill at the next open, so their exit bar is excluded.
+- Best-year tie: the earliest year is removed.
+
+**A1.3 Extra refusals in `perf_report.py` (guards, each seen to fire in its tests):** a group missing a half; a
+profit breaking the cost identity; units not matching the SIZE lots; a SIZE row with neither ENTER nor ERROR;
+REFUSED rows disagreeing with ERROR rows.
+
+**A1.4 Disclosure (b).** In addition to the 10 step-5 trades (P-2): while inspecting the log format, Claude Code
+printed 3 raw HALF rows of `TPL_R1b_log_run1.csv` (entry, exit, profit of the first signals) and row counts per
+kind (325 ENTER, 650 HALF, 208 STOP). (c) The STOP count hints at the exit mix. The verdict rule (P-3) was fixed
+before any of this was seen and is unchanged.
