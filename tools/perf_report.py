@@ -46,7 +46,7 @@ SHIFTS_PIPS = (0.5, 1.0, 2.0)                 # P-4.2
 EPS_PIPS = 1e-9                               # tie tolerance of the near-miss comparisons
 YEARS_RANGE = tuple(range(2007, 2027))        # P-1 item 12
 REASONS = ("c1_flip", "baseline", "stop", "tp1", "be", "trail", "exit_ind", "be_adverse", "end", "other")
-REFUSAL_REASONS = (("btf", "bridge-too-far"), ("lots", "below 1 lot"), ("margin", "margin"),
+REFUSAL_REASONS = (("bridge-too-far", "bridge-too-far"), ("lots", "below 1 lot"), ("margin", "margin"),
                    ("risk", "risk above configured"))
 # exits where the level is hit inside the bar (the exit bar belongs to the half's life); close-decided exits fill
 # at the next open, so their exit bar is not part of the life (template: nxt_h1Active counts tp1 / stop only).
@@ -148,7 +148,7 @@ def missing_fields(L):
                    "no row of the template log holds the TP1 level or its multiple, and the template's own same-bar "
                    "count (nx_aNSameBar) is not logged")
     if info.get("RefusedLog") != "1":
-        out.append("INFO token RefusedLog=1 and REFUSED rows asset,ymd,reason,kind (item 11): bridge-too-far skips leave "
+        out.append("INFO token RefusedLog=1 and REFUSED rows asset,ymd,reason,kind with reason bridge-too-far / lots / risk / margin (item 11): bridge-too-far skips leave "
                    "no log row, and the ERROR rows of the sizing guard (lots / risk / margin) carry no signal kind, so "
                    "refusals cannot be split into standard / continuation")
     if not L["acct"]:
