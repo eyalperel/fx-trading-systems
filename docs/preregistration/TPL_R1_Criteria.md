@@ -111,3 +111,43 @@ Changes (setup and data model only; criteria, tolerances and checks unchanged):
 Prediction for R1a run 2 (c): C0 met (no Error line); B1 PASS (first bar 2005-03-29 may be partial: exempt); W1 PASS on every
 row (Reflex MS = 0 rows excluded); S1 0 differences; T1 PASS under (open, entry) and (open, after) and no (close, ·)
 alternative; K1, K3, K4, K5 0 differences; no MARGINCALL. Runs so far: R1a 1 (FAIL). Variants unchanged.
+
+## Amendment 2 — 2026-11-23 (after R1a run 2; user: approved)
+
+Made after seeing run 2, so both changes are listed here next to the result they affect:
+1. **C0 exception for one message.** `Error 047: <asset> no <year> history` for a year before the first history file is
+   accepted **only if B1 passes** (every bar from Zorro's first bar on equals the Python bars, so nothing is missing). Any
+   other Error line still fails C0. Evidence (b): in R1a runs 1 and 2 Zorro's first bar lay exactly 520 bars before the
+   start and every bar matched; gotchas 9d.7 had filed the same message as harmless (as a Warning). The Amendment 1
+   inference that a later start avoids it was **wrong**: it reappeared with 2007-04-01 (gotchas 9d.22 updated).
+2. **Checker defect fixed (tool, not Zorro):** `check_r1.py` replaced Python's first bar with the RBAR values printed with 10
+   decimals even when the first bar was not partial; the ~5e-11 rounding was amplified by Reflex's start-up (normaliser
+   1.6e-9 on row 3) into 8.4e-9, one W1 row. Now the first bar is replaced only if it differs by more than the bar
+   tolerance (1e-9). Criteria and tolerances unchanged.
+
+## R1a run 2 — 2026-11-23 19:02 — PASS under Amendment 2
+
+Commit `3aac0ce` (Amendment 1). Log `C:/Zorro/Data/TPL_R1a_log_run2.csv` (sha256 `051c1286dfb3ae8b…`), indicators
+`TPL_R1a_ind_run2.csv` (`49309c429c06baf5…`). Checker as committed: 1 FAIL row (W1 Reflex, row 3, 8.4e-9; Amendment 2.2);
+corrected checker: `analysis/template/r1/results/TPL_R1a_run2_fixedchecker.csv`, 0 FAIL of 30. Zorro: `Error 047: EUR/USD no
+2004 history`, `Trades 650`; performance figures not recorded (R-D1).
+
+| # | Result (b) |
+|---|---|
+| C0 | Only `Error 047 ... no 2004 history` (accepted under Amendment 2.1: B1 passes) |
+| K0 | INFO settings as required; 0 ERROR / ASSETFAIL rows |
+| B1 | All bars equal the Python bars, rule (same, own) + holidays; first bar 2005-03-29 (as predicted), equal to the full bar within 4.9e-11 (not partial); other variants 452 / 4,827 / 5 mismatches |
+| W1 | Every IND field on every row within tolerance; max error 5.6e-16 from row 3 on; Reflex row with MS = 0 excluded (1) |
+| S1 | 0 differences, 0 near-threshold bars |
+| T1 | **650 of 650 halves equal the engine + M1 layer** under (open, entry) and (open, after); (close, ·): 613 differences. Market fills at the first record's open (as predicted); entry-minute question not distinguishable (as predicted). Same-bar stop/TP1 bars: 2 |
+| K1 | 325 SIZE rows recompute exactly; ATR = IND ATR |
+| K3, K4, K5 | 0 differences (Equity, Balance, profit identity, half lots) |
+| K6 | No MARGINCALL; max MarginTotal / Equity 0.040 |
+
+**Verdict: R1a PASS (run 2, under Amendments 1-2).** On 19 years of real EUR/USD bars the template's trades equal the
+independent engine's, its indicator inputs equal the verified models, and sizing / Equity / profit are exact.
+Runs: R1a 2 (run 1 FAIL). Variants: 1 configuration.
+
+Prediction for R1b run 1 (c), `r1_Costs = 1`: C0 as amended; K0 (costs 1, Spread 0.00012, RollLong -0.8947, RollShort
+0.4259); B1, W1, S1 PASS as in R1a run 2 (identical bars and indicators); K1, K3b, K4 (cost identity and whole-day rollover),
+K5 0 differences; no MARGINCALL. The trades differ from R1a (spread moves triggers, M-D7) and are not replayed.

@@ -26,7 +26,7 @@
 #include "../template/NNFX_Template.h"
 
 int r1_CompileOnly = 0;   // run (compile checks 2026-11-23 clean); criteria committed before each run
-int r1_Costs = 0;         // 0 = R1a, 1 = R1b (R-D7)
+int r1_Costs = 1;         // 0 = R1a, 1 = R1b (R-D7); R1a PASS run 2
 string r1_Asset = "EUR/USD";
 
 void run()

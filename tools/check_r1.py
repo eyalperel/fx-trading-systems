@@ -367,11 +367,15 @@ def run(mode, log_path, ind_path, history, out_path):
         bars = allv[var][1]
         r0 = L["rbar"][0]           # gotchas 9d.14: Zorro's first bar may be partial; the models start from Zorro's values
         diff0 = max(abs(r0[k] - bars[k][0]) for k in ("o", "h", "l", "c"))
-        for k in ("o", "h", "l", "c"):
-            bars[k] = bars[k].copy()
-            bars[k][0] = r0[k]
-        rep.add("B1", "first_bar", True, "Zorro first bar used", f"{r0['ymd']}, max diff to the full bar {diff0:.3e}",
-                status="INFO")
+        # R1 Amendment 2: replace only a first bar that really differs (partial); RBAR prints carry ~5e-11 of rounding,
+        # which Reflex's start-up amplified to 8.4e-9 in R1a run 2 when an equal first bar was replaced.
+        patched = diff0 > TOL_BAR
+        if patched:
+            for k in ("o", "h", "l", "c"):
+                bars[k] = bars[k].copy()
+                bars[k][0] = r0[k]
+        rep.add("B1", "first_bar", True, "Zorro first bar used only if partial",
+                f"{r0['ymd']}, max diff to the full bar {diff0:.3e}, replaced {patched}", status="INFO")
         model = RP.indicators(bars)
         st = RP.states(model)
         day_index = {D.ymd_int(d): k for k, d in enumerate(bars["day"])}
