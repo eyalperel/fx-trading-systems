@@ -151,3 +151,23 @@ Runs: R1a 2 (run 1 FAIL). Variants: 1 configuration.
 Prediction for R1b run 1 (c), `r1_Costs = 1`: C0 as amended; K0 (costs 1, Spread 0.00012, RollLong -0.8947, RollShort
 0.4259); B1, W1, S1 PASS as in R1a run 2 (identical bars and indicators); K1, K3b, K4 (cost identity and whole-day rollover),
 K5 0 differences; no MARGINCALL. The trades differ from R1a (spread moves triggers, M-D7) and are not replayed.
+
+## R1b run 1 — 2026-11-23 19:42 — PASS, all predictions met
+
+Commit `9c74b28`. Log `C:/Zorro/Data/TPL_R1b_log_run1.csv` (sha256 `80873c4803b8c1c2…`), indicators `TPL_R1b_ind_run1.csv`
+(`49309c429c06baf5…`, byte-identical to R1a run 2: costs do not touch the indicators). Checker output
+`analysis/template/r1/results/TPL_R1b_run1.csv`: 0 FAIL of 29. Zorro: `Error 047: EUR/USD no 2004 history` (accepted,
+Amendment 2.1, B1 passes), `Trades 650`; performance figures not recorded (R-D1).
+
+| # | Result (b) |
+|---|---|
+| K0 | costs 1, Spread 0.00012, RollLong -0.8947, RollShort 0.4259, Commission 0; 0 ERROR / ASSETFAIL rows |
+| B1, W1, S1 | As R1a run 2: all bars, every indicator field (FAMA max 8.9e-16), 0 state differences |
+| K1 | 325 SIZE rows recompute exactly |
+| K3b | ACCT Balance = 100,000 + closed profits on every row |
+| K4 | Cost identity (profit = dir x (exit - entry) x units - spread x units - commission + rollover) on all 650 halves; rollover = whole days x rate on all. Guard exercised: spread on 650 halves, rollover on 645 (5 closed within a day), commission 0 (list value 0) |
+| K5 | 0 differences |
+| K6 | No MARGINCALL; max MarginTotal / Equity 0.040 |
+
+**Verdict: R1b PASS (run 1).** **R1 complete:** R1a PASS (run 2) and R1b PASS (run 1). Runs: R1a 2, R1b 1.
+Variants: 1 configuration, 2 cost modes.
