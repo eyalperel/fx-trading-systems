@@ -1,0 +1,5 @@
+log,mult,halves_engine,halves_zorro,same_days_reason,share,total_engine,total_zorro,mean_diff,max_half_r_diff,median_half_r_diff,result
+TPL_R1c_log_run1.csv,2,650,650,644,0.9908,-10.2514,-9.8728,-0.00117,1.3335,0.00000,PASS
+TPL_R1d_log_run1.csv,1,650,650,647,0.9954,-7.2678,-7.6412,+0.00115,0.4948,0.00000,PASS
+TPL_R2c_log_run1.csv,2,564,564,561,0.9947,-14.0370,-13.5217,-0.00183,1.3250,0.00000,PASS
+TPL_R2b_log_run1.csv,1,564,564,563,0.9982,-11.4481,-11.6379,+0.00067,0.0255,0.00000,PASS

@@ -54,6 +54,8 @@ class Params:
     volume_mode: str = "ALWAYS_YES"  # T2; "ALWAYS_NO" guard stub; "INDICATOR"
     exit_mode: str = "NONE"          # T1; "INDICATOR"
     spread: float = 0.0              # price units (T7)
+    baseline_mode: str = "on"        # "on" = the template; "off" = C1-only test mode (NULL1 C1, VP's C1 test (a) V05):
+                                     # every C1 signal enters; no baseline / C2 / volume / distance / window / BTF; no baseline exit
 
 
 CONFIG_MAP = {
@@ -249,7 +251,7 @@ def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None, open_fill=
                 pending_exit = "c1_flip"
             elif p.exit_mode == "INDICATOR" and ex[t] == -d:
                 pending_exit = "exit_ind"
-            elif b == -d:
+            elif b == -d and p.baseline_mode == "on":
                 pending_exit = "baseline"
 
         # entries (only when flat after any pending exit)
@@ -257,6 +259,10 @@ def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None, open_fill=
         if not flat:
             continue
         a = atr[t]
+        if p.baseline_mode == "off":            # C1-only (NULL1): a C1 signal is the whole entry rule
+            if c1sig:
+                pending_entry = (c1sig, a, "c1")
+            continue
         dist_ok = abs(c[t] - baseline[t]) <= p.baseline_max_dist_atr * a
         vol_ok = volume_ok(t)
         dec = None

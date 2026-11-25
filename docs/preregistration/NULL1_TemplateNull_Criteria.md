@@ -127,3 +127,28 @@ shifted carrier, C5).
 Project-wide strategy variants tested stays **2**. Null runs, cost levels and drift levels are measurements, not variants.
 
 ## Amendments
+
+### Build (run order 2) and V1 run 1 — 2026-11-25 — **V1 PASS** (all four logs)
+
+**Built (b):** `reference_engine.Params.baseline_mode` ("off" = C1-only, C1 table); `tools/null1.py` (costs, shift, injection,
+V1, resumable null / positive-control runs; refuses offset 0 and an offsets file whose sha256 differs); tests
+`analysis/template/tests/test_c1only_mode.py` (V3: 5 hand-calculated cases; planted defects "gate left on" 3 failures,
+"baseline exit left on" 1 failure) and `tools/tests/test_null1.py` (V2 known answer <= 1e-12 on close and high; planted
+"one bar early" in-test, "f = 1 throughout" by mutation: both fail; shift and cost arithmetic by hand). Regression: tools 150 /
+150, engine 38 / 38 (33 earlier + 5 V3).
+**Procedural note (b):** V1 was run before the build was committed (run order 2 says commit first). The code that ran V1 is the
+code committed with this record, unchanged.
+
+**V1** (`python tools/null1.py v1 C:/Zorro/Data C:/Zorro/History analysis/null_template/results/NULL1_V1.csv`, sha256
+`e170946efef2e9054b13ca18675710f826fc3833c538a6a9e5f91b1566e70db0`):
+
+| Log | Mult | Halves engine / Zorro | Same days + reason | Total signal-R engine / Zorro | Mean diff | Median / max half-R diff | Result |
+|---|---|---|---|---|---|---|---|
+| R1c run 1 | x2 | 650 / 650 | 644 (99.1%) | -10.25 / -9.87 | -0.0012 | 0 / 1.33 | PASS |
+| R1d run 1 | x1 | 650 / 650 | 647 (99.5%) | -7.27 / -7.64 | +0.0012 | 0 / 0.49 | PASS |
+| R2c run 1 | x2 | 564 / 564 | 561 (99.5%) | -14.04 / -13.52 | -0.0018 | 0 / 1.33 | PASS |
+| R2b run 1 | x1 | 564 / 564 | 563 (99.8%) | -11.45 / -11.64 | +0.0007 | 0 / 0.03 | PASS |
+
+(b) The median half matches exactly (cost model: spread, whole-day rollover by date difference); the few differing halves are
+trigger-time differences from Zorro's ask / bid handling (M-D7), as predicted. All within the C3 limits (1.0 R total, 0.005 R
+mean). The totals shown are the already-read PERF1 / PERF2 results, not new information. NULL1 may proceed to run order 4.
