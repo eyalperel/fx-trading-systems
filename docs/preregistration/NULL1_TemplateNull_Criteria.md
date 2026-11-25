@@ -152,3 +152,48 @@ code committed with this record, unchanged.
 (b) The median half matches exactly (cost model: spread, whole-day rollover by date difference); the few differing halves are
 trigger-time differences from Zorro's ask / bid handling (M-D7), as predicted. All within the C3 limits (1.0 R total, 0.005 R
 mean). The totals shown are the already-read PERF1 / PERF2 results, not new information. NULL1 may proceed to run order 4.
+
+### Runs (run order 4-5) — 2026-11-25 — complete, recorded before any value was read
+
+**Amendment 1 (b), during the runs, no rule changed.** O1 ran at about 80 offsets per 3-minute call (a fast C1 keeps a
+position open on most bars; the M1 layer looped over every record in Python). `tools/r1_replay.resolver_fast` (vectorised,
+same rule; halves are independent inside a bar) replaced it for the remaining runs (`null1.run_engine(..., fast=True)`).
+Proven identical before use: 7 real-data checks (F1, F2 real states; O1 offsets 1234 / 4707; O2 offset 2000; O2 on injected
+prices mu = 0.05, offset 777; F1 with start = "after"): every half identical (direction, kind, entry / exit bar and price,
+reason), same-bar counts equal; about 10x faster. New permanent test `test_r1_replay.FastResolver` (random paths, both start
+alternatives); planted defects "no time-order sort" and "entry record not skipped under start = after" both fail it.
+F1, F2 and the first 323 O1 offsets (82 of them written by a call cut off by its time limit) used the old resolver; the rest the fast one (identical by the checks above).
+Also: `tools/null1.py` gained a 2-worker driver and writes x2 and x0 from one engine run (costs do not change the engine's
+trades, C3); committed code otherwise unchanged since V1.
+
+**Files (b):** `analysis/null_template/results/NULL1_null_runs.csv` 8,000 rows (F1, F2, O1, O2 x x2, x0 x 1,000 offsets; 0
+duplicates), sha256 `201a14f904d5e559fe0163bb73cd56ba71e6d1d3b2d68dba4a46686e8a78ad40`; `analysis/null_template/results/NULL1_pc_runs.csv` 6,006 rows (O1, O2 x mu 0.01 / 0.02 / 0.05 x
+(carrier + 1,000)), sha256 `8efe5c9890a6e8faa4741d470c613dcbb0af27cca9629a281ed2e93fdd5faa83`. Only row counts were inspected before this record.
+
+## NULL1 read 1 — 2026-11-25
+
+`python tools/null1_report.py analysis/null_template/results/NULL1_null_runs.csv analysis/null_template/results/NULL1_pc_runs.csv
+201a14f904d5e559 8efe5c9890a6e8fa analysis/null_template/NULL1_report.md` (both sha prefixes verified). Report
+`analysis/null_template/NULL1_report.md` (sha256 `2fd185547f461f2d06319a738fd0ab24f18af8edc5c1c6bc109c0176f38e66b1`).
+
+**Null (b), mean signal-R per run, 1,000 shifts:** F1 x2 median -0.025 (sd 0.031; 5-95% -0.074 / +0.026); F2 x2 -0.046 (sd
+0.035; -0.105 / +0.009); O1 x2 -0.026 (sd 0.025; -0.064 / +0.013); O2 x2 -0.028 (sd 0.037; -0.092 / +0.032). x0 medians: F1
+-0.006, F2 -0.028, O1 -0.007, O2 -0.010.
+**F1 / F2 (describe only):** PERF1 -0.0304 sits at the **42.7th** percentile of its null, PERF2 -0.0479 at the **47.5th**
+(engine's own x2: 41.9th / 45.8th). Both STOPs read exactly like a C1 with random timing. Verdicts unchanged.
+**Positive control (Q1):** O1 detected at mu 0.01 (carrier +0.0139 vs 95th +0.0137, borderline), 0.02 (+0.036) and 0.05
+(+0.104); O2 detected at 0.05 only (+0.076 vs +0.034; not at 0.01: -0.041, 35.8th; 0.02: -0.008, 70.8th).
+**Predictions:** F1 / F2 null centres in [-0.06, -0.01]: met. Real PERF results inside 5-95%: met. **x0 centres within
++-0.02: NOT met** (F2 x0 median -0.028). mu 0.05 detected in both: met. mu 0.01 not detected in at least one: met.
+
+**Reading (c).**
+1. Under this template and these costs, a C1 with no timing edge scores about -0.025 R per signal (Strategy 1's slots) to
+   -0.046 R (Strategy 2's) at x2; both PERF results are ordinary draws from these nulls.
+2. The missed prediction: with Strategy 2's baseline, C2 and bridge-too-far, the null loses about -0.028 R per signal even
+   with no costs; with Strategy 1's slots about -0.006. (c) Something in that slot combination costs R independently of C1
+   timing; not investigated here (no variant chosen from it).
+3. Detection: one read of this size separates from the null only above roughly +0.013 to +0.032 R (the 95th percentiles).
+   In planted-edge terms: O1 saw a drift of 0.01 ATR / bar (borderline); O2 needed 0.05. (c) The carrier is one draw of
+   its own null (its mu = 0 value is not computed, by design), so the per-set bound carries that draw's luck; O2's carrier
+   appears to sit low.
+4. For B: the max-statistic rule over K candidates will set the bar above these single-set 95th percentiles (C6).

@@ -77,7 +77,7 @@ def half_r(hf, day, mult):
 
 
 def run_engine(m1, bars, st, p):
-    res, _ = R1.replay(m1, bars, st, FT, p=p, start="entry", fill_px="open")
+    res, _ = R1.replay(m1, bars, st, FT, p=p, start="entry", fill_px="open", fast=True)   # identical to the slow resolver (test + NULL1 record)
     return res
 
 

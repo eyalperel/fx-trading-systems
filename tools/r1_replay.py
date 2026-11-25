@@ -115,7 +115,56 @@ def resolver(m1, bars, start="entry", fill_px="open"):
     return ev
 
 
-def replay(m1, bars, st, first_trade, p=None, start="entry", fill_px="open"):
+def resolver_fast(m1, bars, start="entry", fill_px="open"):
+    """Same rule as resolver(), vectorised per half (NULL1 speed-up). Halves do not interact inside a bar (their levels
+    change only at closes), so each half's first crossing record is found independently; events are returned in record
+    order, ties in the live-list order, as resolver() does. Equality with resolver() is tested on real runs
+    (tools/tests/test_r1_replay.py and the NULL1 record)."""
+    i0s, i1s = bars["i0"], bars["i1"]
+    keep = bars.get("keep")
+    O, H, Lo = (np.asarray(m1[k], dtype=float) for k in ("o", "h", "l"))
+    cache = {}
+
+    def recs(t):
+        if t not in cache:
+            idx = np.arange(i0s[t], i1s[t] + 1)
+            if keep is not None:
+                idx = idx[keep[idx]]
+            cache.clear()
+            cache[t] = (idx, O[idx], H[idx], Lo[idx])
+        return cache[t]
+
+    def ev(t, halves):
+        idx, o, hi, lo = recs(t)
+        n = len(idx)
+        found = []
+        for pos, hf in enumerate(halves):
+            j0 = 1 if (hf.entry_bar == t and start == "after") else 0
+            if j0 >= n:
+                continue
+            if hf.dir == LONG:
+                s_hit = lo[j0:] <= hf.stop
+                t_hit = hi[j0:] >= hf.tp if hf.tp is not None else np.zeros(n - j0, bool)
+            else:
+                s_hit = hi[j0:] >= hf.stop
+                t_hit = lo[j0:] <= hf.tp if hf.tp is not None else np.zeros(n - j0, bool)
+            any_hit = s_hit | t_hit
+            if not any_hit.any():
+                continue
+            j = int(np.argmax(any_hit))
+            k = j0 + j
+            if s_hit[j]:
+                px = min(hf.stop, float(o[k])) if hf.dir == LONG else max(hf.stop, float(o[k]))
+                found.append((k, pos, hf, px, "stop"))
+            else:
+                px = max(hf.tp, float(o[k])) if hf.dir == LONG else min(hf.tp, float(o[k]))
+                found.append((k, pos, hf, px, "tp"))
+        found.sort(key=lambda x: (x[0], x[1]))
+        return [(hf, px, kind) for _, _, hf, px, kind in found]
+    return ev
+
+
+def replay(m1, bars, st, first_trade, p=None, start="entry", fill_px="open", fast=False):
     """Engine run on bars[first_trade:] with states st (full arrays), M1 layer on. Returns (Result, bar slice offset)."""
     sl = slice(first_trade, None)
     sub = {k: (v[sl] if hasattr(v, "__len__") and not isinstance(v, str) else v) for k, v in bars.items()}
@@ -123,5 +172,6 @@ def replay(m1, bars, st, first_trade, p=None, start="entry", fill_px="open"):
     lst = lambda a: [float(x) for x in a]       # the engine works on Python numbers (its sgn() rejects numpy bools)
     res = E.run(lst(sub["o"]), lst(sub["h"]), lst(sub["l"]), lst(sub["c"]), lst(st["baseline"][sl]), lst(st["atr"][sl]),
                 [int(x) for x in st["c1"][sl]], [int(x) for x in st["c2"][sl]],
-                p=p, open_fill=open_fill(m1, sub, fill_px), intrabar=resolver(m1, sub, start, fill_px))
+                p=p, open_fill=open_fill(m1, sub, fill_px),
+                intrabar=(resolver_fast if fast else resolver)(m1, sub, start, fill_px))
     return res, first_trade
