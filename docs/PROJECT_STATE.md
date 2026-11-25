@@ -392,7 +392,13 @@ file's first rows exactly.
    -0.048 at x2 (t -1.18), total -13.52 R, -16.01 R without 2008. Report `analysis/template/r2/results/PERF2_read1_report.md`.
    Disclosures: dry-run entry-kind / refusal counts (A2), Zorro's costs-off summary of R2a (A3.1). **Strategy variants
    tested: 2.**
-   **Next:** decide the next step after two STOPs, one decision at a time (planning chat). Not to be done: tuning either
+   **Decision N1 (2026-11-25, user: as recommended): C -> B, with D alongside.** C: the template's null distribution first
+   (verified Python engine, random C1 states, costs, many runs, positive control: what "no edge" looks like under this money
+   management, and what edge a ~300-signal read can detect). B: then VP's slot-by-slot method (C1 alone with the ATR money
+   management across dev pairs, then C2 by C-3b of `C2_Selection_Criteria_PreRegistered.md`, then the rest; (a) A §5.1).
+   D: EUR/JPY and AUD/USD M1 into Zorro. Options not taken: A (re-run both stopped strategies on other pairs: a search over
+   pairs, C2 criteria A1.4). C's pre-registration is decided one point at a time.
+   **Next (before N1):** decide the next step after two STOPs, one decision at a time (planning chat). Not to be done: tuning either
    strategy on EUR/USD or choosing variants from the PERF1 / PERF2 subgroups. Phase 2 items (T11 sensitivity, other dev pairs,
    walk-forward, surrogates, second data feed) apply only to a system that passes a read. Small open items: stale comment
    `NNFX_Config.h:156` "(Strategy 2: 0)" (value 1 is right; fix with the next template change); PERF1 header start date
