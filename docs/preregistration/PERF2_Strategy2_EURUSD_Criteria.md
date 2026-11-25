@@ -245,3 +245,12 @@ now refuses a file whose data rows do not all have the header's field count (RUN
 planted stray field (test) and on R2a run 2's real file (5,490 rows refused).
 **A4.2 Gate.** Decided in the planning chat (see below): whether R2a run 2 counts as the R2a PASS or an R2a run 3 is
 required with the fixed row.
+
+**A4.2 decided (user: B, 2026-11-25).** R2a run 2 does not count as the gate; **R2a run 3** runs with the fixed IND row
+(commit `f00d612` + this amendment). Run 3 is the R2a gate run.
+
+**A4.3 R2a run 3 prediction (c).** Same script `TPL_R2_EURUSD.c`, `r2_SpreadLevel = 0`.
+- Zorro: `Error 047` only, `Trades 564`.
+- Template log byte-identical to runs 1-2 (sha256 `a462d4bc77f74cbe`...).
+- Every IND data row has 24 fields (the new column-count guard passes); IND named-field values equal run 2's.
+- `check_r2.py a` on `TPL_R2a_log_run3.csv` / `TPL_R2a_ind_run3.csv`: RUN PASS, 32 rows, 0 FAIL, same figures as run 2.
