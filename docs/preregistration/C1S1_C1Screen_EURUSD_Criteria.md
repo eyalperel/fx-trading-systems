@@ -1,0 +1,88 @@
+# C1S1 — C1-only screen of the verified library on EUR/USD D1 (step B, first round) — Criteria
+
+**Status:** pre-registered 2026-11-25, before any real C1-only result of any candidate exists. Amendments are dated and
+appended below, never edited in place (PROJECT_STATE §2.2).
+**Decided:** planning chat 2026-11-25 (decision N1: C -> B; NULL1 C6 Q2; B1: K-b; B2: R-b; user: as recommended on each).
+Labels as `docs/sources/NNFX_Sources.md`: (a) source states, (b) measurable, (c) inference.
+
+## Purpose
+
+(a) VP tests the slots one at a time, C1 first, "with the ATR-based risk profile so wins and losses are real" [V05; A §5.1],
+and a C1 must hold across pairs [V05]. This round screens every C1-capable reading of the already verified library on
+EUR/USD in C1-only mode against the random-timing null of NULL1. A pass is a **shortlist entry**, not acceptance.
+
+## Candidates (K = 6, fixed; decision B1: K-b)
+
+One reading each, source defaults, no parameter variation. Inputs as their verified files; every slot value equals Zorro's on
+these bars (R1 / R2 W1: MAMA / FAMA, Fisher, Reflex, MESA incl. its Roof stage, Laguerre RSI).
+
+| # | Id | Reading (state +1 / -1 / 0, T3.1) | Type (V05) | Basis |
+|---|---|---|---|---|
+| 1 | FSH | sign(Fish - Fish[1]), Fisher(10) on (H+L)/2 | two-lines | (a) TASC V.20:11 "Fish and Fish delayed by one bar give a crossover system" |
+| 2 | MSS | sign(MESA - SMA(10) of MESA), MESA Stochastic(20, 48, 10) on Close; 0 until 10 outputs | two-lines | (a) V.32:1, [V18]; reading (c), T3 amendment 1 |
+| 3 | MAF | sign(MAMA - FAMA), MAMA(.5, .05) on (H+L)/2 | two-lines (on chart) | (a) TASC V.19:9 "The crossover of MAMA and FAMA is a good trend signal" |
+| 4 | RFX | sign(Reflex), Reflex(20) on Close | zero cross | (c) no rule in the article; Stonehill tested a zero cross (C12) |
+| 5 | ROF | sign(Roof), Roofing Filter(48, 10) on Close | zero cross | (b) zero-mean oscillator (V.32:1); Stonehill: zero cross better than two-lines (C7) |
+| 6 | LRS | sign(LRSI - 0.5), Laguerre RSI(0.5) on Close | midline = zero cross (C21) | (c) our reading (T3.2); (b) pins at 0 / 1 in trends |
+
+Other readings (Fisher zero cross, Reflex 50, other lengths, colour changes) are not in this round; each would be a new
+counted candidate in a new round with its own K.
+
+## Mode, data, costs, statistic
+
+C1-only engine mode (NULL1 C1, `baseline_mode = "off"`, V3), the PERF bars (5,490, trade range rows 520..5489), M1 layer
+(fast resolver, NULL1 Amendment 1), costs spread x2 + rollover (NULL1 C3, V1), statistic mean signal-R; also t, total R,
+total R without the best exit year (P-3 definitions), signals, halves. The engine is the instrument (V1: equal to Zorro on
+99.1-99.8% of halves, medians exact); a survivor gets its own Zorro read later.
+
+## Null (NULL1 C2 / C4 / C6)
+
+For each candidate, its own C1 series circularly shifted by each of the 1,000 offsets of `NULL1_offsets.csv` (sha256
+`f54e5308...`), C1-only, x2. FSH and MSS reuse NULL1's O1 / O2 x2 rows (same engine, mode, costs; sha256 `201a14f9...`);
+MAF, RFX, ROF, LRS are run new (4 x 1,000). **Max-statistic null:** for each offset, the maximum of the six candidates'
+shifted mean signal-R; its 95th percentile is the bar.
+
+## Pass rule (decision B2: R-b)
+
+A candidate passes the EUR/USD screen only if, at x2:
+1. its real mean signal-R > the 95th percentile of the max-statistic null; **and**
+2. its real mean signal-R > 0; **and**
+3. its real total R with the best exit year removed > 0.
+Every candidate's result is reported (pass or not): mean, t, total, total without the best year, its percentile in its own
+null and in the max-statistic null.
+
+**0 survivors:** recorded as "no verified-library C1 beats random timing on EUR/USD under this template"; the next step
+(a K-c round, or a rethink of the template) is a separate decision. **1+ survivors:** all go forward unchanged (none
+dropped or preferred by EUR/USD numbers beyond the rule) to the other dev pairs (step D's data), each pair with its own null
+run, under a new pre-registration; then C-3b (C2) and a full P-3 read in Zorro.
+
+## Checks before the read
+
+- **W0:** the six real state series are built from the reference models on the PERF bars; for FSH and MSS they equal the
+  states of the R1 / R2 checks (S1 0 differences); MAF, RFX, ROF, LRS take values W1 already compared with Zorro on these
+  bars (R1d / R2a run 3 IND files): each state series is recomputed from those IND files and must equal the model's except
+  near-threshold bars (|x| < 1e-9), counted.
+- **Null rows:** 6 x 1,000 x2 rows available, 0 duplicates; the new rows' file sha256 recorded before the read.
+- No real C1-only result of any candidate is computed before W0 and the null rows are complete and recorded.
+
+## Predictions (c)
+
+- W0: 0 state differences on all six (near-threshold count not predicted).
+- Max-statistic 95th percentile between +0.02 and +0.06 R (NULL1: single-set 95th percentiles +0.013 to +0.032).
+- **0 survivors** is the most likely outcome (NULL1: both full strategies sit at the 43rd / 48th percentile of their nulls);
+  not a certainty.
+
+## Run order
+
+1. Commit this file (before any C1-only real result exists).
+2. `tools/c1s1.py`: readings, W0, null runs (resumable), read; tests (a planted wrong reading, e.g. FSH sign flipped, must
+   fail W0; the max-statistic and pass rule on a hand-built table); commit.
+3. W0; null runs for MAF, RFX, ROF, LRS; record sha256.
+4. Read: real C1-only results of all six; report `analysis/c1screen/C1S1_report.md`; results appended below as
+   "C1S1 read 1".
+
+## Variant count
+
+C1-only screen readings tested: **6** (this round). Project-wide strategy variants (full-template reads) stay 2.
+
+## Amendments
