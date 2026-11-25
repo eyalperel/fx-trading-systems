@@ -300,3 +300,45 @@ Switch edit `r2_SpreadLevel = 2`, committed with this amendment. Paste rule A5 (
   K4 (cost identity at each half's own spread, whole-day rollover), K5 0 off; K6 no MARGINCALL.
 - Trade count and bridge-too-far count not predicted (spread moves triggers); 0 lots / risk / margin REFUSED rows.
 - Then (P-2, run order 6): both log sha256 recorded here before `perf_report.py --read perf2` reads R2b (x1) and R2c (x2).
+
+### R2c run 1 — 2026-11-25 11:44 — **PASS, all predictions met** (A6)
+
+Commit `5288913`. Log `C:/Zorro/Data/TPL_R2c_log_run1.csv` (sha256
+`9c26d615bd8db7492bd4e469e67440bd4bc75de282c1aecc7e1edd5a160a2734`), indicators `TPL_R2c_ind_run1.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`, byte-identical to R2b's). Zorro (Error lines only):
+`Error 047` only. `check_r2.py c` (`analysis/template/r2/results/TPL_R2c_run1.csv`): RUN PASS, 32 rows, 0 FAIL. K0 SpreadMult 2,
+0 of 564 halves off 0.00024, 0 ERROR rows; S1 0 differ; K1 0 of 282 off; K3b, K4 (cost identity, whole-day rollover), K5 0
+off; K6 no MARGINCALL, max margin share 0.0374. Observations (b): 564 HALF rows, 158 REFUSED rows, all bridge-too-far.
+
+**Gate for the read (P-2, run order 6) met:** R2a run 3, R2b run 1, R2c run 1 all PASS. `perf_report.py --read perf2` may
+now read R2b (x1, sha256 prefix `431922aad1bbfe49`) and R2c (x2, `9c26d615bd8db749`).
+
+## PERF2 read 1 — 2026-11-25 11:50 — **STOP**
+
+`python tools/perf_report.py --read perf2 --x1 C:/Zorro/Data/TPL_R2b_log_run1.csv --x2 C:/Zorro/Data/TPL_R2c_log_run1.csv
+--sha-x1 431922aad1bbfe49 --sha-x2 9c26d615bd8db749 --history C:/Zorro/History --out
+analysis/template/r2/results/PERF2_read1_report.md` (both sha prefixes verified by the script; exit 0). Full report:
+`analysis/template/r2/results/PERF2_read1_report.md`.
+
+**Verdict at x2 (P-3) (b):** 282 signals, mean signal-R **-0.0479**, sd 0.680, **t = -1.18**; total R -13.52; best year 2008
+(+2.49) removed: **-16.01**. Every STOP condition holds (mean <= 0; total without best year <= 0). x1 (reading only): mean
+-0.0413, t = -1.02, would also read STOP.
+
+**Selected items (b), reported, not gated:** win rate 39.4% (x1 and x2); max drawdown 15.5 / 17.3 signal-R (x1 / x2); swap
+-3.11 / -3.19 R; spread cost 2.59 / 5.18 R; standard 262 signals (-12.94 R at x2), continuation 20 (-0.58 R); longs 149
+(-12.61 R), shorts 133 (-0.91 R); 11 of 20 exit years positive at x2; refusals: 158 bridge-too-far, 0 lots / risk / margin;
+same-bar stop + TP1: 0; long TP1 halves: 53. Near-miss (P-4): halves that could flip at 0.5 / 1 / 2 pips: 7 / 10 / 18 of 564 (x2).
+
+**Consistency checks (b):** exit reasons sum to 564 halves at x1 and x2; spread cost at x2 = 2 x x1 (5.1779 vs 2 x 2.5889); 282
+signals = 282 SIZE rows (K1).
+
+**Reading (c).** No evidence of an edge: t = -1.18 is inside the noise. Adding back the x1 costs (spread +2.59 R, swap +3.11 R)
+gives about -5.9 R over 282 signals (about -0.02 R per signal) before costs: roughly flat to slightly negative (approximate:
+trades shift slightly when costs change, M-D7). The near-miss counts cannot plausibly turn the mean into t >= 2; the
+second-feed check (P-4.3) is not run for a stopped system.
+**Disclosure complement (b):** the report's disclosure line covers hand-checks only; Zorro's costs-off (x0) summary of R2a
+was also seen before this read (A3.1, runs 1-3). The verdict is decided at x2 and the rule was committed before it.
+
+**Decision (user: accept, 2026-11-25).** STOP as pre-registered. Recorded as a failure (PROJECT_STATE §2.9). Strategy 2 is not
+tuned on EUR/USD to rescue it; the subgroup observations above (longs / shorts, years, refusals) are not used to choose any
+variant. **Strategy variants tested, project-wide: 2** (Strategy 1 v0, Strategy 2 v0; both STOP on this EUR/USD feed).
