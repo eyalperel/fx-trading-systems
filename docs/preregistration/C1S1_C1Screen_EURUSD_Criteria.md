@@ -86,3 +86,22 @@ run, under a new pre-registration; then C-3b (C2) and a full P-3 read in Zorro.
 C1-only screen readings tested: **6** (this round). Project-wide strategy variants (full-template reads) stay 2.
 
 ## Amendments
+
+### Build, W0 and null runs (run order 2-3) — 2026-11-25 — W0 PASS; nulls complete; recorded before any real C1-only result
+
+**Built (b):** `tools/c1s1.py` (readings, W0, resumable null runs via `null1`'s driver, read with the R-b rule; refuses a
+sha256 mismatch and never overwrites) and `tools/tests/test_c1s1.py` (4 tests: hand-set reading values incl. on-the-line 0
+and the MSS start-up 0; W0 identical case and **planted FSH sign flip** (FSH fails, the other five unaffected);
+near-threshold difference counted, not failed; max-statistic and R-b on a hand-built table incl. a negative bar and a
+missing candidate row).
+**Procedural note (b):** as in NULL1, W0 and the null runs ran before the build commit; the code is committed unchanged with
+this record.
+
+**W0 (b)** (`analysis/c1screen/results/C1S1_W0.csv`, sha256 `faaee5817b455c9edb66f25d961c514610d5fada7b26f6d207081143a3835062`):
+all six state series recomputed from Zorro's logged indicator values (R1d run 1 IND for FSH / MAF / RFX; R2a run 3 IND for
+MSS / ROF / LRS) equal the model's on the 4,970 trade-range bars: **0 differences, 0 near-threshold, on every id. PASS**
+(prediction: 0 differences, met).
+
+**Null rows (b):** `analysis/c1screen/results/C1S1_null_runs.csv`: MAF, RFX, ROF, LRS x 1,000 offsets at x2, 0 duplicates,
+sha256 `788e5fc4fd204c40ac8153109d31c003b962336c00e75bb4219dc8d2eaf405a6`. FSH / MSS: NULL1 O1 / O2 rows (sha256
+`201a14f904d5e559...`). Only row counts were inspected. No real C1-only result has been computed.
