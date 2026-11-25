@@ -156,3 +156,32 @@ T1 compares the days of the template's `REFUSED,...,bridge-too-far` rows with th
 Strategy 2; project-wide 2 after the read) and disclosure (no Strategy 2 trade hand-checked). Everything else in the
 report is the PERF1 code unchanged (default `--read perf1` output unchanged: 51 earlier tests PASS). P-5.2's synthetic
 Strategy 2 log run is test `test_perf2_synthetic_strategy2_log` (exit 0, all 13 items present, no PERF1 lines).
+
+### Amendment 2 — 2026-11-25, R2a prediction (before the click)
+
+**Compile check (b):** `TPL_R2_EURUSD.c` with `r2_CompileOnly = 1` (commit `8ddf09d`): "compile check done", no `Error`
+line, as predicted. Now `r2_CompileOnly = 0`, `r2_SpreadLevel = 0` (R2a).
+
+**Dry run behind the prediction (b), mechanics only.** The reference models and the engine + M1 layer were run in Python on
+the same bars as R1 (bar rule (same, own), 5,490 bars from 2005-03-29, first trade bar index 520, first bar not patched;
+bars cut by R1d run 1's RBAR rows). Printed: conditioning, near-threshold counts, half / refusal counts. No P&L, R, exit
+reason or year figure was computed or printed.
+- Conditioning: a relative price nudge of 1e-13 moves every field by <= 1.6e-13 absolute (relative <= 7.2e-10, Roof,
+  where values pass near 0; the W1 tolerance is 1e-10 + 1e-9 |m|), and flips no C1 or C2 state.
+- Near-threshold bars in the trade range: C1 0, C2 0, baseline 0. Laguerre RSI exactly 0 or 1 on 39.4% of trade-range bars
+  ((b), the pinning of T3 amendment 1). MESA raw Stoc fallback (range 0): 1 row (the first).
+- Engine + M1 layer, all four (fill_px, start) alternatives identical: **564 halves (282 signals)**, by entry kind (halves):
+  baseline 326, c1 184, continuation 40, pullback 14; **158 bridge-too-far refusals**; 0 same-bar stop + TP1; 0 `end` halves.
+- **Disclosure (b):** these counts (entry-kind mix, refusal count) are now seen before the read. (c) They carry no outcome
+  information; the verdict rule (P-3) is unchanged.
+
+**R2a prediction (c).**
+- Zorro: `Error 047: EUR/USD no 2004 history` (as every R1 run; accepted under C0), no other `Error` line, `Trades 564`.
+- `python tools/check_r2.py a C:/Zorro/Data/TPL_R2a_log_run1.csv C:/Zorro/Data/TPL_R2a_ind_run1.csv C:/Zorro/History
+  analysis/template/r2/results/TPL_R2a_run1.csv`: **RUN PASS**. K0 settings ok, 0 ERROR rows; B1 rule (same, own), first bar
+  20050329 not replaced; W1 every field within tolerance, max errors of the R1 order (<= 1e-11; `nmesa` exact); X1 0 off
+  from row 10 (Zorro `SMA()` = the plain mean; its start-up rows 1-9 reported, count not predicted); S1 0 differ, 0
+  near-threshold; T1 fits all four alternatives, 158 bridge-too-far refusals equal; K1 282 SIZE rows exact; K3, K4, K5 0 off;
+  K6 no MARGINCALL.
+- Copy after the click: `Data/NNFX_Template_log.csv` -> `Data/TPL_R2a_log_run1.csv`, `Data/NNFX_Strategy2_ind.csv` ->
+  `Data/TPL_R2a_ind_run1.csv`.

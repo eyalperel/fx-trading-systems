@@ -26,7 +26,7 @@
 #include "../template/NNFX_Slots.h"
 #include "../template/NNFX_Template.h"
 
-int r2_CompileOnly = 1;   // 1 until the compile check is done; then 0 (committed with the R2a prediction)
+int r2_CompileOnly = 0;   // compile check 2026-11-25 clean; run (PERF2 Amendment 2: R2a prediction committed first)
 int r2_SpreadLevel = 0;   // 0 = R2a (costs off), 1 = R2b (x1), 2 = R2c (x2); PERF2 P-2
 string r2_Asset = "EUR/USD";
 
