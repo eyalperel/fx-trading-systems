@@ -254,3 +254,27 @@ required with the fixed row.
 - Template log byte-identical to runs 1-2 (sha256 `a462d4bc77f74cbe`...).
 - Every IND data row has 24 fields (the new column-count guard passes); IND named-field values equal run 2's.
 - `check_r2.py a` on `TPL_R2a_log_run3.csv` / `TPL_R2a_ind_run3.csv`: RUN PASS, 32 rows, 0 FAIL, same figures as run 2.
+
+### R2a run 3 — 2026-11-25 10:45 — **PASS, all predictions met** (R2a gate run, A4.2)
+
+Commit `6000f53`. Log `TPL_R2a_log_run3.csv` byte-identical to runs 1-2 (sha256
+`a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`); indicators `TPL_R2a_ind_run3.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`): every row 24 fields, named fields equal run 2's on all
+5,490 rows. Zorro: `Error 047` only, `Trades 564`. `check_r2.py a` (`analysis/template/r2/results/TPL_R2a_run3.csv`): RUN PASS,
+32 rows, 0 FAIL, every row identical to run 2's results (figures in the run 2 record).
+Disclosure (b): the paste again showed Zorro's costs-off summary, identical to runs 1-2 (A3.1); nothing new seen.
+
+### Amendment 5 — 2026-11-25, R2b prediction (before the click)
+
+Switch edit `r2_SpreadLevel = 1` (asset-list costs x1), committed with this amendment.
+**P-5.1 tightened for R2b / R2c (the runs read by `perf_report.py`):** only lines starting with `Error` are pasted (or
+"none"); the trade count is taken from the log by the checker, so no Zorro summary line is needed or shown.
+
+**R2b prediction (c).**
+- Zorro: `Error 047` only.
+- `check_r2.py b` on `TPL_R2b_log_run1.csv` / `TPL_R2b_ind_run1.csv`: **RUN PASS**. K0 settings with costs 1; SpreadMult 1,
+  Tp1Atr 1, RefusedLog 1, base Spread 0.00012, RollLong -0.8947, RollShort 0.4259, Commission 0; every HALF row pays 0.00012;
+  0 ERROR rows. B1 as R2a; W1 / X1 / S1: indicator file byte-identical to R2a run 3's (costs do not touch indicators); K1 every
+  SIZE row exact; K3b, K4 (cost identity, whole-day rollover), K5 0 off; K6 no MARGINCALL.
+- Trade count not predicted (a spread moves stop / TP trigger times, M-D7); bridge-too-far REFUSED rows not predicted for the
+  same reason. 0 lots / risk / margin REFUSED rows.

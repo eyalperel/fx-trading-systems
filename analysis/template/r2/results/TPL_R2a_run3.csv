@@ -1,0 +1,33 @@
+check,item,result,expected,got,note
+K0,info,PASS,settings,ok,
+K0,no_error_rows,PASS,none,0,
+B1,bars,PASS,"RBAR = Python bars, rule (same, own) + holidays (R1 Amendment 1)","fits ('same', 'own'); ('same', 'own'): 0; ('next', 'own'): 452; ('next', 'drop'): 4827; ('next', 'monday'): 5",
+B1,bar_end_17NY,PASS,every RBAR ends 17:00 New York,0 off,
+B1,first_bar,INFO,Zorro first bar used only if partial,"20050329, max diff to the full bar 4.940e-11, replaced False",
+W1,frama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.882e-16,rows compared 5490 of 5490
+W1,dim,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.441e-16,rows compared 5490 of 5490
+W1,alpha,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.551e-16,rows compared 5490 of 5490
+W1,mesa,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 9.226e-14,rows compared 5490 of 5490
+W1,roof,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 2.709e-15,rows compared 5490 of 5490
+W1,stoc,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.982e-13,rows compared 5490 of 5490
+W1,sma,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 7.183e-14,rows compared 5481 of 5490
+W1,lrsi,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.551e-16,rows compared 5490 of 5490
+W1,l0,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.441e-16,rows compared 5490 of 5490
+W1,l3,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.996e-16,rows compared 5490 of 5490
+W1,den,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.996e-16,rows compared 5490 of 5490
+W1,atr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.996e-16,rows compared 5490 of 5490
+W1,tr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.000e-16,rows compared 5490 of 5490
+W1,nmesa,PASS,nmesa = row + 1,"first [1, 2, 3]",
+W1,ind_prices,PASS,IND prices = bars,4.441e-16,
+X1,sma_vs_zorro,PASS,|own - SMA()| <= 1e-9|own| + 1e-15 from row n-1,0 of 5481 off; max err 0.000e+00,
+X1,startup_rows,INFO,reported,0 of 9 start-up rows differ,
+S1,states,PASS,template states = model,0 differ,near-threshold 0 (counted)
+T1,replay,PASS,halves and bridge-too-far refusals = engine + M1 layer under one alternative,"fits [('open', 'entry'), ('open', 'after')]; ('open', 'entry'): 0 diffs; ('open', 'after'): 0 diffs; ('close', 'entry'): 524 diffs; ('close', 'after'): 524 diffs",
+T1,same_bar_conflicts,INFO,reported,0,
+T1,btf_refusals,INFO,reported,158,
+K1,size_rows,PASS,every SIZE row recomputes,0 of 282 off,
+K3,equity,PASS,Equity / Balance from HALF rows,0 off,[]
+K4,profit,PASS,profit identity per half,0 off,[]
+K5,half_lots,PASS,half lots = SIZE lots of its signal,0 off,[]
+K6,no_margincall,PASS,no MARGINCALL,0,
+K6,max_margin_share,INFO,reported,0.0373,
