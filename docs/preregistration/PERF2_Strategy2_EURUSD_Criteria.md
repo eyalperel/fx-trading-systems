@@ -278,3 +278,25 @@ Switch edit `r2_SpreadLevel = 1` (asset-list costs x1), committed with this amen
   SIZE row exact; K3b, K4 (cost identity, whole-day rollover), K5 0 off; K6 no MARGINCALL.
 - Trade count not predicted (a spread moves stop / TP trigger times, M-D7); bridge-too-far REFUSED rows not predicted for the
   same reason. 0 lots / risk / margin REFUSED rows.
+
+### R2b run 1 — 2026-11-25 11:32 — **PASS, all predictions met** (A5)
+
+Commit `bad677b`. Log `C:/Zorro/Data/TPL_R2b_log_run1.csv` (sha256
+`431922aad1bbfe4917ab0f2551b7e8d26eeb828b115f523f3b21ef3c0c4d984f`), indicators `TPL_R2b_ind_run1.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`, byte-identical to R2a run 3's, as predicted). Zorro (pasted:
+Error lines only, A5): `Error 047` only. `check_r2.py b` (`analysis/template/r2/results/TPL_R2b_run1.csv`): RUN PASS, 32 rows,
+0 FAIL. K0 settings, SpreadMult 1, Tp1Atr 1, RefusedLog 1, base costs as the asset list, 0 of 564 halves off 0.00012, 0 ERROR
+rows; B1, W1 (as R2a), X1 0 of 5,481 off; S1 0 differ; K1 0 of 282 SIZE rows off; K3b, K4 (cost identity, whole-day
+rollover), K5 0 off; K6 no MARGINCALL, max margin share 0.0373. Observations (not predicted, (b), from the log): 564 HALF rows,
+158 REFUSED rows, all bridge-too-far; 0 lots / risk / margin.
+
+### Amendment 6 — 2026-11-25, R2c prediction (before the click)
+
+Switch edit `r2_SpreadLevel = 2`, committed with this amendment. Paste rule A5 (Error lines only).
+**R2c prediction (c).**
+- Zorro: `Error 047` only.
+- `check_r2.py c` on `TPL_R2c_log_run1.csv` / `TPL_R2c_ind_run1.csv`: **RUN PASS**. K0 SpreadMult 2, every HALF row pays
+  0.00024, base costs as R2b, 0 ERROR rows; indicator file byte-identical to R2b's; S1 0 differ; K1 every SIZE row exact; K3b,
+  K4 (cost identity at each half's own spread, whole-day rollover), K5 0 off; K6 no MARGINCALL.
+- Trade count and bridge-too-far count not predicted (spread moves triggers); 0 lots / risk / margin REFUSED rows.
+- Then (P-2, run order 6): both log sha256 recorded here before `perf_report.py --read perf2` reads R2b (x1) and R2c (x2).
