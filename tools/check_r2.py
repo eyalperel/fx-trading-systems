@@ -47,7 +47,7 @@ def read_ind(path):
     with open(path, encoding="utf-8") as f:
         for r in csv.DictReader(f):
             x = {k: float(r[k]) for k in ("open", "high", "low", "close", "zsma") + IND_FIELDS}
-            x.update(bar=int(r["bar"]), ymd=int(r["ymd"]), lookback=int(r["lookback"]), nmesa=int(r["nmesa"]))
+            x.update(bar=int(r["bar"]), ymd=int(r["ymd"]), lookback=int(r["lookback"]), nmesa=int(round(float(r["nmesa"]))))
             rows.append(x)
     return rows
 

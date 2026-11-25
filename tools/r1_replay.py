@@ -21,6 +21,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "analysis", "template"))
 sys.path.insert(0, os.path.join(ROOT, "analysis", "harness"))
 import reference_engine as E  # noqa: E402
+import r1_data as D  # noqa: E402
 import reference as R  # noqa: E402
 
 LONG = E.LONG
@@ -44,10 +45,34 @@ def states(ind):
                 c2=sg(ind["reflex"]).astype(int))
 
 
-def open_fill(m1, bars, fill_px="open"):
-    """Price of market fills at the start of each bar: first record's open or close."""
+def open_fill(m1, bars, fill_px="open", holidays=D.HOLIDAYS):
+    """Price of market fills at the start of each bar: the first record's open or close, skipping records whose New York
+    date is a holiday (mmdd in `holidays`).
+    (a) date.htm: Holidays (default 101, 1225) are "treated like weekends"; barmode.htm BR_WEEKEND: no trading between
+    EndWeek and StartWeek "even when they contain price quotes". (b) R2a run 1 (PERF2 Amendment 3): the two market fills
+    on bars that hold folded 12-25 records (2012-12-26, 2013-12-26) were taken at the first record of 12-26 00:00 New York,
+    not at the first record of the bar (late 12-25): 2 of 2 fit this rule. holidays=() restores the R1 rule."""
     k = "o" if fill_px == "open" else "c"
-    return [float(m1[k][i]) for i in bars["i0"]]
+    i0s, i1s = bars["i0"], bars["i1"]
+    keep = bars.get("keep")
+    out = []
+
+    def mmdd(rec):
+        y, m, d = D._ymd(int(np.floor(D.ny_local(np.array([m1["t"][rec]]))[0] + D.EPS)))
+        return m * 100 + d
+
+    for t, i0 in enumerate(i0s):
+        idx = np.arange(i0, i1s[t] + 1)
+        if keep is not None:
+            idx = idx[keep[idx]]
+        i = int(idx[0]) if len(idx) else int(i0)
+        if holidays and len(idx) and mmdd(idx[0]) in holidays:      # only bars that start on a holiday date
+            for rec in idx:
+                if mmdd(rec) not in holidays:
+                    i = int(rec)
+                    break
+        out.append(float(m1[k][i]))
+    return out
 
 
 def resolver(m1, bars, start="entry", fill_px="open"):

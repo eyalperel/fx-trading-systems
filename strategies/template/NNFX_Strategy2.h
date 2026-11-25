@@ -72,9 +72,10 @@ void nx_strategy_slots(int i)
 	nx_sVol = 1;                          // replaced by the volume mode (T2)
 	nx_sEx = 0;                           // replaced by the exit mode (T1)
 
-	file_append(s2_IndFile, strf("IND,%s,%i,%i,%i,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%i,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f\n",
+	// nmesa is printed as a var (%.15f): "(int)s2_cnt[0]" with %i shifted every later column (R2a run 1, gotchas 9d.24)
+	file_append(s2_IndFile, strf("IND,%s,%i,%i,%i,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f,%.15f\n",
 		Asset, Bar, ymd(ldate(EST, 0)), (int)is(LOOKBACK),
 		priceOpen(0), priceHigh(0), priceLow(0), priceClose(0),
-		s2_frama, s2_dim, s2_alpha, s2_mesa, s2_roof, s2_stoc, s2_sma, s2_zsma, (int)s2_cnt[0],
+		s2_frama, s2_dim, s2_alpha, s2_mesa, s2_roof, s2_stoc, s2_sma, s2_zsma, s2_cnt[0],
 		s2_lrsi, s2_l0, s2_l3, s2_den, s2_atr, s2_tr));
 }

@@ -108,5 +108,32 @@ class EngineWithM1(unittest.TestCase):
         self.assertAlmostEqual(h2.exit_price, e, places=12)
 
 
+class HolidayOpenFill(unittest.TestCase):
+    """PERF2 Amendment 3 (b, R2a run 1): a market fill on a bar that starts with folded holiday (12-25) records is taken
+    at the first record of the next New York date, as Zorro did on 2012-12-26 and 2013-12-26."""
+
+    def m1(self):
+        import datetime as dt
+        recs = []
+        for (y, mo, d, hh, mi), px in (((2013, 12, 24, 12, 0), 1.10), ((2013, 12, 25, 23, 56), 1.20),
+                                         ((2013, 12, 26, 0, 0), 1.30), ((2013, 12, 26, 9, 0), 1.31),
+                                         ((2013, 12, 27, 9, 0), 1.32)):
+            w = D.dt_to_ole(dt.datetime(y, mo, d, hh, mi, tzinfo=D.NY).astimezone(D.UTC))
+            recs.append((w, px + 0.001, px - 0.001, px, px))
+        a = np.zeros(len(recs), dtype=D.REC_DT)
+        for i, (w, h, l, o, c) in enumerate(recs):
+            a[i] = (w, h, l, o, c, 0, 0)
+        return a
+
+    def test_holiday_skip(self):
+        m1 = self.m1()
+        b = D.daily_bars(m1)
+        days = [D.ymd_int(d) for d in b["day"]]
+        k = days.index(20131226)
+        self.assertAlmostEqual(RP.open_fill(m1, b)[k], 1.30, places=6)                 # first record of 12-26 00:00 New York
+        self.assertAlmostEqual(RP.open_fill(m1, b, holidays=())[k], 1.20, places=6)    # the R1 rule: first record of the bar (12-25 23:56)
+        self.assertAlmostEqual(RP.open_fill(m1, b)[days.index(20131227)], 1.32, places=6)   # a normal bar: its first record (12-27 09:00)
+
+
 if __name__ == "__main__":
     unittest.main()

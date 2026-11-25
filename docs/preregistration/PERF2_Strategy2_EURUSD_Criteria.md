@@ -185,3 +185,42 @@ reason or year figure was computed or printed.
   K6 no MARGINCALL.
 - Copy after the click: `Data/NNFX_Template_log.csv` -> `Data/TPL_R2a_log_run1.csv`, `Data/NNFX_Strategy2_ind.csv` ->
   `Data/TPL_R2a_ind_run1.csv`.
+
+### R2a run 1 — 2026-11-25 10:01 — FAIL (setup: indicator log row; checker model: holiday fills)
+
+Commit `90e210c`. Log `C:/Zorro/Data/TPL_R2a_log_run1.csv` (sha256 `a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`), indicators `TPL_R2a_ind_run1.csv`
+(`7d082a5f15643717b741f5e51c755e30454212d9a7126fdde433440d3ca58d54`). Zorro: `Error 047: EUR/USD no 2004 history` only, `Trades 564` (= the prediction).
+`check_r2.py a` stopped reading the IND file (no results file written): **FAIL**. Diagnosis (b), from the log and the IND
+fields that precede the defect:
+1. **IND row broken** (template unaffected): `(int)s2_cnt[0]` printed with `%i` shifted every later column (25 fields for
+   24 headers; LRSI, ATR fields unreadable). Fields before it equal the models: FRAMA, dim, alpha <= 8.9e-16; MESA 9.2e-14;
+   Roof 2.7e-15; Stoc 2.0e-13; own SMA and Zorro `SMA()` both <= 7.2e-14 of the model (0 rows off). Gotchas 9d.24.
+2. **T1: 4 of 564 halves differ** (fit (open, entry) and (open, after) otherwise): two market fills on bars holding folded
+   12-25 records, 2012-12-26 (baseline exit, both halves) and 2013-12-26 (entry, both halves). Zorro filled at the first
+   record of 12-26 00:00 New York (1.31787 / 1.36766), the engine at the bar's first record (late 12-25: 1.31770 /
+   1.36759). (a) date.htm: holidays "treated like weekends". Gotchas 9d.25.
+Also (b): K0 settings equal, 0 ERROR rows; B1 rule (same, own), 5,490 bars; S1 0 differ, 0 near-threshold; 158 REFUSED
+rows, all bridge-too-far, equal to the engine's 158 refusal days.
+
+### Amendment 3 — 2026-11-25, after R2a run 1, before run 2
+
+**A3.1 Disclosure (b).** The user's text paste of the Zorro window after R2a run 1 included Zorro's summary lines (account
+figures of the costs-off run: Loss, MI, DD, Capital, Win, Avg, CAGR, PF, SR, UI, R2). Seen by the user and the planning chat
+before any read, against P-5.1. They are a costs-off (x0) run, Zorro's account accounting, not the PERF2 report; not
+recorded here, not used in any verdict. The verdict rule (P-3, x2) is unchanged. P-5.1 stands for R2a run 2, R2b and R2c:
+only `Error` lines and `Trades` are pasted.
+
+**A3.2 Fixes (no rule changed).**
+- `NNFX_Strategy2.h`: `nmesa` printed as a var with `%.15f` (no cast); `check_r2.py` rounds it. Slot logic unchanged.
+- `tools/r1_replay.open_fill`: market fills skip records whose New York date is a holiday (default 101, 1225); tested on a
+  synthetic 12-25 / 12-26 case (and the old rule with `holidays=()`). Regression: `check_r1.py a` on R1a run 2 (log
+  `TPL_R1a_log_run2.csv`) still RUN PASS, 650 halves (R1 had no fill on such a bar). On R2a run 1's log the new rule makes
+  T1 fit (open, entry) and (open, after) with 0 differences, refusals equal.
+- Gotchas 9d.24, 9d.25 added.
+
+**A3.3 R2a run 2 prediction (c).** Same script and switch (`r2_SpreadLevel = 0`), template unchanged, so the same trades.
+- Zorro: `Error 047` only, `Trades 564`.
+- `check_r2.py a` on `TPL_R2a_log_run2.csv` / `TPL_R2a_ind_run2.csv`: **RUN PASS**. W1 every field within tolerance (max
+  <= 1e-12 order), `nmesa` exact; X1 0 off from row 10; S1 0 differ, 0 near-threshold; T1 fits (open, entry) and
+  (open, after), 158 refusals equal; K1 282 SIZE rows; K3, K4, K5 0 off; K6 no MARGINCALL.
+- The template log of run 2 is byte-identical to run 1's (same script, same template; only the IND file changes) (c).
