@@ -123,5 +123,26 @@ class Refusals(unittest.TestCase):
         self.assertEqual(len(C2.compare_refusals(eng, days, z[:1] + z[2:])), 1)  # template missed one
 
 
+class IndColumns(unittest.TestCase):
+    def test_stray_column_refused(self):
+        import tempfile
+        b = bars(30)
+        m = R2.indicators(b)
+        rows = ind_rows(b, m)
+        cols = ["kind", "asset", "bar", "ymd", "lookback", "open", "high", "low", "close"] + list(C2.IND_FIELDS[:7]) + \
+               ["zsma", "nmesa"] + list(C2.IND_FIELDS[7:])
+        d = tempfile.mkdtemp()
+        good, bad = os.path.join(d, "g.csv"), os.path.join(d, "b.csv")
+        for path, extra in ((good, ""), (bad, ",9.9")):
+            with open(path, "w") as f:
+                f.write(",".join(cols) + "\n")
+                for r in rows:
+                    vals = ["IND", "EUR/USD"] + [str(r.get(c, 0)) for c in cols[2:]]
+                    f.write(",".join(vals) + extra + "\n")
+        self.assertEqual(len(C2.read_ind(good)), 30)
+        with self.assertRaises(C2.ColumnCountError):
+            C2.read_ind(bad)          # planted: one stray trailing field per row (R2a runs 1-2)
+
+
 if __name__ == "__main__":
     unittest.main()

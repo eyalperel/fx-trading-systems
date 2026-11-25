@@ -224,3 +224,24 @@ only `Error` lines and `Trades` are pasted.
   <= 1e-12 order), `nmesa` exact; X1 0 off from row 10; S1 0 differ, 0 near-threshold; T1 fits (open, entry) and
   (open, after), 158 refusals equal; K1 282 SIZE rows; K3, K4, K5 0 off; K6 no MARGINCALL.
 - The template log of run 2 is byte-identical to run 1's (same script, same template; only the IND file changes) (c).
+
+### R2a run 2 — 2026-11-25 10:15 — checks PASS; one unpredicted log defect (stray IND column)
+
+Commit `294576e`. Log `TPL_R2a_log_run2.csv` byte-identical to run 1's (sha256
+`a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`, as predicted); indicators `TPL_R2a_ind_run2.csv`
+(`d266f512007a2b43fa205523b5da9fdd7c0b7143731e2d9ea382ecb6339b676f`). Zorro: `Error 047` only, `Trades 564` (as predicted). `check_r2.py a`
+(`analysis/template/r2/results/TPL_R2a_run2.csv`): **RUN PASS, 32 rows, 0 FAIL**. W1 every field <= 2.0e-13 (13 fields, 5,490
+rows; `sma` 5,481 rows from row 10), `nmesa` exact; X1 0 of 5,481 off (max 0: Zorro `SMA()` = own mean exactly), its 9 start-up
+rows also equal; S1 0 differ, 0 near-threshold; T1 fits (open, entry) and (open, after), 0 diffs, 158 refusals equal, 0
+same-bar; K1 0 of 282 off; K3, K4, K5 0 off; K6 no MARGINCALL, max margin share 0.0373.
+**Not predicted (b):** every IND data row has 25 fields for 24 headers; the last is garbage. Cause: the format string had
+20 `%.15f` for 19 float arguments (also the real cause of run 1's shifted columns; gotchas 9d.24 corrected). The checker read
+fields by header name, so every named field was verified, but it did not notice the extra field: a guard gap.
+
+### Amendment 4 — 2026-11-25, after R2a run 2
+
+**A4.1 Fixes.** `NNFX_Strategy2.h` IND format: 19 `%.15f` for 19 floats (log-only; slot logic unchanged). `check_r2.read_ind`
+now refuses a file whose data rows do not all have the header's field count (RUN FAIL "K0 ind_columns"); seen to fire on a
+planted stray field (test) and on R2a run 2's real file (5,490 rows refused).
+**A4.2 Gate.** Decided in the planning chat (see below): whether R2a run 2 counts as the R2a PASS or an R2a run 3 is
+required with the fixed row.

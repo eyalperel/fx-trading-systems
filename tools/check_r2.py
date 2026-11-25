@@ -42,8 +42,20 @@ WANT = {"type": "1", "FixedLots": "0", "Capital": "100000.00", "LookBack": "520"
         "LotAmount": "1000"}
 
 
+class ColumnCountError(Exception):
+    pass
+
+
 def read_ind(path):
+    """IND rows by header name. Every data row must have exactly the header's field count (PERF2 Amendment 4: R2a runs 1-2
+    carried a stray last column that DictReader would otherwise drop silently)."""
     rows = []
+    with open(path, encoding="utf-8") as f:
+        rd = csv.reader(f)
+        head = next(rd)
+        bad = [k + 2 for k, r in enumerate(rd) if r and len(r) != len(head)]
+    if bad:
+        raise ColumnCountError(f"{path}: {len(bad)} IND rows do not have {len(head)} fields (first at line {bad[0]})")
     with open(path, encoding="utf-8") as f:
         for r in csv.DictReader(f):
             x = {k: float(r[k]) for k in ("open", "high", "low", "close", "zsma") + IND_FIELDS}
@@ -207,7 +219,11 @@ def main(argv):
     if len(argv) != 5 or argv[0] not in ("a", "b", "c"):
         print(__doc__)
         return 2
-    rep = run(*argv)
+    try:
+        rep = run(*argv)
+    except ColumnCountError as e:
+        print("RUN FAIL (K0 ind_columns):", e)
+        return 1
     return 0 if not rep.fails() else 1
 
 
