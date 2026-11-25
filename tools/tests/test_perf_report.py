@@ -507,7 +507,7 @@ class Sha(Base):
         with self.assertRaises(PR.ShaMismatch):
             PR.verify_sha(path, "", "x")
 
-    def run_main(self, sha1, sha2, out="out.md", log2=None, info=INFO_OK):
+    def run_main(self, sha1, sha2, out="out.md", log2=None, info=INFO_OK, read=None):
         l1, l2 = self.p("x1.csv"), self.p("x2.csv")
         write_log(l1, HAND, make_bars(HAND), info=info)
         write_log(l2, HAND, make_bars(HAND), info=info)
@@ -519,6 +519,8 @@ class Sha(Base):
         s1 = PR.sha256_file(l1)[:16] if sha1 is None else sha1
         s2 = PR.sha256_file(l2)[:16] if sha2 is None else sha2
         args = ["--x1", l1, "--x2", l2, "--sha-x1", s1, "--sha-x2", s2, "--history", hist, "--out", self.p(out)]
+        if read is not None:
+            args += ["--read", read]
         old = PR.load_history_bars
         PR.load_history_bars = lambda history, asset, y0, y1: PR.BarSet(make_bars(HAND))
         self.addCleanup(setattr, PR, "load_history_bars", old)
@@ -539,6 +541,23 @@ class Sha(Base):
         self.assertIn("EURUSD_2010.t6", text)
         self.assertIn(PR.sha256_file(self.p("x1.csv")), text)
         self.assertEqual(self.run_main(None, None), 2)            # the output exists: refused
+
+    def test_perf2_synthetic_strategy2_log(self):
+        # PERF2 P-5.2: perf_report.py on a synthetic log carrying Strategy 2's INFO row exits 0 before any R2 click;
+        # header, criteria path, variant count and disclosure are PERF2's, the PERF1 lines are absent.
+        info = ("INFO,EUR/USD,0,costs=1,PIP=0.0001000000,PIPCost=1.0000000000,Spread=0.0001000000,FramaN=32,MesaLen=20,"
+                "MesaHP=48,MesaSS=10,C1SmaLen=10,LrsiGamma=0.500000,AtrLen=14,BtfOn=1,SpreadMult=1.000000,Tp1Atr=1.000000,"
+                "RefusedLog=1")
+        self.assertEqual(self.run_main(None, None, info=info, read="perf2"), 0)
+        text = open(self.p("out.md"), encoding="utf-8").read()
+        self.assertIn("PERF2 read 1 — Strategy 2 v0", text)
+        self.assertIn("PERF2_Strategy2_EURUSD_Criteria.md", text)
+        self.assertIn("project-wide strategy variants tested: **2**", text)
+        self.assertIn("no Strategy 2 trade outcome was hand-checked", text)
+        self.assertNotIn("PERF1", text)
+        self.assertNotIn("Phase 1 step 5", text)
+        for n in range(1, 14):
+            self.assertIn(f"| {n} ", text, f"item {n}")
 
     def test_main_stops_on_missing_field(self):
         info = INFO_OK.replace("Tp1Atr=1.000000,", "")

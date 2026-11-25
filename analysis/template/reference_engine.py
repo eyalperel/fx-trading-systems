@@ -118,6 +118,7 @@ class Result:
     halves: list = field(default_factory=list)
     same_bar_conflicts: int = 0
     be_adverse_exits: int = 0
+    refusals: list = field(default_factory=list)   # (bar, dir, reason): bridge-too-far skips (PERF2 T1; template REFUSED rows)
 
 
 def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None, open_fill=None, intrabar=None):
@@ -274,6 +275,7 @@ def run(o, h, l, c, baseline, atr, c1, c2, vol=None, ex=None, p=None, open_fill=
             age = None if c1_sig_bar[d] is None else t - c1_sig_bar[d]
             if p.btf_on and c1[t] == d and age is not None and age >= p.btf_max_age:
                 window = None
+                res.refusals.append((t, d, "bridge-too-far"))
             else:
                 window = dict(dir=d, start=t, pull=not dist_ok)
         if dec is None and window is not None:

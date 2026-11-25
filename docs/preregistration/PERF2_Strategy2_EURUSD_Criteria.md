@@ -136,3 +136,23 @@ table at 0.5 / 1 / 2 pips (information only), second feed as a Phase 2 item only
 A FAIL anywhere stops the sequence; nothing is read until R2a, R2b and R2c all PASS.
 
 ## Amendments
+
+### Amendment 1 — 2026-11-24, before any Strategy 2 run (build stage; no rule of P-1, P-3, P-4 changed)
+
+Reason (b): writing the code showed three details the criteria left implicit.
+
+**A1.1 W1 `sma` from row 10.** The SMA of the MESA output has no value until 10 MESA outputs exist (decision 2a). W1
+compares `sma` from the 10th IND row on; rows 1-9 hold whatever Zorro's series held and are not used (C1 state 0 there,
+checked by S1 against the model, which reads 0 on those rows). This is the definition of the field, not an exclusion of a
+defined value; every other IND field is compared on every row. New W1 item `nmesa` (= row number, exact) proves the counter
+that gates C1. X1 compares the same rows; rows 1-9 are reported as INFO.
+
+**A1.2 Engine refusals.** T1's "REFUSED rows equal the engine's refusals" needs the engine to record its bridge-too-far
+skips. `analysis/template/reference_engine.py` now appends (bar, dir, reason) to `Result.refusals` at the existing skip
+(behaviour unchanged: 32 earlier engine tests PASS; new test D7 refusal recorded, seen to fail with the append removed).
+T1 compares the days of the template's `REFUSED,...,bridge-too-far` rows with the engine's refusal days.
+
+**A1.3 Report header.** `tools/perf_report.py --read perf2` writes PERF2's title, criteria path, variant count (1 for
+Strategy 2; project-wide 2 after the read) and disclosure (no Strategy 2 trade hand-checked). Everything else in the
+report is the PERF1 code unchanged (default `--read perf1` output unchanged: 51 earlier tests PASS). P-5.2's synthetic
+Strategy 2 log run is test `test_perf2_synthetic_strategy2_log` (exit 0, all 13 items present, no PERF1 lines).
