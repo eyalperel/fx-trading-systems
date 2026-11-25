@@ -105,3 +105,37 @@ MSS / ROF / LRS) equal the model's on the 4,970 trade-range bars: **0 difference
 **Null rows (b):** `analysis/c1screen/results/C1S1_null_runs.csv`: MAF, RFX, ROF, LRS x 1,000 offsets at x2, 0 duplicates,
 sha256 `788e5fc4fd204c40ac8153109d31c003b962336c00e75bb4219dc8d2eaf405a6`. FSH / MSS: NULL1 O1 / O2 rows (sha256
 `201a14f904d5e559...`). Only row counts were inspected. No real C1-only result has been computed.
+
+## C1S1 read 1 — 2026-11-25 — **1 survivor: MAF (MAMA vs FAMA)**
+
+`python tools/c1s1.py read C:/Zorro/Data C:/Zorro/History analysis/null_template/results/NULL1_null_runs.csv
+analysis/c1screen/results/C1S1_null_runs.csv 201a14f904d5e559 788e5fc4fd204c40 analysis/c1screen/C1S1_report.md` (both sha
+prefixes verified). Report `analysis/c1screen/C1S1_report.md` (sha256 `eab0ca96dc8e10c84600b4cd0d0ca002e2d7b02024831a90658ef579503dc2ee`).
+
+**Max-statistic null (b):** best of six per offset: median +0.0140, **95th percentile +0.0739** (the bar).
+
+| Id | Signals | Mean signal-R x2 | t | Total R | Total w/o best year | Own-null pct | Max-null pct | Pass |
+|---|---|---|---|---|---|---|---|---|
+| FSH | 914 | -0.0129 | -0.54 | -11.75 | -18.68 | 70.1% | 16.2% | no |
+| MSS | 505 | -0.0224 | -0.59 | -11.31 | -19.41 | 55.7% | 9.4% | no |
+| **MAF** | **205** | **+0.1012** | **+1.48** | **+20.74** | **+14.47** (best 2010, +6.27) | 98.8% | **98.6%** | **PASS** |
+| RFX | 433 | -0.0129 | -0.31 | -5.60 | -12.93 | 65.0% | 16.2% | no |
+| ROF | 442 | -0.0749 | -1.83 | -33.12 | -39.34 | 11.2% | 0.0% | no |
+| LRS | 463 | -0.0465 | -1.14 | -21.51 | -24.48 | 30.0% | 1.4% | no |
+
+**Predictions:** max-statistic 95th in [+0.02, +0.06]: **NOT met** (+0.0739; (c) the six candidates' shifted results are
+more spread than NULL1's single sets suggested, notably MAF's: few signals, so a noisier mean). "0 survivors most likely":
+**NOT met** (1 survivor).
+
+**Reading (c).**
+1. MAF passes every R-b condition: above the max-statistic bar (the multiple-testing correction over all six), positive
+   mean, positive without its best year.
+2. It is a screen pass on one asset with 205 signals; t = +1.48 alone would not pass P-3's evidence line (t >= 2). The
+   max-statistic percentile (98.6%) says roughly 1.4% of random-timing draws give a best-of-six this good.
+3. (a) It is also the one reading whose trading rule is stated by its source ("The crossover of MAMA and FAMA is a good
+   trend signal", TASC V.19:9); the other five are our or Stonehill's readings. Noted, not used as evidence.
+4. Per the pre-registered rule, MAF goes forward unchanged; the five others are recorded as failures of this screen.
+   Next (pre-registered here): MAF C1-only on the other dev pairs (step D's data), each with its own null, under a new
+   pre-registration; then C-3b (C2) and a full P-3 read in Zorro. **No parameter or reading of MAF is changed on EUR/USD.**
+
+**Count:** C1-only screen readings tested: 6 (1 shortlisted). Project-wide full-strategy variants: 2.
