@@ -179,3 +179,24 @@ exclusive create (no overwrite). Checked: 1,000 unique each, sorted, inside the 
   the recorded offsets files exactly, no NaN means; signals per run: AUD/USD min 230, EUR/JPY min 166.
 - sha256 c9160b2edb47ee3bb3614d8c7994a585d56492e704108eec70c1b51a66594a12.
 - The real MAF reading on these pairs has not been computed yet (it is computed only by `c1s2.py read`, after this commit).
+
+## C1S2 read 1 (2026-11-26) — MAF STOPS
+
+`tools/c1s2.py read` on the committed null file (sha256 c9160b2e...a12); report `analysis/c1screen/C1S2_report.md`.
+(b) At x2 with rollover:
+
+| Pair | Signals | Mean signal-R | t | Total R w/o best year | Own-null 95th | Own-null percentile | Pass |
+|---|---|---|---|---|---|---|---|
+| AUD/USD | 231 | -0.0638 | -1.06 | -20.40 | +0.0655 | 25.2% | no (all 3 conditions fail) |
+| EUR/JPY | 168 | -0.0640 | -0.84 | -13.91 | +0.0602 | 33.7% | no (all 3 conditions fail) |
+
+Information rows (never decisive): x2 without rollover -0.0614 / -0.0542; x0 -0.0459 / -0.0237 (negative even with no
+cost). EUR/JPY: 0 halves open across the 2017-12 hole.
+
+- Per the pass rule: **MAF stops**, recorded as "passes on EUR/USD only". No MAF parameter changed. The next step is a separate
+  decision.
+- Prediction check: passing was not predicted (about 1 in 5 for both). (b) Both pairs sit inside their nulls (25th and 34th
+  percentile), not just below the bar. (c) Consistent with the C1S1 EUR/USD reading being a best-of-six selection effect;
+  not proof that MAF can never work elsewhere.
+- Count: C1-only readings in C1S1 + C1S2: 6 candidates on EUR/USD + MAF on 2 more pairs. Project-wide full-strategy
+  variants: 2 (unchanged).
