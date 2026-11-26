@@ -12,7 +12,7 @@
 #include "../../indicators/ehlers/MAMA.c"
 #include "../../indicators/nnfx/ATR.c"
 
-int bp_CompileOnly = 1;   // 1 until the compile check is done
+int bp_CompileOnly = 0;   // compile check done 2026-11-26 (e347be0)
 int bp_Pair = 1;          // 1 = AUD/USD, 2 = EUR/JPY
 string bp_Log = "Data\\BARS_PAIR_log.csv";
 

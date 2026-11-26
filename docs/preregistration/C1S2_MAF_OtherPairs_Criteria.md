@@ -97,3 +97,18 @@ C1-only readings tested: MAF on 2 more pairs (the candidate count K of C1S1 is u
 full-strategy variants: 2.
 
 ## Amendments
+
+## Record: build + compile check (2026-11-26)
+
+- Build committed e347be0 (TPL_BARS_PAIR.c, check_bars_pair.py, c1s2.py + tests; 33 tests OK). The `null1.py` cost
+  generalisation of run order step 2 was done as a new module `tools/c1s2.py` instead (null1.py unchanged).
+- (b) VC0: Zorro printed `TPL_BARS_PAIR: compile check only (bp_CompileOnly = 1), nothing run` and `compile check done`,
+  no Error line. Prediction met. `bp_CompileOnly` set to 0 for the bar runs.
+- Disclosure: the same paste carried Zorro's summary window of the earlier TPL_R2_EURUSD run (R2c, spread x2). PERF2 was
+  already read and closed (STOP), and no C1S2 number uses it; recorded so the rule (Error lines only) is visibly kept.
+
+### Prediction for the bar runs (written before the clicks)
+
+- Zorro output: no Error line except, at most, `Error 047` for a history year before the pair's data (AUD/USD files start
+  2002, EUR/JPY 2010).
+- VB0 / VB1 / VW1 PASS on both pairs; EUR/JPY's 2017-12-11..2018-01-01 hole gives no failed bar.
