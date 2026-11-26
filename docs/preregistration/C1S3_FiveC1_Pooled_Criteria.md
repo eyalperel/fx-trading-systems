@@ -162,3 +162,16 @@ full-strategy variants: 2 (unchanged).
   X1 0 off, states FSH / MSS / RFX / ROF / LRS 0 differ, 0 near-threshold.
 - **VC0-VW2 PASS on both pairs: run order step 3 complete (Q1 met).** The DIAG1 inputs (MESA, SMA, LRSI, FRAMA, ATR) are
   covered by the same checks. Next: build part 2 (`tools/c1s3.py`, `tools/diag1.py` + tests), committed before any null run.
+
+## Record: build part 2 (2026-11-26, before any null run)
+
+- `tools/c1s3.py` (load from the TPL_IND_PAIR logs, offsets with sha256 check, pairing P-a, resumable null runs writing all
+  five ids per offset, pooled read with the P-a rule; refuses partial offsets, duplicates, a sha mismatch, overwrites) +
+  `tools/tests/test_c1s3.py` (7 tests: pairing deterministic, complete, not sorted, seed-dependent; pooled stats and best
+  year; signal-weighted pooled null and draw maximum on a hand-built table, planted pairing reuse detected; each pass
+  condition fails alone, incl. the **planted per-pair negative mean** (EUR/JPY -0.01 with the pooled mean above the bar);
+  duplicate null row refused). With `tools/diag1.py` + 9 tests (DIAG1 record): all tools tests 192 / 192 OK (VM shell).
+- Smoke test (load only, no engine run): EUR/JPY 4,346 bars / 3,826 trade bars (= C1S2), both offset files pass sha256.
+  Disclosure: it printed each reading's share of +1 states on EUR/JPY's trade range (FSH .508, MSS .489, RFX .500, ROF .506,
+  LRS .538): an input property, no trade or R computed.
+- Next: run order step 4 (pairing file + sha256 recorded, then null runs).

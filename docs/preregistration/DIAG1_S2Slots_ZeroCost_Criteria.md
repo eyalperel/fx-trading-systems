@@ -103,3 +103,16 @@ variants: 2 (unchanged).
   - **R1** is read as a statement about x0r (its values came from NULL1's rows): EUR/USD A0 x0r within +-0.010 of -0.028, A4
     x0r within +-0.010 of -0.010. Values unchanged.
 - No prediction is added or changed after the finding beyond this labelling.
+
+## Record: build (run order 2) — 2026-11-26, before any DIAG1 run
+
+- `tools/diag1.py`: arms (A0 = `E.Params()` as NULL1 F2; A1 / A3 `btf_on = False`; A2 / A3 c2 := the shifted c1; A4
+  `baseline_mode = "off"`), levels x0 (dir x (exit - entry) / (1.5 ATR)) and x0r (EUR/USD `null1.half_r(..., 0)`, others
+  `c1s2.half_r(..., 0, roll=True)`), per-exit-year sums per row, resumable null runs (an offset writes all 5 arms x 2 levels
+  or none), G0 (x0r vs NULL1 F2 / O2 x0 rows, 5e-7, signals / halves exact, 1,000 offsets each), read (per-pair and pooled
+  means, delete-one-calendar-year jackknife, contrasts paired by year, the J-a rule, A4 sanity, x0r - x0 per arm).
+- `tools/tests/test_diag1.py` (9 tests): arm configs (C2 neutral = c1, input untouched, btf / baseline switches); x0 has no
+  rollover and x0r - x0 = exactly the rollover, per-pair constants; year-string round trip; blocks sum over offsets and pairs
+  and exclude other arms / levels; **jackknife hand-calculated** (3 years, SE 0.0881917); a paired contrast with a constant
+  shift has SE 0; G0 equal, rounding inside tolerance, **planted changes fail** (mean, one signal), true-x0 rows not compared.
+- All tools tests 192 / 192 OK. No DIAG1 engine run before this commit.
