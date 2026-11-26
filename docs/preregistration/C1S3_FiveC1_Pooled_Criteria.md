@@ -150,3 +150,15 @@ full-strategy variants: 2 (unchanged).
   tr 0 rows off (max error 1.2e-13, mesa), nmesa exact, X1 0 off (max 0), states FSH / MSS / RFX / ROF / LRS 0 differ, 0
   near-threshold. Predictions met.
 - `ip_Pair` set to 2 (EUR/JPY) for the second click.
+
+## Record: pair run EUR/JPY (2026-11-26) — PASS; Q1 met on both pairs
+
+- Committed before the click: 973528f. Zorro output: one `Error 047: EUR/JPY no 2009 history` (allowed, VB1 passes;
+  prediction met). Log copied (no overwrite) to `Zorro/Data/IND_EURJPY_log_run1.csv` (sha256
+  d96a3019e0e216e1272080ebddebb374981eab694e90dd83ae32ba34deb1d604; 4,346 RIND rows).
+- Checker: `analysis/c1screen/results/C1S3_VW_EURJPY_run1.csv`. **RUN PASS.** VB0 PASS; VB1 rule (same, own) 0 off with the 3
+  fillers (other rules 294-522 off), bar times PASS, first bar 2010-05-23 (diff 4.7e-11, not replaced); VW2 all ten indicators
+  0 rows off (max error 3.3e-11, tr; (c) larger than AUD/USD because JPY prices are ~130 printed with 15 decimals), nmesa exact,
+  X1 0 off, states FSH / MSS / RFX / ROF / LRS 0 differ, 0 near-threshold.
+- **VC0-VW2 PASS on both pairs: run order step 3 complete (Q1 met).** The DIAG1 inputs (MESA, SMA, LRSI, FRAMA, ATR) are
+  covered by the same checks. Next: build part 2 (`tools/c1s3.py`, `tools/diag1.py` + tests), committed before any null run.
