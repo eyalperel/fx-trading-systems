@@ -171,3 +171,11 @@ exclusive create (no overwrite). Checked: 1,000 unique each, sorted, inside the 
 |---|---|---|---|---|---|
 | AUD/USD | 5,370 | 267 | 5,109 | `analysis/c1screen/C1S2_offsets_AUDUSD.csv` | 69ffaa73280e71d3849468ee4ba521f1d75bd09b93df92d14d18bf0ed64e745c |
 | EUR/JPY | 3,826 | 264 | 3,565 | `analysis/c1screen/C1S2_offsets_EURJPY.csv` | 2a357ac8eb2c4b5c194f14aeb918b548e94ed4c1acb1531135f6dbeed8cc1bb3 |
+
+## Record: null runs (2026-11-26, before the real reading)
+
+- `tools/c1s2.py null` per pair, C1-only, spread x2 + rollover, fast M1 resolver; one chunk per pair (each finished within
+  the 150 s budget). File `analysis/c1screen/results/C1S2_null_runs.csv`: 2,000 rows (1,000 per pair), the offsets equal
+  the recorded offsets files exactly, no NaN means; signals per run: AUD/USD min 230, EUR/JPY min 166.
+- sha256 c9160b2edb47ee3bb3614d8c7994a585d56492e704108eec70c1b51a66594a12.
+- The real MAF reading on these pairs has not been computed yet (it is computed only by `c1s2.py read`, after this commit).
