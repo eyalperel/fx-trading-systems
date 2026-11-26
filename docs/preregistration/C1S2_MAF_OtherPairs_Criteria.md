@@ -112,3 +112,52 @@ full-strategy variants: 2.
 - Zorro output: no Error line except, at most, `Error 047` for a history year before the pair's data (AUD/USD files start
   2002, EUR/JPY 2010).
 - VB0 / VB1 / VW1 PASS on both pairs; EUR/JPY's 2017-12-11..2018-01-01 hole gives no failed bar.
+
+## Record: bar run AUD/USD (2026-11-26)
+
+- Zorro output: no Error line (prediction met). Log copied to `Zorro/Data/BARS_AUDUSD_log_run1.csv`
+  (sha256 c379c15c7a98deabf16e6004e38178b226e93a0e4978275ec8481c9c2d43d168).
+- Checker: `analysis/c1screen/results/C1S2_VB_AUDUSD_run1.csv`. **RUN PASS.** VB0 (no asset fail, info, lookback 520),
+  VB1 bars fit rule (same, own) with 0 off (other rules 465-683 off), all bars end 17:00 NY; first bar 2005-06-29
+  (diff 3.3e-11, not replaced). VW1: MAMA, FAMA, period, alpha, phase, ATR, TR 0 rows off (max error 5.7e-14);
+  MAF states 0 differ, 0 near-threshold.
+
+## Record: bar run EUR/JPY (2026-11-26) — VB1 FAIL, step stopped
+
+- Zorro output: one `Error 047: EUR/JPY no 2009 history` (prediction met: allowed). Log copied to
+  `Zorro/Data/BARS_EURJPY_log_run1.csv` (sha256 b3ba494414d1f91883e1c8c9ce6babeacc7e115a45dda9d6bb2a775f38941197).
+- Checker: `analysis/c1screen/results/C1S2_VB_EURJPY_run1.csv`. **RUN FAIL.** VB0 PASS (no asset fail, info, lookback
+  520); bar times PASS; **VB1 FAIL**: rule (same, own) 3 bars off. Prediction "the hole gives no failed bar" **not met**.
+- (b) Diagnosis (measured, no rule changed): Zorro has 4,346 bars, Python 4,343. The 3 extra Zorro bars are 2017-12-18,
+  2017-12-24, 2017-12-30, inside the hole, 6 days apart, each o = h = 133.739, l = c = 133.737. That is exactly the OHLC of the
+  last M1 record before the hole (2017-12-11 23:34 UTC). The M1 files hold no record from then to 2018-01-01 22:00 UTC.
+- (b) With those 3 Zorro bars put into the Python bar series (diagnostic only, script outside the repo): the other 4,343 bars
+  match (0 off), and VW1 MAMA, FAMA, period, alpha, phase, ATR, TR all 0 rows off (max error 4.1e-10, phase); MAF states 0
+  differ.
+- (c) Inference: Zorro fills a long quote gap with flat bars repeating the last quote. The 6-day spacing and the rule behind it
+  are not established from one instance and are not claimed.
+- Per this file, the step stays stopped until a dated amendment.
+
+### Amendment 1 (2026-11-26, after EUR/JPY bar run 1, before any C1S2 null or real-signal result): Zorro's gap filler bars
+
+- User decision A1 = A: the Python EUR/JPY bars take Zorro's 3 filler bars (2017-12-18, 12-24, 12-30) with the values Zorro
+  logged, listed in `tools/check_bars_pair.PAIRS["EURJPY"]["fillers"]`; inserted by `r1_data.insert_fillers`, used by both
+  `check_bars_pair.py` and `c1s2.load`. These dates only: no general gap rule. A filler bar holds no M1 records (i1 = i0 - 1);
+  a market fill due on it is taken at the first record after it (2018-01-01 22:00 UTC). (c) That Zorro fills there too is
+  an assumption, not checked; on the real MAF series it does not arise: C1 is +1 on every bar 2017-12-11..2018-01-03, so no
+  signal falls in the hole (shifted null series can place one there).
+- Unchanged: ranges, costs, null, pass rule, AUD/USD (no fillers). Rejected: B (bars without fillers: VW1 would not hold,
+  the null would test a signal Zorro does not make), C (start after the hole: loses about 6 of 14 years, changes a
+  pre-registered range).
+- Guards and tests (`tools/tests/test_fillers.py`, 5 tests; all 167 tools tests OK): without fillers the synthetic hole case
+  fails (the run-1 FAIL reproduced); a planted wrong filler value fails; a filler on a day with records is refused; a bar
+  variant that has records on a filler date counts as not fitting.
+- Gotcha 9d.26 added.
+
+## Record: EUR/JPY bar check re-run under Amendment 1 (2026-11-26)
+
+- Same log (`BARS_EURJPY_log_run1.csv`, sha256 b3ba4944...1197), no new Zorro run. Checker:
+  `analysis/c1screen/results/C1S2_VB_EURJPY_run2.csv`. **RUN PASS.** VB0 PASS; VB1 rule (same, own) 0 off (other rules
+  294-522 off), bar times PASS, first bar 2010-05-23 (diff 4.7e-11, not replaced); VW1 MAMA, FAMA, period, alpha, phase, ATR,
+  TR 0 rows off (max error 4.1e-10); MAF states 0 differ, 0 near-threshold. Bars 4,346; trade bars 3,826.
+- VC0-VW1 now PASS on both pairs: run order step 3 complete.

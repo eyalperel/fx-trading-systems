@@ -47,7 +47,7 @@ def half_r(pair, hf, day, mult, roll=True):
 def load(pair, bars_log, history):
     _, rows, _ = B.read_log(bars_log)
     m1 = D.load_m1(history, stem=pair, years=B.PAIRS[pair]["years"])
-    var, allv = C.match_bars(m1, rows)
+    var, allv = C.match_bars(m1, rows, fillers=B.PAIRS[pair].get("fillers"))
     if var is None:
         raise SystemExit("bars do not match (VB1): refusing")
     bars = allv[var][1]

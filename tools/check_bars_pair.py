@@ -29,7 +29,13 @@ PAIRS = {
     "AUDUSD": dict(asset="AUD/USD", years=range(2002, 2027), StartDate="20070401", EndDate="20260529", PIP=0.0001,
                    PIPCost=0.08561, Spread=0.00008, RollLong=-0.0968, RollShort=0.0454),
     "EURJPY": dict(asset="EUR/JPY", years=range(2010, 2027), StartDate="20120201", EndDate="20260115", PIP=0.01,
-                   PIPCost=0.058102, Spread=0.023, RollLong=0.2828, RollShort=-0.6068),
+                   PIPCost=0.058102, Spread=0.023, RollLong=0.2828, RollShort=-0.6068,
+                   # C1S2 Amendment 1: Zorro's 3 gap filler bars in the 2017-12-11..2018-01-01 quote hole, values as Zorro
+                   # logged them ((b) BARS_EURJPY_log_run1.csv; equal to the last M1 record before the hole, 2017-12-11
+                   # 23:34 UTC). These dates only: no general gap rule is claimed.
+                   fillers={20171218: (133.7389984131, 133.7389984131, 133.7369995117, 133.7369995117),
+                            20171224: (133.7389984131, 133.7389984131, 133.7369995117, 133.7369995117),
+                            20171230: (133.7389984131, 133.7389984131, 133.7369995117, 133.7369995117)}),
 }
 WANT = {"type": "1", "LookBack": "520", "TICKS": "1", "TradeModeFRC": "1", "Fill": "3", "BarOffset": "1020",
         "StartWeek": "71700", "AtrLen": "14"}
@@ -111,7 +117,7 @@ def run(pair, log_path, history, out_path):
     check_info(rep, info, pair)
     check_lookback(rep, rows)
     m1 = D.load_m1(history, stem=pair, years=PAIRS[pair]["years"])
-    var, allv = C.match_bars(m1, rows)
+    var, allv = C.match_bars(m1, rows, fillers=PAIRS[pair].get("fillers"))
     rep.add("VB1", "bars", var is not None, "RBAR = Python bars, rule (same, own) + holidays",
             f"fits {var}; " + "; ".join(f"{k}: {v[0]}" for k, v in allv.items()))
     C.check_bar_times(rep, rows)

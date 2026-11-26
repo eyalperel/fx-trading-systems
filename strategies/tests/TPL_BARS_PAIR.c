@@ -13,7 +13,7 @@
 #include "../../indicators/nnfx/ATR.c"
 
 int bp_CompileOnly = 0;   // compile check done 2026-11-26 (e347be0)
-int bp_Pair = 1;          // 1 = AUD/USD, 2 = EUR/JPY
+int bp_Pair = 2;          // 1 = AUD/USD, 2 = EUR/JPY
 string bp_Log = "Data\\BARS_PAIR_log.csv";
 
 void bp_log(string bp_s) { file_append(bp_Log, bp_s); }
