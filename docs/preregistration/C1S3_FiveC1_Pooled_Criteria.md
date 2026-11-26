@@ -126,3 +126,16 @@ full-strategy variants: 2 (unchanged).
 ### Prediction for the compile check (written before the click)
 
 - Zorro prints `TPL_IND_PAIR: compile check only (ip_CompileOnly = 1), nothing run` and `compile check done`; no Error line.
+
+## Record: compile check (2026-11-26)
+
+- Build part 1 committed 530eec1. (b) Zorro printed `TPL_IND_PAIR: compile check only (ip_CompileOnly = 1), nothing run` and
+  `compile check done`, no Error line. Prediction met. `ip_CompileOnly` set to 0 for the pair runs (`ip_Pair = 1` AUD/USD
+  first, then 2 EUR/JPY).
+
+### Prediction for the pair runs (written before the clicks)
+
+- Zorro output: AUD/USD no Error line; EUR/JPY at most `Error 047: EUR/JPY no 2009 history` (as C1S2's bar runs).
+- check_ind_pair: VB0, VB1 (rule (same, own), 0 off; EUR/JPY with the 3 fillers), VW2 PASS on both pairs; every indicator
+  max error <= 1e-9; X1 within 1e-12; 0 state differences on all five ids (Q1).
+- (c) The bars are those of C1S2's checks (same settings, same history files): AUD/USD 0 bars off, EUR/JPY 4,346 bars.
