@@ -110,3 +110,19 @@ Running total after this round: 6 readings on EUR/USD, MAF on 2 more pairs, thes
 full-strategy variants: 2 (unchanged).
 
 ## Amendments
+
+## Record: build part 1, the Zorro check (2026-11-26)
+
+- Run order step 2 is done in two commits, both before any null run or read: (1) `strategies/tests/TPL_IND_PAIR.c`,
+  `tools/check_ind_pair.py`, `tools/tests/test_check_ind_pair.py` (this commit); (2) `tools/c1s3.py`, `tools/diag1.py` + tests.
+- (b) `strf` specifier counts checked by script: 26 / 26 (INFO), 2 / 2 (ASSETFAIL), 21 / 21 (RIND, 22 fields with the kind).
+- (b) Tests 9 / 9: consistent input passes; planted defects fail exactly their own items: one FRAMA value (frama), Fisher(11)
+  for Fisher(10) (fish, trig), LRSI mirrored on one bar (lrsi, state_LRS), Zorro SMA off (X1_sma), counter off (nmesa), first
+  defined SMA off (sma), one row missing (rows), INFO parameters (5 cases), a 21-field RIND row (refused). VB1 reuses
+  `check_r1.match_bars` / `check_bar_times` / fillers, whose planted cases are in `test_check_r1.py` and `test_fillers.py`.
+  All tools tests 176 / 176 OK (VM shell, python 3.10, numpy 2.2.6).
+- `ip_CompileOnly = 1` in the committed file.
+
+### Prediction for the compile check (written before the click)
+
+- Zorro prints `TPL_IND_PAIR: compile check only (ip_CompileOnly = 1), nothing run` and `compile check done`; no Error line.
