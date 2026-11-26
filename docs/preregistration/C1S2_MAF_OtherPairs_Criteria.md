@@ -161,3 +161,13 @@ full-strategy variants: 2.
   294-522 off), bar times PASS, first bar 2010-05-23 (diff 4.7e-11, not replaced); VW1 MAMA, FAMA, period, alpha, phase, ATR,
   TR 0 rows off (max error 4.1e-10); MAF states 0 differ, 0 near-threshold. Bars 4,346; trade bars 3,826.
 - VC0-VW1 now PASS on both pairs: run order step 3 complete.
+
+## Record: offsets written (2026-11-26, before any null run)
+
+`numpy.random.default_rng(20261125)`, 1,000 drawn without replacement from 260 .. L - 260, sorted; files created with
+exclusive create (no overwrite). Checked: 1,000 unique each, sorted, inside the bounds.
+
+| Pair | L (trade bars) | min | max | file | sha256 |
+|---|---|---|---|---|---|
+| AUD/USD | 5,370 | 267 | 5,109 | `analysis/c1screen/C1S2_offsets_AUDUSD.csv` | 69ffaa73280e71d3849468ee4ba521f1d75bd09b93df92d14d18bf0ed64e745c |
+| EUR/JPY | 3,826 | 264 | 3,565 | `analysis/c1screen/C1S2_offsets_EURJPY.csv` | 2a357ac8eb2c4b5c194f14aeb918b548e94ed4c1acb1531135f6dbeed8cc1bb3 |
