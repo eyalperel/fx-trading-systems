@@ -113,7 +113,8 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 - **NULL1 (2026-11-25): random-timing null of the template.** C1 states circularly shifted (1,000 offsets), spread x2 +
   rollover: null medians -0.025 (Strategy 1 slots) / -0.046 (Strategy 2 slots) signal-R; PERF1 at the 42.7th, PERF2 at the
   47.5th percentile: both STOPs are ordinary draws from random C1 timing. Detection limit of one read: about +0.013 to
-  +0.032 R per signal. Strategy 2 slots lose about -0.028 R per signal even at zero cost (not investigated).
+  +0.032 R per signal. Strategy 2 slots lose about -0.028 R per signal without spread (not investigated). **Corrected 2026-11-26 (NULL1
+  Amendment 2): NULL1's x0 rows include rollover**; true zero cost is measured by DIAG1.
 - **C1S1 (2026-11-25): C1-only screen, 6 readings, EUR/USD.** Best-of-six null bar +0.074: 1 pass, MAF (MAMA vs FAMA; 205
   signals, mean +0.101, t +1.48, 98.6th percentile); FSH, MSS, RFX, ROF, LRS fail.
 - **C1S2 (2026-11-26): MAF unchanged on AUD/USD and EUR/JPY: STOP.** Means -0.064 / -0.064 (25th / 34th percentile of own
@@ -424,7 +425,7 @@ file's first rows exactly.
    more pairs.
    **Next:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
    readings on AUD/USD + EUR/JPY with a pooled max-statistic null; another slot or market (exits / trailing, baseline as a
-   filter, BTC/USD H4); why the Strategy 2 slot set loses R at zero cost. Not to be done: tuning MAF or any stopped strategy, or
+   filter, BTC/USD H4); why the Strategy 2 slot set loses R without spread (rollover in: NULL1 Amendment 2). Not to be done: tuning MAF or any stopped strategy, or
    choosing variants from subgroups.
    **Earlier next (before N1, done):** decide the next step after two STOPs, one decision at a time (planning chat). Not to be done: tuning either
    strategy on EUR/USD or choosing variants from the PERF1 / PERF2 subgroups. Phase 2 items (T11 sensitivity, other dev pairs,

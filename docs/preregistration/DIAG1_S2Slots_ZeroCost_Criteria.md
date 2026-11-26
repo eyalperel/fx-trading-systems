@@ -82,3 +82,24 @@ Diagnostic arms: **5** (outside the strategy and C1 counts; no variant is chosen
 variants: 2 (unchanged).
 
 ## Amendments
+
+### Amendment 1 (2026-11-26, before any DIAG1 code or run): NULL1's "x0" includes rollover; cost levels defined
+
+- **Found (b)** while building, before any DIAG1 run: `tools/null1.py` `half_r(hf, day, mult)` adds `roll_price(...)` at every
+  multiplier, so NULL1's x0 rows are **spread 0 with rollover**, not "no costs" as NULL1's criteria (line 52) state. The
+  Purpose figures above (-0.028 F2, -0.010 O2) are those rows. C1S2's x0 rows are correct (`roll=False`); C1S1 used x2 only.
+  Correction records: NULL1 Amendment 2, FINDINGS1 and PROJECT_STATE wording (same date).
+- (c) Size: EUR/USD asset-list rollover is about -1.05 pips per day long / +0.50 short per 1,000 units (NULL1 constants:
+  0.8947 x 0.1 / 856.1); with a balanced long / short share about -0.27 pips per day held, about -0.02 R per signal at ~10
+  days against a ~120-pip stop: the order of the whole F2 effect. A hypothesis, measured by the x0r - x0 row below.
+- **User decision A1-a:**
+  - **Decisive level: true x0** = no spread, no rollover (net = dir x (exit - entry)), as this file's text says. The reading
+    rule (J-a) and R2-R5 apply to true x0, unchanged.
+  - **Information level x0r** = spread 0, asset-list rollover in (NULL1's definition), per pair constants (EUR/USD as
+    `null1.py`; AUD/USD, EUR/JPY as C1S2). Reported per arm and pair with the same jackknife; never decisive.
+  - **Rollover contribution** = x0r - x0 per arm and pair (and pooled), reported.
+  - **G0** compares the re-run EUR/USD A0 / A4 at **x0r** with NULL1's stored F2 / O2 x0 rows (stored at 6 decimals: tolerance
+    5e-7 on mean and total, exact on signals and halves, all 1,000 offsets); a planted change must fail G0.
+  - **R1** is read as a statement about x0r (its values came from NULL1's rows): EUR/USD A0 x0r within +-0.010 of -0.028, A4
+    x0r within +-0.010 of -0.010. Values unchanged.
+- No prediction is added or changed after the finding beyond this labelling.
