@@ -175,3 +175,11 @@ full-strategy variants: 2 (unchanged).
   Disclosure: it printed each reading's share of +1 states on EUR/JPY's trade range (FSH .508, MSS .489, RFX .500, ROF .506,
   LRS .538): an input property, no trade or R computed.
 - Next: run order step 4 (pairing file + sha256 recorded, then null runs).
+
+## Record: pairing written (2026-11-26, before any null run)
+
+- Build part 2 committed bab6aed. `python tools/c1s3.py pairing` (exclusive create): `analysis/c1screen/C1S3_pairing.csv`,
+  1,000 draws; AUD/USD offsets in file order (1,000 unique), EUR/JPY offsets permuted by
+  `numpy.random.default_rng(20261126).permutation(1000)` (1,000 unique, not sorted); draw 0 = (267, 1402).
+  sha256 **d722f2849afc03c403fb4c67ed986f4149013fa31a824130a32070db77b0a5a7**.
+- Next: null runs (5 ids x 2 pairs x 1,000) into `analysis/c1screen/results/C1S3_null_runs.csv`.
