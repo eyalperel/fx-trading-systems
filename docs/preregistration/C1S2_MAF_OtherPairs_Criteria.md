@@ -1,0 +1,99 @@
+# C1S2 — MAMA vs FAMA (C1-only) on the other dev pairs: AUD/USD and EUR/JPY — Criteria
+
+**Status:** pre-registered 2026-11-25, before any MAF result exists on either pair and before any code for this step is
+written. Amendments are dated and appended below, never edited in place (PROJECT_STATE §2.2).
+**Decided:** planning chat 2026-11-25 (D1: E1; G1; P1: W1; P2: A; P3: K1; P4: V-b; user: as recommended on each).
+Labels as `docs/sources/NNFX_Sources.md`: (a) source states, (b) measurable, (c) inference.
+
+## Purpose
+
+(a) A C1 must be consistent across pairs [V05]. C1S1 shortlisted one reading on EUR/USD: **MAF** = sign(MAMA - FAMA),
+MAMA(.5, .05) on (H+L)/2 (TASC V.19:9). This step tests MAF **unchanged** (no parameter, reading or rule changed after
+C1S1) on the two other FX dev pairs (PROJECT_STATE §2.1). Nothing is selected here: one fixed candidate on new data.
+
+## Data (D1: E1, G1)
+
+Zorro free M1 packages (zorro-project.com/download.php, linked from the Zorro 3.11 manual history.htm), the same source family
+as the EUR/USD files (installed by the Zorro setup, `Setup.log`). Copied into `C:/Zorro/History` 2026-11-25 (EUR/USD files
+verified unchanged by sha256):
+- **AUD/USD** `AUDUSD_2002..2026.t6`: "Forex M1 History 2002-2009" (2002-2009), "Forex/CFD M1 History 2010-2019",
+  "Forex/CFD M1 History 2020+"; 8,556,543 records after removing 24,353 repeats (gotchas 9d.23); 2002-01-02 .. 2026-05-29.
+- **EUR/JPY** `EURJPY_2010..2026.t6`: "Forex-28 M1 History 2010-2022" (holds 2010-2026); 5,925,178 records after 13,894
+  repeats; 2010-01-03 .. **2026-01-15**. **Hole (b): 2017-12-11 23:34 -> 2018-01-01 21:57 UTC** (no records). Used as is
+  (G1); trades open across the hole are counted and listed in the report.
+Every history file's sha256 is listed in the report.
+
+## Range (P1: W1)
+
+LookBack 520 bars as EUR/USD (warm-up only, no decisions).
+- **AUD/USD:** trades 2007-04-01 .. 2026-05-29 (StartDate 20070401, EndDate 20260529), the EUR/USD dates.
+- **EUR/JPY:** trades from StartDate **2012-02-01** (c: about 520 trading bars after 2010-01-04, with a margin) .. EndDate
+  **2026-01-15**. Gate (b): Zorro's first trade bar must have >= 520 bars before it (VB0 below); if not, a dated amendment
+  moves StartDate before any read.
+
+## Mode, costs, statistic (P3: K1)
+
+C1-only engine mode (NULL1 C1, V3), M1 layer (fast resolver, NULL1 A1), bars by the R1 rule ((same, own) + holidays,
+`tools/r1_data.py`) cut to Zorro's bars from VB1. Costs **spread x2 + asset-list rollover** (`config/assets/AssetsNNFX_FX.csv`):
+AUD/USD spread 0.00008, RollLong -0.0968, RollShort +0.0454, PIP 0.0001, PIPCost 0.08561; EUR/JPY spread 0.023, RollLong
++0.2828, RollShort -0.6068, PIP 0.01, PIPCost 0.058102; LotAmount 1000; rollover in price units = days x rate x 1000 / 10000
+/ (PIPCost / PIP), days as NULL1 C3. Information rows (never decisive): x2 without rollover, x0. (c) Rollover is a
+2025-07-28 snapshot; if a pair's verdict differs between x2 with and without rollover, the report says so.
+Statistic: mean signal-R; also t, total R, total without the best exit year (P-3 definitions), signals, halves.
+
+## Null (P2)
+
+Per pair: MAF's own state series over that pair's trade range, circularly shifted by 1,000 offsets drawn once without
+replacement from 260 .. L - 260 (L = the pair's trade-range bar count) with `numpy.random.default_rng(20261125)`, sorted;
+written to `analysis/c1screen/C1S2_offsets_<pair>.csv` with sha256 recorded **before** any null run. C1-only, same costs.
+
+## Pass rule (P2: A)
+
+MAF passes this step only if **on each pair**, at x2 with rollover:
+1. real mean signal-R > the 95th percentile of its own null on that pair; **and**
+2. real mean signal-R > 0; **and**
+3. real total R with the best exit year removed > 0.
+**Both pairs pass:** MAF goes on to C-3b (a C2, `C2_Selection_Criteria_PreRegistered.md` Amendment 1) and then a full P-3 read
+in Zorro, each under its own pre-registration. **Either pair fails:** MAF stops, recorded as "passes on EUR/USD only"; the next
+step is a separate decision. No parameter of MAF is changed in either case.
+
+## Zorro checks before any read (P4: V-b)
+
+New script `strategies/tests/TPL_BARS_PAIR.c` (switch `bp_Pair`: 1 = AUD/USD, 2 = EUR/JPY; bars + indicators only, **no
+trades**, no account figures): template bar settings (BarZone EST, BarOffset 17:00, StartWeek 71700, Fill 3, TICKS, TR_FRC),
+the project asset list, LookBack 520, the pair's StartDate / EndDate; logs INFO, RBAR (as R1) and IND (MAMA, FAMA, period,
+alpha, phase, ATR, TR) per bar. One click per pair. Checker `tools/check_bars_pair.py`:
+- **VC0** Zorro window: only `Error` lines pasted; `Error 047 ... no <year> history` accepted only with VB1 passing (as R1
+  Amendment 2.1); any other `Error` fails.
+- **VB0** INFO settings as above; >= 520 bars before the first trade bar.
+- **VB1** Zorro's RBAR rows equal the Python bars of the R1 rule on every day (first bar exempt if partial, gotchas 9d.14);
+  every bar ends 17:00 New York (within 1 s).
+- **VW1** MAMA, FAMA, period, alpha, phase, ATR, TR equal the reference models on those bars (1e-10 + 1e-9 |m|, as R1 W1);
+  the MAF state series from Zorro's MAMA / FAMA equals the model's (near-threshold bars counted, not failed).
+Each check is first seen to fail on a planted defect (tests). A FAIL stops this step until a dated amendment.
+
+## Predictions (c)
+
+- VB1 / VW1 PASS on both pairs (same bar builder and indicator code as EUR/USD); EUR/JPY's hole gives no failed bar (no
+  records, no bar on either side).
+- MAF passes on both pairs: not predicted. (c) Prior from C1S1: one shortlisted reading at the 98.6th percentile of a
+  best-of-six null, t +1.48. If its true edge were exactly the EUR/USD estimate and each pair had a similar signal
+  count, one pair's 95% bar would be passed about 40% of the time (z 1.48 vs 1.645) and both about 1 in 5; selection as the
+  best of six makes the EUR/USD estimate likely too high (winner's curse), so lower still.
+
+## Run order
+
+1. Commit this file.
+2. Build `TPL_BARS_PAIR.c`, `tools/check_bars_pair.py` + tests; generalise `tools/null1.py` costs / pair constants (tested);
+   commit.
+3. User: compile check, then one click per pair; Claude copies the logs (standing permission), runs the checker; VC0-VW1 PASS
+   required; record.
+4. Offsets per pair written and recorded; null runs (2 x 1,000); results sha256 recorded.
+5. Read: real MAF on both pairs; report `analysis/c1screen/C1S2_report.md`; results appended below as "C1S2 read 1".
+
+## Count
+
+C1-only readings tested: MAF on 2 more pairs (the candidate count K of C1S1 is unchanged: no new candidate). Project-wide
+full-strategy variants: 2.
+
+## Amendments
