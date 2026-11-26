@@ -24,7 +24,7 @@
 #include "../../indicators/nnfx/ATR.c"
 
 int ip_CompileOnly = 0;   // compile check done 2026-11-26 (530eec1)
-int ip_Pair = 1;          // 1 = AUD/USD, 2 = EUR/JPY
+int ip_Pair = 2;          // 1 = AUD/USD, 2 = EUR/JPY
 string ip_Log = "Data\\IND_PAIR_log.csv";
 
 void ip_log(string ip_s) { file_append(ip_Log, ip_s); }

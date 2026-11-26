@@ -139,3 +139,14 @@ full-strategy variants: 2 (unchanged).
 - check_ind_pair: VB0, VB1 (rule (same, own), 0 off; EUR/JPY with the 3 fillers), VW2 PASS on both pairs; every indicator
   max error <= 1e-9; X1 within 1e-12; 0 state differences on all five ids (Q1).
 - (c) The bars are those of C1S2's checks (same settings, same history files): AUD/USD 0 bars off, EUR/JPY 4,346 bars.
+
+## Record: pair run AUD/USD (2026-11-26) — PASS
+
+- Committed before the click: 15c9202. Zorro output: no Error line (prediction met). Log copied (no overwrite) to
+  `Zorro/Data/IND_AUDUSD_log_run1.csv` (sha256 1c78f4ddc3b170abd2cf42f912d99b2e2a3dcadb8404a6a25cd62cd5d5e62f4f; 5,890 RIND rows).
+- Checker (VM shell, python 3.10): `analysis/c1screen/results/C1S3_VW_AUDUSD_run1.csv`. **RUN PASS.** VB0 no asset fail,
+  info (settings, costs, indicator parameters), lookback 520; VB1 rule (same, own) 0 off (other rules 465-683 off), all bars
+  end 17:00 NY, first bar 2005-06-29 (diff 3.3e-11, not replaced); VW2 fish, trig, mesa, roof, sma, reflex, lrsi, frama, atr,
+  tr 0 rows off (max error 1.2e-13, mesa), nmesa exact, X1 0 off (max 0), states FSH / MSS / RFX / ROF / LRS 0 differ, 0
+  near-threshold. Predictions met.
+- `ip_Pair` set to 2 (EUR/JPY) for the second click.
