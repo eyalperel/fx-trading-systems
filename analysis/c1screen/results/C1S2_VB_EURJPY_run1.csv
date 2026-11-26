@@ -1,0 +1,6 @@
+check,item,result,expected,got,note
+VB0,no_assetfail,PASS,none,0,
+VB0,info,PASS,settings and asset-list costs,ok,
+VB0,lookback_bars,PASS,>= 520 bars before the first trade bar,520,
+VB1,bars,FAIL,"RBAR = Python bars, rule (same, own) + holidays","fits None; ('same', 'own'): 3; ('next', 'own'): 525; ('next', 'drop'): 297; ('next', 'monday'): 297",
+B1,bar_end_17NY,PASS,every RBAR ends 17:00 New York,0 off,

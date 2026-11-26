@@ -1,6 +1,8 @@
-"""PERF1 report: first performance read of Strategy 1 v0 on EUR/USD (criteria: docs/preregistration/PERF1_Strategy1_EURUSD_Criteria.md).
+"""PERF1 / PERF2 report: performance read of one NNFX strategy v0 on EUR/USD (criteria: docs/preregistration/PERF1_Strategy1_EURUSD_Criteria.md;
+PERF2_Strategy2_EURUSD_Criteria.md reuses it unchanged except the header lines, --read perf2).
 
 Usage: python tools/perf_report.py --x1 <log> --x2 <log> --sha-x1 <prefix> --sha-x2 <prefix> --history <dir> --out <report.md>
+                                   [--read perf1|perf2]   (default perf1; perf2: PERF2 header, variant count, disclosure)
 
 Inputs : two template logs (x1, x2 spread level), their sha256 prefixes, the Zorro History folder.
 Output : one Markdown report (written with exclusive-create: an existing file is never overwritten).
@@ -503,16 +505,33 @@ def item_rows(S, years, reasons):
     return rows
 
 
-def render(run, hist_files, nm):
+# Report headers per read (PERF2 P-1: items, units, verdict and near-miss are unchanged; only these lines differ).
+READS = {
+    "perf1": dict(
+        title="# PERF1 read 1 — Strategy 1 v0 on this EUR/USD feed",
+        criteria="docs/preregistration/PERF1_Strategy1_EURUSD_Criteria.md",
+        variants="- Variants counted: **1** (Strategy 1, variant 0, EUR/USD). x1 / x2 are reporting levels, not variants (P-3).",
+        disclosure="- Disclosure (P-2): the outcomes of 10 R1a trades were seen in Phase 1 step 5; this read is not fully blind."),
+    "perf2": dict(
+        title="# PERF2 read 1 — Strategy 2 v0 on this EUR/USD feed",
+        criteria="docs/preregistration/PERF2_Strategy2_EURUSD_Criteria.md",
+        variants="- Variants counted: **1** (Strategy 2, variant 0, EUR/USD); project-wide strategy variants tested: "
+                 "**2** after this read (1 before). x1 / x2 are reporting levels, not variants (P-3).",
+        disclosure="- Disclosure (P-2): no Strategy 2 trade outcome was hand-checked before this read."),
+}
+
+
+def render(run, hist_files, nm, read="perf1"):
+    H = READS[read]
     """run: dict level -> dict(path, sha, stats{kind: S}, verdict, acct, nm). Returns Markdown text."""
     years = sorted(set(YEARS_RANGE) | {y for lv in run.values() for S in lv["stats"].values() for y in S["by_year"]})
     reasons = list(REASONS) + sorted({r for lv in run.values() for S in lv["stats"].values() for r in S["exits"]
                                       if r not in REASONS})
-    o = ["# PERF1 read 1 — Strategy 1 v0 on this EUR/USD feed", "",
-         "Criteria: `docs/preregistration/PERF1_Strategy1_EURUSD_Criteria.md` (P-1 table, P-3 verdict, P-4). "
+    o = [H["title"], "",
+         f"Criteria: `{H['criteria']}` (P-1 table, P-3 verdict, P-4). "
          "Not a result about EUR/USD in general (P-4.1).", "",
          "## What ran", "",
-         "- Variants counted: **1** (Strategy 1, variant 0, EUR/USD). x1 / x2 are reporting levels, not variants (P-3).",
+         H["variants"],
          "- Computed by `tools/perf_report.py` from two template logs; half-R and signal-R use the ACTUAL risk "
          "(lots x stop pips x PIPCost, SIZE row).", ""]
     for lv in ("x1", "x2"):
@@ -562,7 +581,7 @@ def render(run, hist_files, nm):
           "- Drawdown is on closed trades only; drawdown inside an open trade is not counted, so the real one can be deeper.",
           "- When total net R is near 0 the swap % is large and unstable; read the swap sum in R.",
           "- The t formula treats signals as independent; a runner can overlap the next signal.",
-          "- Disclosure (P-2): the outcomes of 10 R1a trades were seen in Phase 1 step 5; this read is not fully blind.", ""]
+          H["disclosure"], ""]
     return "\n".join(o)
 
 
@@ -599,6 +618,7 @@ def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     for a in ("--x1", "--x2", "--sha-x1", "--sha-x2", "--history", "--out"):
         ap.add_argument(a, required=True)
+    ap.add_argument("--read", choices=sorted(READS), default="perf1")
     try:
         args = ap.parse_args(argv)
     except SystemExit:
@@ -624,7 +644,7 @@ def main(argv):
             assets.add(asset)
         if len(assets) != 1:
             raise DataError(f"x1 and x2 logs are for different assets {sorted(assets)}")
-        text = render(run, history_files(args.history, asset0, y0, y1), None)
+        text = render(run, history_files(args.history, asset0, y0, y1), None, args.read)
         with open(args.out, "x", encoding="utf-8", newline="\n") as f:
             f.write(text)
     except PerfError as e:

@@ -141,7 +141,7 @@ def _fold_holidays(bday, holidays=HOLIDAYS):
     return bday
 
 
-def daily_bars(m1, gap="drop", edge="same", friday="own", holidays=True):
+def daily_bars(m1, gap="drop", edge="same", friday="own", holidays=True, fillers=None):
     """17:00 New York daily bars as a dict of arrays: day (OLE day number), end_ole (UTC), o, h, l, c, i0, i1 (first / last
     record index into m1). gap = "drop": weekend-gap records left out; "fold": kept where their time puts them.
     edge: see classify(). friday (edge "next" only), for records at/after Friday 17:00 (b: 453 records, all exactly 17:00):
@@ -167,7 +167,36 @@ def daily_bars(m1, gap="drop", edge="same", friday="own", holidays=True):
     l = np.minimum.reduceat(rec["l"], starts).astype(float)
     days = bd[starts]
     end_ole = np.array([dt_to_ole(dt.datetime(*_ymd(d), 17, tzinfo=NY).astimezone(UTC)) for d in days])
-    return dict(day=days, end_ole=end_ole, o=o, h=h, l=l, c=c, i0=idx[starts], i1=idx[ends], keep=keep)
+    b = dict(day=days, end_ole=end_ole, o=o, h=h, l=l, c=c, i0=idx[starts], i1=idx[ends], keep=keep)
+    return insert_fillers(b, m1, fillers) if fillers else b
+
+
+def insert_fillers(b, m1, fillers):
+    """Add Zorro's gap filler bars: {yyyymmdd: (o, h, l, c)} with the values Zorro logged (C1S2 Amendment 1; (b) EUR/JPY
+    bar run 1: 3 flat bars inside the 2017-12 quote hole, which Python's record-based bars do not have). A filler bar holds
+    no M1 records: i1 = i0 - 1, with i0 = the first record after it, so a market fill on it is taken at that record.
+    Refuses a filler date that already has a bar or whose day holds records (then it is not a gap)."""
+    have = {ymd_int(d) for d in b["day"]}
+    rows = []
+    for ymd, (o, h, l, c) in sorted(fillers.items()):
+        if ymd in have:
+            raise ValueError(f"filler {ymd}: a bar with records exists that day")
+        y, m, d = ymd // 10000, ymd // 100 % 100, ymd % 100
+        day = (dt.date(y, m, d) - dt.date(1899, 12, 30)).days
+        end = dt_to_ole(dt.datetime(y, m, d, 17, tzinfo=NY).astimezone(UTC))
+        prev_end = max([e for e in b["end_ole"] if e < end], default=-np.inf)
+        i0 = int(np.searchsorted(m1["t"], end, side="right"))
+        if i0 > 0 and m1["t"][i0 - 1] > prev_end:
+            raise ValueError(f"filler {ymd}: M1 records inside its bar period")
+        rows.append((day, end, float(o), float(h), float(l), float(c), i0, i0 - 1))
+    out = {k: list(v) for k, v in b.items() if k != "keep"}
+    for r in rows:
+        k = int(np.searchsorted(np.asarray(out["day"]), r[0]))
+        for key, val in zip(("day", "end_ole", "o", "h", "l", "c", "i0", "i1"), r):
+            out[key].insert(k, val)
+    res = {k: np.asarray(v, dtype=np.asarray(b[k]).dtype) for k, v in out.items()}
+    res["keep"] = b["keep"]
+    return res
 
 
 def _ymd(ole_day):

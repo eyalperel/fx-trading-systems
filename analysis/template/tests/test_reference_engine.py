@@ -360,6 +360,15 @@ class EntriesAndBlocks(Base):
         self.assertEqual(len(run(s_D7b()).halves), 2)
         self.assertEqual(len(run(s_D7c()).halves), 2)
 
+    def test_D7_refusal_recorded(self):
+        # PERF2 T1: the engine records each bridge-too-far skip as the template's REFUSED row does (once per refused cross)
+        r = run(s_D7a())
+        self.assertEqual(len(r.refusals), 1)
+        self.assertEqual(r.refusals[0][1:], (1, "bridge-too-far"))
+        self.assertEqual(r.refusals[0][0], 8)        # the cross bar: 1 + age = 8 bars below, cross on bar index 8
+        self.assertEqual(run(s_D7b()).refusals, [])
+        self.assertEqual(run(s_D7c()).refusals, [])
+
     def test_D8_pullback_one_candle_then_entry(self):
         r = run(s_D8())
         self.assertEqual(len(r.halves), 2)

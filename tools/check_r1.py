@@ -127,7 +127,7 @@ class Report:
 
 
 # ---- B1 bars ---------------------------------------------------------------------------------------------------
-def match_bars(m1, rbar):
+def match_bars(m1, rbar, fillers=None):
     """(variant, bars cut to Zorro's range, per-variant mismatch counts). variant None if none matches."""
     z = {r["ymd"]: r for r in rbar}
     zdays = [r["ymd"] for r in rbar]
@@ -135,7 +135,11 @@ def match_bars(m1, rbar):
     second = zdays[1] if len(zdays) > 1 else hi
     out = {}
     for var in D.BAR_VARIANTS:
-        b = D.daily_bars(m1, edge=var[0], friday=var[1])
+        try:
+            b = D.daily_bars(m1, edge=var[0], friday=var[1], fillers=fillers)
+        except ValueError:          # a filler date that holds records under this variant: the variant cannot fit
+            out[var] = (len(zdays), None)
+            continue
         ymd = np.array([D.ymd_int(d) for d in b["day"]])
         # Zorro's first bar may be partial or span several days (gotchas 9d.14; R1a run 1: 2005-01-03 held the records up
         # to 2005-01-27): Python days after the first and before Zorro's second bar are left out.

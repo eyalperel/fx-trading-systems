@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-24 (**PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
+**As of:** 2026-11-26 (**FINDINGS1** (`docs/research/FINDINGS1_C1_Timing_D1FX.md`): no C1 timing edge found on the D1 FX dev pairs. **C1S2 read 1: MAF fails on AUD/USD and EUR/JPY = STOP** ("passes on EUR/USD only"); C1S1 read 1: 1 of 6 C1s (MAF) shortlisted on EUR/USD; NULL1 read 1: both PERF STOPs are ordinary random-timing draws; confirmation set untouched; next: Decision N3 (next research question); before that: 2026-11-25 **PERF2 read 1: Strategy 2 v0 on EUR/USD = STOP** (x2: mean -0.048 signal-R, t -1.18; project-wide strategy variants tested: 2); before that: **PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -70,7 +70,7 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 
 ### 1.4 Does not exist yet
 
-- Any strategy that passed a performance read (Strategy 1 v0 on EUR/USD: STOP, PERF1 2026-11-24); a defined exit indicator
+- Any strategy that passed a performance read (Strategy 1 v0 on EUR/USD: STOP, PERF1 2026-11-24; Strategy 2 v0 on EUR/USD: STOP, PERF2 2026-11-25); a defined exit indicator
 - Walk-forward, Monte Carlo, or strategy-level surrogate test
 - Historical (time-varying) swap / spread model (asset-list costs only, T7)
 - Confirmation-set pass condition
@@ -106,6 +106,19 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
   H(|returns|) = 0.658 (EUR/USD D1), 0.766 (BTC/USD H4).
 - **Strategy 1 v0 on EUR/USD D1 (PERF1, 2026-11-24): STOP.** 2007-2026, 325 signals, mean -0.030 signal-R at spread x2
   (t -0.87): no evidence of an edge; roughly flat before costs (c). One feed, one asset, one variant.
+- **Strategy 2 v0 on EUR/USD D1 (PERF2, 2026-11-25): STOP.** Same bars, 282 signals, mean -0.048 signal-R at spread x2
+  (t -1.18), total -13.5 R, -16.0 R without the best year (2008): no evidence of an edge; about -0.02 R per signal before
+  costs (c). (c) Two different indicator sets in the same template both read roughly flat before costs on EUR/USD D1.
+  Project-wide strategy variants tested: 2.
+- **NULL1 (2026-11-25): random-timing null of the template.** C1 states circularly shifted (1,000 offsets), spread x2 +
+  rollover: null medians -0.025 (Strategy 1 slots) / -0.046 (Strategy 2 slots) signal-R; PERF1 at the 42.7th, PERF2 at the
+  47.5th percentile: both STOPs are ordinary draws from random C1 timing. Detection limit of one read: about +0.013 to
+  +0.032 R per signal. Strategy 2 slots lose about -0.028 R per signal even at zero cost (not investigated).
+- **C1S1 (2026-11-25): C1-only screen, 6 readings, EUR/USD.** Best-of-six null bar +0.074: 1 pass, MAF (MAMA vs FAMA; 205
+  signals, mean +0.101, t +1.48, 98.6th percentile); FSH, MSS, RFX, ROF, LRS fail.
+- **C1S2 (2026-11-26): MAF unchanged on AUD/USD and EUR/JPY: STOP.** Means -0.064 / -0.064 (25th / 34th percentile of own
+  nulls), negative even at zero cost. Recorded "passes on EUR/USD only". (c) The EUR/USD pass is best read as a best-of-six
+  selection effect. Summary of all five studies: `docs/research/FINDINGS1_C1_Timing_D1FX.md`.
 - **Ehlers' 2015 "pink noise"** measurement is brown noise (f⁻²).
 
 ---
@@ -376,10 +389,49 @@ file's first rows exactly.
    the best year (2007); x1 mean -0.024. (c) No evidence of an edge; roughly flat before costs (approximate). Report
    `analysis/template/r1/results/PERF1_read1_report.md`. Disclosures: step-5 trades, 3 R1b rows + row counts, Zorro's summary
    seen after R1d (A3.1). **Strategy variants tested: 1.** Strategy 1 is not tuned on EUR/USD (P-3).
-   **Next:** (1) Strategy 2 variant 0 on EUR/USD: decide its open T3 issue (C1 and C2 of the same type, against V20) first, then
-   its own pre-registration (PERF1 format; x2 bar unchanged); (2) Phase 2 items (T11 sensitivity, other dev pairs, walk-forward,
-   surrogates, second data feed PERF1 P-4.3) only for a system that passes a read.
-   **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds only EUR/USD (M1, 2005-2026); EUR/JPY, AUD/USD, BTC/USD to locate. NNFX Podcast
+   **PERF2, 2026-11-24/25** (branch `perf2-strategy2`; criteria `docs/preregistration/PERF2_Strategy2_EURUSD_Criteria.md`
+   `6eade39` + Amendments 1-6). **T3 amendment 1** (decided 2026-11-24, option B): Strategy 2 C1 = MESA Stochastic vs SMA(10) of
+   its own output, two-lines cross [V18, V20]; C2 Laguerre RSI 0.5 midline unchanged; bridge-too-far on (V34). SMA computed by
+   our own code, Zorro `SMA()` as cross-check X1 (decision 2a); mechanics gate = R1 pattern (decision 2b). Built:
+   `NNFX_Strategy2.h` + config, `TPL_R2_EURUSD.c`, `tools/r2_replay.py`, `tools/check_r2.py` (+ IND column-count guard),
+   engine records bridge-too-far refusals, `perf_report.py --read perf2`. **R2a run 1 FAIL** (IND format miscount, holiday
+   market fills: gotchas 9d.24 corrected, 9d.25; `r1_replay.open_fill` skips holiday-dated records, R1a run 2 re-checked
+   PASS), run 2 checks PASS with a stray IND column, **run 3 PASS** (gate run); **R2b (x1) PASS**, **R2c (x2) PASS**: 564
+   halves = the independent replay, 158 bridge-too-far refusals equal, X1 exact. **Read 1: STOP** (b): 282 signals, mean
+   -0.048 at x2 (t -1.18), total -13.52 R, -16.01 R without 2008. Report `analysis/template/r2/results/PERF2_read1_report.md`.
+   Disclosures: dry-run entry-kind / refusal counts (A2), Zorro's costs-off summary of R2a (A3.1). **Strategy variants
+   tested: 2.**
+   **Decision N1 (2026-11-25, user: as recommended): C -> B, with D alongside.** C: the template's null distribution first
+   (verified Python engine, random C1 states, costs, many runs, positive control: what "no edge" looks like under this money
+   management, and what edge a ~300-signal read can detect). B: then VP's slot-by-slot method (C1 alone with the ATR money
+   management across dev pairs, then C2 by C-3b of `C2_Selection_Criteria_PreRegistered.md`, then the rest; (a) A §5.1).
+   D: EUR/JPY and AUD/USD M1 into Zorro. Options not taken: A (re-run both stopped strategies on other pairs: a search over
+   pairs, C2 criteria A1.4). C's pre-registration is decided one point at a time.
+   **NULL1, 2026-11-25** (`docs/preregistration/NULL1_TemplateNull_Criteria.md`, decisions C1-C6): Python engine with costs
+   (V1 PASS vs Zorro), C1-only mode (`baseline_mode = "off"`, V3 tests), circular-shift null, drift-injection positive
+   control, fast vectorised M1 resolver (Amendment 1, proven identical). **Read 1** in §3. Tools `tools/null1.py`,
+   `null1_report.py`.
+   **C1S1, 2026-11-25** (`C1S1_C1Screen_EURUSD_Criteria.md`, K = 6, rule R-b, max-statistic null): **read 1: 1 survivor, MAF.**
+   Tools `tools/c1s1.py`.
+   **Step D data, 2026-11-26:** AUD/USD (2002-2026) and EUR/JPY (2010-2026-01-15, quote hole 2017-12-11..2018-01-01) M1 from
+   Zorro's free history packages into `C:/Zorro/History`; EUR/USD files unchanged.
+   **C1S2, 2026-11-26** (`C1S2_MAF_OtherPairs_Criteria.md`, decisions P1-P4): `TPL_BARS_PAIR.c` (bars + MAMA / FAMA / ATR, no
+   trades), `tools/check_bars_pair.py`, `tools/c1s2.py`. VB checks: AUD/USD PASS; EUR/JPY FAIL (Zorro's 3 flat filler bars in
+   the quote hole, gotcha 9d.26) -> Amendment 1 (Python takes Zorro's filler bars as logged, `r1_data.insert_fillers`) -> PASS.
+   Offsets and null runs committed before the read. **Read 1: MAF STOP** (§3).
+   **FINDINGS1, 2026-11-26** (decision N2: A): write-up of PERF1, PERF2, NULL1, C1S1, C1S2
+   (`docs/research/FINDINGS1_C1_Timing_D1FX.md`). Counts: full-strategy variants 2; C1-only readings 6 on EUR/USD + MAF on 2
+   more pairs.
+   **Next:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
+   readings on AUD/USD + EUR/JPY with a pooled max-statistic null; another slot or market (exits / trailing, baseline as a
+   filter, BTC/USD H4); why the Strategy 2 slot set loses R at zero cost. Not to be done: tuning MAF or any stopped strategy, or
+   choosing variants from subgroups.
+   **Earlier next (before N1, done):** decide the next step after two STOPs, one decision at a time (planning chat). Not to be done: tuning either
+   strategy on EUR/USD or choosing variants from the PERF1 / PERF2 subgroups. Phase 2 items (T11 sensitivity, other dev pairs,
+   walk-forward, surrogates, second data feed) apply only to a system that passes a read. Small open items: stale comment
+   `NNFX_Config.h:156` "(Strategy 2: 0)" (value 1 is right; fix with the next template change); PERF1 header start date
+   "2007-02-01" vs the 2007-04-01 its runs used (noted in PERF2).
+   **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds EUR/USD (2005-2026), AUD/USD (2002-2026), EUR/JPY (2010-2026-01-15) M1; BTC/USD to locate. `C:/Zorro/history_*.zip` and `_unpack/` can be deleted by the user. `.gitignore` `Results/` also matches `results/` (needs `git add -f`). NNFX Podcast
    Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.

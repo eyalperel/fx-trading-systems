@@ -136,3 +136,209 @@ table at 0.5 / 1 / 2 pips (information only), second feed as a Phase 2 item only
 A FAIL anywhere stops the sequence; nothing is read until R2a, R2b and R2c all PASS.
 
 ## Amendments
+
+### Amendment 1 — 2026-11-24, before any Strategy 2 run (build stage; no rule of P-1, P-3, P-4 changed)
+
+Reason (b): writing the code showed three details the criteria left implicit.
+
+**A1.1 W1 `sma` from row 10.** The SMA of the MESA output has no value until 10 MESA outputs exist (decision 2a). W1
+compares `sma` from the 10th IND row on; rows 1-9 hold whatever Zorro's series held and are not used (C1 state 0 there,
+checked by S1 against the model, which reads 0 on those rows). This is the definition of the field, not an exclusion of a
+defined value; every other IND field is compared on every row. New W1 item `nmesa` (= row number, exact) proves the counter
+that gates C1. X1 compares the same rows; rows 1-9 are reported as INFO.
+
+**A1.2 Engine refusals.** T1's "REFUSED rows equal the engine's refusals" needs the engine to record its bridge-too-far
+skips. `analysis/template/reference_engine.py` now appends (bar, dir, reason) to `Result.refusals` at the existing skip
+(behaviour unchanged: 32 earlier engine tests PASS; new test D7 refusal recorded, seen to fail with the append removed).
+T1 compares the days of the template's `REFUSED,...,bridge-too-far` rows with the engine's refusal days.
+
+**A1.3 Report header.** `tools/perf_report.py --read perf2` writes PERF2's title, criteria path, variant count (1 for
+Strategy 2; project-wide 2 after the read) and disclosure (no Strategy 2 trade hand-checked). Everything else in the
+report is the PERF1 code unchanged (default `--read perf1` output unchanged: 51 earlier tests PASS). P-5.2's synthetic
+Strategy 2 log run is test `test_perf2_synthetic_strategy2_log` (exit 0, all 13 items present, no PERF1 lines).
+
+### Amendment 2 — 2026-11-25, R2a prediction (before the click)
+
+**Compile check (b):** `TPL_R2_EURUSD.c` with `r2_CompileOnly = 1` (commit `8ddf09d`): "compile check done", no `Error`
+line, as predicted. Now `r2_CompileOnly = 0`, `r2_SpreadLevel = 0` (R2a).
+
+**Dry run behind the prediction (b), mechanics only.** The reference models and the engine + M1 layer were run in Python on
+the same bars as R1 (bar rule (same, own), 5,490 bars from 2005-03-29, first trade bar index 520, first bar not patched;
+bars cut by R1d run 1's RBAR rows). Printed: conditioning, near-threshold counts, half / refusal counts. No P&L, R, exit
+reason or year figure was computed or printed.
+- Conditioning: a relative price nudge of 1e-13 moves every field by <= 1.6e-13 absolute (relative <= 7.2e-10, Roof,
+  where values pass near 0; the W1 tolerance is 1e-10 + 1e-9 |m|), and flips no C1 or C2 state.
+- Near-threshold bars in the trade range: C1 0, C2 0, baseline 0. Laguerre RSI exactly 0 or 1 on 39.4% of trade-range bars
+  ((b), the pinning of T3 amendment 1). MESA raw Stoc fallback (range 0): 1 row (the first).
+- Engine + M1 layer, all four (fill_px, start) alternatives identical: **564 halves (282 signals)**, by entry kind (halves):
+  baseline 326, c1 184, continuation 40, pullback 14; **158 bridge-too-far refusals**; 0 same-bar stop + TP1; 0 `end` halves.
+- **Disclosure (b):** these counts (entry-kind mix, refusal count) are now seen before the read. (c) They carry no outcome
+  information; the verdict rule (P-3) is unchanged.
+
+**R2a prediction (c).**
+- Zorro: `Error 047: EUR/USD no 2004 history` (as every R1 run; accepted under C0), no other `Error` line, `Trades 564`.
+- `python tools/check_r2.py a C:/Zorro/Data/TPL_R2a_log_run1.csv C:/Zorro/Data/TPL_R2a_ind_run1.csv C:/Zorro/History
+  analysis/template/r2/results/TPL_R2a_run1.csv`: **RUN PASS**. K0 settings ok, 0 ERROR rows; B1 rule (same, own), first bar
+  20050329 not replaced; W1 every field within tolerance, max errors of the R1 order (<= 1e-11; `nmesa` exact); X1 0 off
+  from row 10 (Zorro `SMA()` = the plain mean; its start-up rows 1-9 reported, count not predicted); S1 0 differ, 0
+  near-threshold; T1 fits all four alternatives, 158 bridge-too-far refusals equal; K1 282 SIZE rows exact; K3, K4, K5 0 off;
+  K6 no MARGINCALL.
+- Copy after the click: `Data/NNFX_Template_log.csv` -> `Data/TPL_R2a_log_run1.csv`, `Data/NNFX_Strategy2_ind.csv` ->
+  `Data/TPL_R2a_ind_run1.csv`.
+
+### R2a run 1 — 2026-11-25 10:01 — FAIL (setup: indicator log row; checker model: holiday fills)
+
+Commit `90e210c`. Log `C:/Zorro/Data/TPL_R2a_log_run1.csv` (sha256 `a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`), indicators `TPL_R2a_ind_run1.csv`
+(`7d082a5f15643717b741f5e51c755e30454212d9a7126fdde433440d3ca58d54`). Zorro: `Error 047: EUR/USD no 2004 history` only, `Trades 564` (= the prediction).
+`check_r2.py a` stopped reading the IND file (no results file written): **FAIL**. Diagnosis (b), from the log and the IND
+fields that precede the defect:
+1. **IND row broken** (template unaffected): `(int)s2_cnt[0]` printed with `%i` shifted every later column (25 fields for
+   24 headers; LRSI, ATR fields unreadable). Fields before it equal the models: FRAMA, dim, alpha <= 8.9e-16; MESA 9.2e-14;
+   Roof 2.7e-15; Stoc 2.0e-13; own SMA and Zorro `SMA()` both <= 7.2e-14 of the model (0 rows off). Gotchas 9d.24.
+2. **T1: 4 of 564 halves differ** (fit (open, entry) and (open, after) otherwise): two market fills on bars holding folded
+   12-25 records, 2012-12-26 (baseline exit, both halves) and 2013-12-26 (entry, both halves). Zorro filled at the first
+   record of 12-26 00:00 New York (1.31787 / 1.36766), the engine at the bar's first record (late 12-25: 1.31770 /
+   1.36759). (a) date.htm: holidays "treated like weekends". Gotchas 9d.25.
+Also (b): K0 settings equal, 0 ERROR rows; B1 rule (same, own), 5,490 bars; S1 0 differ, 0 near-threshold; 158 REFUSED
+rows, all bridge-too-far, equal to the engine's 158 refusal days.
+
+### Amendment 3 — 2026-11-25, after R2a run 1, before run 2
+
+**A3.1 Disclosure (b).** The user's text paste of the Zorro window after R2a run 1 included Zorro's summary lines (account
+figures of the costs-off run: Loss, MI, DD, Capital, Win, Avg, CAGR, PF, SR, UI, R2). Seen by the user and the planning chat
+before any read, against P-5.1. They are a costs-off (x0) run, Zorro's account accounting, not the PERF2 report; not
+recorded here, not used in any verdict. The verdict rule (P-3, x2) is unchanged. P-5.1 stands for R2a run 2, R2b and R2c:
+only `Error` lines and `Trades` are pasted.
+
+**A3.2 Fixes (no rule changed).**
+- `NNFX_Strategy2.h`: `nmesa` printed as a var with `%.15f` (no cast); `check_r2.py` rounds it. Slot logic unchanged.
+- `tools/r1_replay.open_fill`: market fills skip records whose New York date is a holiday (default 101, 1225); tested on a
+  synthetic 12-25 / 12-26 case (and the old rule with `holidays=()`). Regression: `check_r1.py a` on R1a run 2 (log
+  `TPL_R1a_log_run2.csv`) still RUN PASS, 650 halves (R1 had no fill on such a bar). On R2a run 1's log the new rule makes
+  T1 fit (open, entry) and (open, after) with 0 differences, refusals equal.
+- Gotchas 9d.24, 9d.25 added.
+
+**A3.3 R2a run 2 prediction (c).** Same script and switch (`r2_SpreadLevel = 0`), template unchanged, so the same trades.
+- Zorro: `Error 047` only, `Trades 564`.
+- `check_r2.py a` on `TPL_R2a_log_run2.csv` / `TPL_R2a_ind_run2.csv`: **RUN PASS**. W1 every field within tolerance (max
+  <= 1e-12 order), `nmesa` exact; X1 0 off from row 10; S1 0 differ, 0 near-threshold; T1 fits (open, entry) and
+  (open, after), 158 refusals equal; K1 282 SIZE rows; K3, K4, K5 0 off; K6 no MARGINCALL.
+- The template log of run 2 is byte-identical to run 1's (same script, same template; only the IND file changes) (c).
+
+### R2a run 2 — 2026-11-25 10:15 — checks PASS; one unpredicted log defect (stray IND column)
+
+Commit `294576e`. Log `TPL_R2a_log_run2.csv` byte-identical to run 1's (sha256
+`a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`, as predicted); indicators `TPL_R2a_ind_run2.csv`
+(`d266f512007a2b43fa205523b5da9fdd7c0b7143731e2d9ea382ecb6339b676f`). Zorro: `Error 047` only, `Trades 564` (as predicted). `check_r2.py a`
+(`analysis/template/r2/results/TPL_R2a_run2.csv`): **RUN PASS, 32 rows, 0 FAIL**. W1 every field <= 2.0e-13 (13 fields, 5,490
+rows; `sma` 5,481 rows from row 10), `nmesa` exact; X1 0 of 5,481 off (max 0: Zorro `SMA()` = own mean exactly), its 9 start-up
+rows also equal; S1 0 differ, 0 near-threshold; T1 fits (open, entry) and (open, after), 0 diffs, 158 refusals equal, 0
+same-bar; K1 0 of 282 off; K3, K4, K5 0 off; K6 no MARGINCALL, max margin share 0.0373.
+**Not predicted (b):** every IND data row has 25 fields for 24 headers; the last is garbage. Cause: the format string had
+20 `%.15f` for 19 float arguments (also the real cause of run 1's shifted columns; gotchas 9d.24 corrected). The checker read
+fields by header name, so every named field was verified, but it did not notice the extra field: a guard gap.
+
+### Amendment 4 — 2026-11-25, after R2a run 2
+
+**A4.1 Fixes.** `NNFX_Strategy2.h` IND format: 19 `%.15f` for 19 floats (log-only; slot logic unchanged). `check_r2.read_ind`
+now refuses a file whose data rows do not all have the header's field count (RUN FAIL "K0 ind_columns"); seen to fire on a
+planted stray field (test) and on R2a run 2's real file (5,490 rows refused).
+**A4.2 Gate.** Decided in the planning chat (see below): whether R2a run 2 counts as the R2a PASS or an R2a run 3 is
+required with the fixed row.
+
+**A4.2 decided (user: B, 2026-11-25).** R2a run 2 does not count as the gate; **R2a run 3** runs with the fixed IND row
+(commit `f00d612` + this amendment). Run 3 is the R2a gate run.
+
+**A4.3 R2a run 3 prediction (c).** Same script `TPL_R2_EURUSD.c`, `r2_SpreadLevel = 0`.
+- Zorro: `Error 047` only, `Trades 564`.
+- Template log byte-identical to runs 1-2 (sha256 `a462d4bc77f74cbe`...).
+- Every IND data row has 24 fields (the new column-count guard passes); IND named-field values equal run 2's.
+- `check_r2.py a` on `TPL_R2a_log_run3.csv` / `TPL_R2a_ind_run3.csv`: RUN PASS, 32 rows, 0 FAIL, same figures as run 2.
+
+### R2a run 3 — 2026-11-25 10:45 — **PASS, all predictions met** (R2a gate run, A4.2)
+
+Commit `6000f53`. Log `TPL_R2a_log_run3.csv` byte-identical to runs 1-2 (sha256
+`a462d4bc77f74cbe28da7b795a676d225c716aa015e33a2ec91752299cedbfc9`); indicators `TPL_R2a_ind_run3.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`): every row 24 fields, named fields equal run 2's on all
+5,490 rows. Zorro: `Error 047` only, `Trades 564`. `check_r2.py a` (`analysis/template/r2/results/TPL_R2a_run3.csv`): RUN PASS,
+32 rows, 0 FAIL, every row identical to run 2's results (figures in the run 2 record).
+Disclosure (b): the paste again showed Zorro's costs-off summary, identical to runs 1-2 (A3.1); nothing new seen.
+
+### Amendment 5 — 2026-11-25, R2b prediction (before the click)
+
+Switch edit `r2_SpreadLevel = 1` (asset-list costs x1), committed with this amendment.
+**P-5.1 tightened for R2b / R2c (the runs read by `perf_report.py`):** only lines starting with `Error` are pasted (or
+"none"); the trade count is taken from the log by the checker, so no Zorro summary line is needed or shown.
+
+**R2b prediction (c).**
+- Zorro: `Error 047` only.
+- `check_r2.py b` on `TPL_R2b_log_run1.csv` / `TPL_R2b_ind_run1.csv`: **RUN PASS**. K0 settings with costs 1; SpreadMult 1,
+  Tp1Atr 1, RefusedLog 1, base Spread 0.00012, RollLong -0.8947, RollShort 0.4259, Commission 0; every HALF row pays 0.00012;
+  0 ERROR rows. B1 as R2a; W1 / X1 / S1: indicator file byte-identical to R2a run 3's (costs do not touch indicators); K1 every
+  SIZE row exact; K3b, K4 (cost identity, whole-day rollover), K5 0 off; K6 no MARGINCALL.
+- Trade count not predicted (a spread moves stop / TP trigger times, M-D7); bridge-too-far REFUSED rows not predicted for the
+  same reason. 0 lots / risk / margin REFUSED rows.
+
+### R2b run 1 — 2026-11-25 11:32 — **PASS, all predictions met** (A5)
+
+Commit `bad677b`. Log `C:/Zorro/Data/TPL_R2b_log_run1.csv` (sha256
+`431922aad1bbfe4917ab0f2551b7e8d26eeb828b115f523f3b21ef3c0c4d984f`), indicators `TPL_R2b_ind_run1.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`, byte-identical to R2a run 3's, as predicted). Zorro (pasted:
+Error lines only, A5): `Error 047` only. `check_r2.py b` (`analysis/template/r2/results/TPL_R2b_run1.csv`): RUN PASS, 32 rows,
+0 FAIL. K0 settings, SpreadMult 1, Tp1Atr 1, RefusedLog 1, base costs as the asset list, 0 of 564 halves off 0.00012, 0 ERROR
+rows; B1, W1 (as R2a), X1 0 of 5,481 off; S1 0 differ; K1 0 of 282 SIZE rows off; K3b, K4 (cost identity, whole-day
+rollover), K5 0 off; K6 no MARGINCALL, max margin share 0.0373. Observations (not predicted, (b), from the log): 564 HALF rows,
+158 REFUSED rows, all bridge-too-far; 0 lots / risk / margin.
+
+### Amendment 6 — 2026-11-25, R2c prediction (before the click)
+
+Switch edit `r2_SpreadLevel = 2`, committed with this amendment. Paste rule A5 (Error lines only).
+**R2c prediction (c).**
+- Zorro: `Error 047` only.
+- `check_r2.py c` on `TPL_R2c_log_run1.csv` / `TPL_R2c_ind_run1.csv`: **RUN PASS**. K0 SpreadMult 2, every HALF row pays
+  0.00024, base costs as R2b, 0 ERROR rows; indicator file byte-identical to R2b's; S1 0 differ; K1 every SIZE row exact; K3b,
+  K4 (cost identity at each half's own spread, whole-day rollover), K5 0 off; K6 no MARGINCALL.
+- Trade count and bridge-too-far count not predicted (spread moves triggers); 0 lots / risk / margin REFUSED rows.
+- Then (P-2, run order 6): both log sha256 recorded here before `perf_report.py --read perf2` reads R2b (x1) and R2c (x2).
+
+### R2c run 1 — 2026-11-25 11:44 — **PASS, all predictions met** (A6)
+
+Commit `5288913`. Log `C:/Zorro/Data/TPL_R2c_log_run1.csv` (sha256
+`9c26d615bd8db7492bd4e469e67440bd4bc75de282c1aecc7e1edd5a160a2734`), indicators `TPL_R2c_ind_run1.csv`
+(`75f62bb45a1794f8edbb888f4b83d2886355673a9a112da81c6c4274c9262c74`, byte-identical to R2b's). Zorro (Error lines only):
+`Error 047` only. `check_r2.py c` (`analysis/template/r2/results/TPL_R2c_run1.csv`): RUN PASS, 32 rows, 0 FAIL. K0 SpreadMult 2,
+0 of 564 halves off 0.00024, 0 ERROR rows; S1 0 differ; K1 0 of 282 off; K3b, K4 (cost identity, whole-day rollover), K5 0
+off; K6 no MARGINCALL, max margin share 0.0374. Observations (b): 564 HALF rows, 158 REFUSED rows, all bridge-too-far.
+
+**Gate for the read (P-2, run order 6) met:** R2a run 3, R2b run 1, R2c run 1 all PASS. `perf_report.py --read perf2` may
+now read R2b (x1, sha256 prefix `431922aad1bbfe49`) and R2c (x2, `9c26d615bd8db749`).
+
+## PERF2 read 1 — 2026-11-25 11:50 — **STOP**
+
+`python tools/perf_report.py --read perf2 --x1 C:/Zorro/Data/TPL_R2b_log_run1.csv --x2 C:/Zorro/Data/TPL_R2c_log_run1.csv
+--sha-x1 431922aad1bbfe49 --sha-x2 9c26d615bd8db749 --history C:/Zorro/History --out
+analysis/template/r2/results/PERF2_read1_report.md` (both sha prefixes verified by the script; exit 0). Full report:
+`analysis/template/r2/results/PERF2_read1_report.md`.
+
+**Verdict at x2 (P-3) (b):** 282 signals, mean signal-R **-0.0479**, sd 0.680, **t = -1.18**; total R -13.52; best year 2008
+(+2.49) removed: **-16.01**. Every STOP condition holds (mean <= 0; total without best year <= 0). x1 (reading only): mean
+-0.0413, t = -1.02, would also read STOP.
+
+**Selected items (b), reported, not gated:** win rate 39.4% (x1 and x2); max drawdown 15.5 / 17.3 signal-R (x1 / x2); swap
+-3.11 / -3.19 R; spread cost 2.59 / 5.18 R; standard 262 signals (-12.94 R at x2), continuation 20 (-0.58 R); longs 149
+(-12.61 R), shorts 133 (-0.91 R); 11 of 20 exit years positive at x2; refusals: 158 bridge-too-far, 0 lots / risk / margin;
+same-bar stop + TP1: 0; long TP1 halves: 53. Near-miss (P-4): halves that could flip at 0.5 / 1 / 2 pips: 7 / 10 / 18 of 564 (x2).
+
+**Consistency checks (b):** exit reasons sum to 564 halves at x1 and x2; spread cost at x2 = 2 x x1 (5.1779 vs 2 x 2.5889); 282
+signals = 282 SIZE rows (K1).
+
+**Reading (c).** No evidence of an edge: t = -1.18 is inside the noise. Adding back the x1 costs (spread +2.59 R, swap +3.11 R)
+gives about -5.9 R over 282 signals (about -0.02 R per signal) before costs: roughly flat to slightly negative (approximate:
+trades shift slightly when costs change, M-D7). The near-miss counts cannot plausibly turn the mean into t >= 2; the
+second-feed check (P-4.3) is not run for a stopped system.
+**Disclosure complement (b):** the report's disclosure line covers hand-checks only; Zorro's costs-off (x0) summary of R2a
+was also seen before this read (A3.1, runs 1-3). The verdict is decided at x2 and the rule was committed before it.
+
+**Decision (user: accept, 2026-11-25).** STOP as pre-registered. Recorded as a failure (PROJECT_STATE §2.9). Strategy 2 is not
+tuned on EUR/USD to rescue it; the subgroup observations above (longs / shorts, years, refusals) are not used to choose any
+variant. **Strategy variants tested, project-wide: 2** (Strategy 1 v0, Strategy 2 v0; both STOP on this EUR/USD feed).

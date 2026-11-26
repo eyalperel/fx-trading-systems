@@ -1,0 +1,15 @@
+check,item,result,expected,got,note
+VB0,no_assetfail,PASS,none,0,
+VB0,info,PASS,settings and asset-list costs,ok,
+VB0,lookback_bars,PASS,>= 520 bars before the first trade bar,520,
+VB1,bars,PASS,"RBAR = Python bars, rule (same, own) + holidays","fits ('same', 'own'); ('same', 'own'): 0; ('next', 'own'): 522; ('next', 'drop'): 294; ('next', 'monday'): 294",
+B1,bar_end_17NY,PASS,every RBAR ends 17:00 New York,0 off,
+VB1,first_bar,INFO,Zorro first bar used only if partial,"20100523, diff 4.688e-11, replaced False",
+VW1,mama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.279e-12,
+VW1,fama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 3.979e-13,
+VW1,period,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.851e-12,
+VW1,alpha,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.660e-14,
+VW1,phase,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.069e-10,
+VW1,atr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.375e-12,
+VW1,tr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 3.283e-11,
+VW1,maf_states,PASS,MAF states = model,0 differ,near-threshold 0 (counted)
