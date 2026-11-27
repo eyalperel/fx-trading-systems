@@ -33,7 +33,7 @@ FT = N.FT
 ARMS = ("A0", "A1", "A2", "A3", "A4")
 PAIRS = ("EURUSD", "AUDUSD", "EURJPY")
 LEVELS = ("x0", "x0r")
-G0_TOL = 5e-7                      # NULL1 stored mean / total at 6 decimals (Amendment 1)
+G0_TOL = 5e-7 + 1e-9               # half a unit of NULL1's 6th stored decimal + float noise (Amendment 2; was 5e-7)
 CONTRASTS = (("A0-A4", "A0", "A4"), ("A3-A4", "A3", "A4"), ("A0-A1", "A0", "A1"), ("A0-A2", "A0", "A2"))
 
 

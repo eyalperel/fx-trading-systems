@@ -116,3 +116,32 @@ variants: 2 (unchanged).
   and exclude other arms / levels; **jackknife hand-calculated** (3 years, SE 0.0881917); a paired contrast with a constant
   shift has SE 0; G0 equal, rounding inside tolerance, **planted changes fail** (mean, one signal), true-x0 rows not compared.
 - All tools tests 192 / 192 OK. No DIAG1 engine run before this commit.
+
+## Record: EUR/USD null runs and G0 run 1 (2026-11-26) — G0 FAIL (tolerance), before any read
+
+- Build committed bab6aed. `tools/diag1.py null EURUSD` (VM shell, 2 workers, foreground chunks): 1,000 offsets x 5 arms x 2
+  levels into `analysis/diag1/results/DIAG1_null_runs.csv`.
+- `diag1.py g0`: **FAIL**, 1 offset off per arm. (b) Both are rounding at a half-way digit: A4 offset 958 total -2.946910500
+  (DIAG1, 9 dp) vs -2.946910 (NULL1, 6 dp); A0 offset 3676 -6.469671500 vs -6.469672; |diff| = 5.0e-7 (+ float noise),
+  signals, halves and means equal. The other 998 offsets per arm within tolerance. (c) A defect of the guard's tolerance (set
+  at exactly half a unit of the stored digit, no margin), not an engine difference.
+
+### Amendment 2 (2026-11-26, after G0 run 1, before any AUD/USD / EUR/JPY run or any read): G0 tolerance
+
+- User decision G-t: `G0_TOL = 5e-7 + 1e-9` (half a unit of NULL1's 6th stored decimal + float noise); signals and halves
+  still exact. Rejected G-s (text comparison after rounding: the half-way direction depends on bits a 9-dp print no longer
+  holds). (c) A real engine difference moves a total by a whole signal's R (~0.1-1), about 1e5 x this tolerance.
+- New test `test_half_way_rounding_boundary` (half-way case accepted; one whole 6th-decimal unit still fails); the planted
+  changes still fail; DIAG1 tests 10 / 10.
+- **G0 run 2** (same file, no new engine run): **PASS**, A0 1,000 compared / 0 off, A4 1,000 / 0 off.
+- Next: AUD/USD and EUR/JPY null runs, then the file's sha256 recorded, then the read.
+
+## Record: null runs complete (2026-11-26, before the read)
+
+- AUD/USD and EUR/JPY run after Amendment 2 was written (it touches G0 only); foreground chunks, 2 workers.
+- File `analysis/diag1/results/DIAG1_null_runs.csv`: **30,000 rows** (5 arms x 3 pairs x 2 levels x 1,000), 0 duplicates,
+  offsets equal the committed offset files for every arm, level and pair, 0 NaN means; signals per run min EUR/USD 220,
+  AUD/USD 227, EUR/JPY 157. G0 on the complete file: PASS (unchanged).
+- sha256 **9eb5313ada48767a59cc6d86ff705ff453ecd58ba9f703c791f7f0fe94de2e91**.
+- Only structure (counts, offsets, NaN, minimum signals) and the G0 diagnosis rows above were looked at; no arm mean, pooled
+  value, contrast or jackknife has been computed. The read runs only after this commit.

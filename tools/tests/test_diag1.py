@@ -110,6 +110,14 @@ class G0(unittest.TestCase):
         got = G.g0_compare(diag_rows("A0", level="x0") + diag_rows("A4", mean=-0.010, total=-3.0), self.ref)
         self.assertEqual(got["A0"], (0, 0))                                  # true x0 rows are not G0's comparison (n != 1000 -> FAIL)
 
+    def test_half_way_rounding_boundary(self):
+        # Amendment 2: a true total at a half-way 7th digit, stored by NULL1 rounded the other way: |diff| = 5.0e-7 (+ float noise)
+        ref = g0_rows("F2", total=-6.469672) + g0_rows("O2", mean=-0.010, total=-3.0)
+        got = G.g0_compare(diag_rows("A0", total=-6.4696715) + diag_rows("A4", mean=-0.010, total=-3.0), ref)
+        self.assertEqual(got["A0"], (1000, 0))
+        got = G.g0_compare(diag_rows("A0", total=-6.4696705) + diag_rows("A4", mean=-0.010, total=-3.0), ref)
+        self.assertEqual(got["A0"], (1000, 1000))                            # a whole 6th-decimal unit off still fails
+
 
 if __name__ == "__main__":
     unittest.main()
