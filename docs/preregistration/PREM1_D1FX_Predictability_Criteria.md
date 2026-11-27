@@ -117,3 +117,21 @@ Premise test: 6 horizons x 3 pairs in one max-statistic; no strategy, slot or C1
 2 (unchanged); C1-only readings unchanged.
 
 ## Amendments
+
+## Record: build (run order 2) — 2026-11-27, before any run
+
+- `tools/prem1.py`: bars (EUR/USD via `null1.load`, AUD/USD / EUR/JPY via `c1s3.load`), returns, the binding VR estimator,
+  random-sign surrogate (scalar and matrix forms), stochvol information surrogate, AR(1) / momentum planting (numpy only, time
+  loop vectorised over draws: no scipy in the VM shell), pooled S-a test with the 2-of-3 rule and the planted-sign filter,
+  K3, null / stochvol / pc runs (exclusive create), read (sha256 prefixes checked; real VRs computed only there, K4).
+- **Stochvol calibration (information row only):** H_vol = DFA(|r|) of each pair (`surrogates.dfa_hurst`), `s` from
+  `surrogates.calibrate_stochvol_s(r, H_vol, H_vol, rng)` (reproduces that DFA target); own seed 20261129 (null 20261127,
+  positive control 20261128).
+- `tools/tests/test_prem1.py` (12 tests): **K2** hand-calculated VR(2) = 2.0 (runs series under the small-sample correction:
+  sa2 = 8/7, sc2 = 24/10.5) and 0 (alternating); AR(1) phi 0.2 gives VR(2) within 0.02 of 1.2; iid near 1 at every q; drift
+  invariant. **K1** |r| kept exactly in order; signs balanced; an all-positive input does not stay positive; planted AR(1) rho_1
+  0.3 removed (< 0.02) by sign randomisation; matrix form keeps sizes. Planting: momentum start-up (x = r* before 20) and
+  recursion; vectorised = row-wise; kappa 0.2 raises VR(40) above 1.2. Pooled test: null bar near the 6-horizon value, 5% of
+  null draws above it; all-pairs move flagged; **one-pair spike blocked by the 2-of-3 rule**; reversal flagged two-sided; wrong
+  planted sign not counted. Bounds: smallest level with both signs >= 90%; missed ladder returns None.
+- All tools tests 205 / 205 OK. Nothing run on real or surrogate data before this commit.
