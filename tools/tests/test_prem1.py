@@ -123,6 +123,11 @@ class Bounds(unittest.TestCase):
         self.assertAlmostEqual(rates[("ar1", 0.02)], 0.8)
         self.assertEqual(P.bound(rates, "ar1"), 0.03)                        # 0.02 fails on the + side
         self.assertIsNone(P.bound({}, "mom"))                                # ladder missed -> None (amendment)
+        ext = dict(rates)
+        ext.update({("mom", 0.2): 0.96, ("mom", -0.2): 0.72, ("mom", 0.3): 0.99, ("mom", -0.3): 0.91})
+        self.assertEqual(P.bound(ext, "mom"), 0.3)                           # extension levels are read from the rates
+        self.assertEqual(P.bound(ext, "mom", signs=(1,)), 0.2)               # trend side only (information row)
+        self.assertEqual(P.bound(ext, "mom", signs=(-1,)), 0.3)
 
 
 if __name__ == "__main__":

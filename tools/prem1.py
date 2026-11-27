@@ -30,6 +30,8 @@ SEED_PC = 20261128
 SEED_SV = 20261129            # stochvol information row (own stream)
 N_PC = 200
 LADDER = {"ar1": (0.01, 0.02, 0.03, 0.05), "mom": (0.02, 0.05, 0.10, 0.20)}
+LADDER_EXT = {"mom": (0.30, 0.40)}      # Amendment 1 (2026-11-27): kappa ladder missed 90% on the negative side
+SEED_PC_EXT = 20261130
 MOM_LEN = 20
 K3_BARS = {"EURUSD": 5490, "AUDUSD": 5890, "EURJPY": 4346}
 
@@ -202,14 +204,15 @@ def read_vr(path):
     return np.array([[t[(d, p)] for p in PAIRS] for d in draws])      # (draws, 3, 6)
 
 
-def run_pc(zdata, history, null_path, out):
+def run_pc(zdata, history, null_path, out, ladder=None, seed=SEED_PC):
+    ladder = LADDER if ladder is None else ladder
     data = load_all(zdata, history)
     m, s, _, bar = null_stats(read_vr(null_path))
-    rng = np.random.default_rng(SEED_PC)
+    rng = np.random.default_rng(seed)
     with open(out, "x", newline="") as f:
         w = csv.writer(f)
         w.writerow(["kind", "level", "draw", "flagged", "flagged_q"] + [f"D{q}" for q in QS])
-        for kind, levels in LADDER.items():
+        for kind, levels in ladder.items():
             for lv in levels:
                 for sign in (1, -1):
                     par = sign * lv
@@ -251,26 +254,37 @@ def detection_table(pc_rows):
     return {k: float(np.mean(v)) for k, v in acc.items()}
 
 
-def bound(rates, kind, thr=0.9):
-    """Smallest |level| caught >= thr for both signs, or None."""
-    for lv in LADDER[kind]:
-        if rates.get((kind, lv), 0) >= thr and rates.get((kind, -lv), 0) >= thr:
+def levels_of(rates, kind):
+    return sorted({abs(k[1]) for k in rates if k[0] == kind})
+
+
+def bound(rates, kind, thr=0.9, signs=(1, -1)):
+    """Smallest |level| caught >= thr for every sign in `signs` (default both: the pre-registered bound), or None.
+    Levels come from the rates themselves (base ladder + Amendment 1 extension)."""
+    for lv in levels_of(rates, kind):
+        if all(rates.get((kind, sg * lv), 0) >= thr for sg in signs):
             return lv
     return None
 
 
 def read(zdata, history, null_path, sv_path, pc_path, shas, out):
+    """pc_path: one file or several joined by '+' (Amendment 1: base + extension); shas: one prefix per file, ','."""
     if os.path.exists(out):
         raise SystemExit("refusing to overwrite " + out)
     pre = shas.split(",")
-    for path, sp in zip((null_path, sv_path, pc_path), pre):
+    pcs = pc_path.split("+")
+    files = [null_path, sv_path] + pcs
+    if len(pre) != len(files):
+        raise SystemExit(f"{len(files)} files, {len(pre)} sha prefixes")
+    for path, sp in zip(files, pre):
         h = hashlib.sha256(open(path, "rb").read()).hexdigest()
         if len(sp) < 16 or not h.startswith(sp):
             raise SystemExit("sha256 mismatch " + path)
     nv, sv = read_vr(null_path), read_vr(sv_path)
     m, s, Mn, bar = null_stats(nv)
     ms, ss, Ms, bars_sv = null_stats(sv)
-    rates = detection_table(list(csv.DictReader(open(pc_path, encoding="utf-8"))))
+    rows = [r for p in pcs for r in csv.DictReader(open(p, encoding="utf-8"))]
+    rates = detection_table(rows)
     data = load_all(zdata, history)
     real = np.array([vr_all(data[p]["r"]) for p in PAIRS])                 # the real VRs: computed here only (K4)
     z, fl = flags(real, m, s, bar)
@@ -291,11 +305,13 @@ def read(zdata, history, null_path, sv_path, pc_path, shas, out):
           f"{', '.join(str(QS[j]) for j in fls) or 'none'}.", "",
           "**Positive control (detection rate, flagged with the planted sign):**", "",
           "| kind | level | rate (+) | rate (-) |", "|---|---|---|---|"]
-    for kind, lvls in LADDER.items():
-        for lv in lvls:
+    for kind in LADDER:
+        for lv in levels_of(rates, kind):
             o.append(f"| {kind} | {lv:.2f} | {rates.get((kind, lv), float('nan')):.3f} | {rates.get((kind, -lv), float('nan')):.3f} |")
     o += ["", f"**Detection bounds (>= 90%, both signs):** AR(1) phi = {bound(rates, 'ar1')}, momentum kappa = "
-          f"{bound(rates, 'mom')}.", "",
+          f"{bound(rates, 'mom')} (pre-registered rule). Information (Amendment 1): sign-specific kappa_90 trend side (+) "
+          f"{bound(rates, 'mom', signs=(1,))}, reversal side (-) {bound(rates, 'mom', signs=(-1,))}; phi_90 (+) "
+          f"{bound(rates, 'ar1', signs=(1,))}, (-) {bound(rates, 'ar1', signs=(-1,))}.", "",
           "Limitations (c): one history per pair; equal-weight pooling; the random-sign null assumes sign symmetry; slow momentum "
           "below the kappa bound is invisible to this test.", ""]
     with open(out, "x", encoding="utf-8", newline="\n") as f:
@@ -313,6 +329,8 @@ def main(argv):
         run_stochvol(*argv[1:]); return 0
     if cmd == ["pc"] and len(argv) == 5:
         run_pc(*argv[1:]); return 0
+    if cmd == ["pc-ext"] and len(argv) == 5:
+        run_pc(*argv[1:], ladder=LADDER_EXT, seed=SEED_PC_EXT); return 0
     if cmd == ["read"] and len(argv) == 8:
         read(*argv[1:]); return 0
     print(__doc__)

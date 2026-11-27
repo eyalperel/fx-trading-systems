@@ -135,3 +135,40 @@ Premise test: 6 horizons x 3 pairs in one max-statistic; no strategy, slot or C1
   null draws above it; all-pairs move flagged; **one-pair spike blocked by the 2-of-3 rule**; reversal flagged two-sided; wrong
   planted sign not counted. Bounds: smallest level with both signs >= 90%; missed ladder returns None.
 - All tools tests 205 / 205 OK. Nothing run on real or surrogate data before this commit.
+
+## Record: K3, null, stochvol and positive-control runs (2026-11-27, before any real VR)
+
+- Build committed 9b16750. VM shell, python 3.10, numpy only.
+- **K3 PASS:** bars EUR/USD 5,490 (2005-03-29 .. 2026-05-29), AUD/USD 5,890 (2005-06-29 .. 2026-05-29), EUR/JPY 4,346
+  (2010-05-23 .. 2026-01-15); zero returns 9 / 16 / 8 (EUR/JPY's include the filler bars).
+- Random-sign null `analysis/prem1/results/PREM1_null_signs.csv` 3,000 rows (1,000 draws x 3 pairs), sha256
+  **45a88f76e2f0f3cfe1221cfda8d8dd62c621e58e939be4d7ff413997387715cc**.
+- Stochvol null `PREM1_null_stochvol.csv` 3,000 rows, sha256 **c79975a55eb86e4bfdaf2d5f716787aca6699844a3ab8a79412d2a5b46df7629**.
+  Calibration (information): H_vol EUR/USD 0.821, AUD/USD 0.851, EUR/JPY 0.730; s 1.6 / 1.4 / 1.4 (EUR/USD at the module's grid
+  edge 1.6: its clustering may be under-matched). (c) H_vol here is higher than §3's 0.658 (other data file and DFA run); noted.
+- Positive control `PREM1_pc.csv` (16 signed levels x 200), sha256 **c6da21ff5ebfe3556e94d3ed1dc192c30b90538cc1c79610d337e2b997447cd0**.
+- (b) Null statistics: bar **2.406** (stochvol 2.459); pooled null sd of D(q) at q = 2 .. 60: 0.0122, 0.0269, 0.0408, 0.0591,
+  0.0846, 0.1032 (null mean D slightly negative, -0.0005 .. -0.0071: the small-sample bias of the estimator).
+- (b) Detection rates (+ / -): AR(1) phi 0.01 .13 / .12, 0.02 .33 / .28, 0.03 .62 / .55, 0.05 .98 / .95; momentum kappa 0.02
+  .12 / .03, 0.05 .15 / .05, 0.10 .42 / .24, 0.20 **.96 / .72**.
+- **Predictions so far:** U1 met (K1 tests). U2: bar in [2.3, 2.7] **met** (2.406); pooled sd of VR(2) - 1 in [0.007, 0.012]
+  **not met** (0.0122, just above). U3 phi_90 = 0.03 or 0.05: **met** (0.05). U4 kappa_90 = 0.20: **not met** (the - side reaches
+  only 72% at 0.20). (c) The long-horizon null sds are larger than the iid back-of-envelope (0.059 / 0.085 vs 0.041 / 0.058):
+  volatility clustering widens them; negative kappa lowers long-horizon variance, where the null is wide and VR is bounded by 0.
+
+### Amendment 1 (2026-11-27, after the positive control, before any real VR): momentum ladder extended
+
+- As the criteria require when the ladder misses the 90% crossing: **user decision L-a**: add kappa = +-0.30, +-0.40, 200 draws
+  each, own seed 20261130 (`prem1.py pc-ext`, `LADDER_EXT`), file `PREM1_pc_ext.csv`, sha256
+  **8389c725343aaa3b453a06924417eff1873db0af238667370af2f7dea08bb641**. The bound rule (smallest |level| with both signs >= 90%)
+  is unchanged. Information row added: sign-specific bounds. Rejected L-b (trend side only as the rule: a rule change after
+  seeing the control).
+- Code: `bound` reads levels from the rates (base + extension), optional `signs`; `read` takes `pc.csv+pc_ext.csv` and one sha
+  prefix per file; test extended (extension levels, sign-specific bounds); PREM1 tests 12 / 12.
+- (b) Extension rates: kappa 0.30 1.00 / .98, 0.40 1.00 / 1.00. **Bounds: phi_90 = 0.05; kappa_90 = 0.30 (rule)**; information:
+  kappa_90 trend side (+) 0.20, reversal side (-) 0.30.
+- (b) In variance-ratio terms (median pooled VR - 1 of the planted draws): phi +0.05: +0.050 (q = 2) to +0.10 (q = 20-60);
+  kappa +0.20: +0.23 (q = 20), +0.37 (q = 40), +0.42 (q = 60); kappa +0.30: +0.38 / +0.63 / +0.75; kappa -0.30: -0.22 / -0.33 / -0.36.
+  (c) So PREM1 can see trend that raises 20-40-day variance by about 25-40% or more, and lag-1 memory of 5%; weaker memory stays
+  invisible, as the U4 caveat said.
+- Next: the read (real VRs computed only there, K4).
