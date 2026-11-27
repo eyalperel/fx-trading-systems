@@ -153,7 +153,7 @@ void nx_config_init()
 
 	nx_HedgeMode = 2;                     // full hedging: Zorro closes nothing itself, M-D5
 	nx_FixedLots = 0;                     // risk sizing T8 / M-D8 (P6); S4 / P5 batches set 1 (c)
-	nx_BtfOn = 1;                         // Strategy 1, two-lines-cross C1 [V34]; T3.3 (Strategy 2: 0)
+	nx_BtfOn = 1;                         // both strategies, two-lines-cross C1 [V34]; T3.3 (Strategy 2: 1 since T3 amendment 1, PERF2)
 	nx_SlotSource = NX_SRC_STRATEGY;      // T3 slot interface
 	nx_CtlMutation = NX_MUT_NONE;         // S4 decision 4, 2026-11-23: controls only
 
