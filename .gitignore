@@ -7,10 +7,11 @@ data/
 *.fxt
 *.hst
 
-# Zorro temporary files
-History/
-Log/
-Results/
+# Zorro temporary files (anchored to the repo root: unanchored, these matched every lowercase
+# history/ log/ results/ folder too, because git runs with core.ignorecase = true; fixed 2026-11-27)
+/History/
+/Log/
+/Results/
 *.prj
 
 # Python
