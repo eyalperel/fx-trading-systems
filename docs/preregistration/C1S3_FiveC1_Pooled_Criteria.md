@@ -195,3 +195,38 @@ full-strategy variants: 2 (unchanged).
 - Disclosure: while checking the stopped run, one `tail` printed the last 5 null rows (AUD/USD offset 1106, one row per id).
   Null values only; no pooled null, bar or real C1S3 result had been computed. The real reading is computed only by
   `c1s3.py read`, after this commit.
+
+## C1S3 read 1 (2026-11-26) — 0 survivors; the D1-FX C1-only line closes
+
+`python tools/c1s3.py read <IND_AUDUSD_log_run1.csv> <IND_EURJPY_log_run1.csv> <History> analysis/c1screen/results/C1S3_null_runs.csv
+e609197f389b280a analysis/c1screen/C1S3_report.md` (null file committed e8d9592; sha prefix verified). Report
+`analysis/c1screen/C1S3_report.md`.
+
+**Pooled max-statistic null (b):** best of 5 per draw: median -0.0035, **95th percentile +0.0344** (the bar).
+
+| Id | Signals AUD / JPY | Pooled mean x2 | t | Total w/o best year | AUD/USD | EUR/JPY | Own-null median (5th / 95th) | Own pct | Max pct | Pass |
+|---|---|---|---|---|---|---|---|---|---|---|
+| FSH | 999 / 685 | -0.0186 | -1.04 | -42.66 | -0.0123 | -0.0277 | -0.0277 (-0.0560 / +0.0026) | 68.6% | 22.4% | no |
+| MSS | 537 / 375 | -0.0423 | -1.48 | -44.33 | -0.0486 | -0.0334 | -0.0294 (-0.0750 / +0.0144) | 32.0% | 1.4% | no |
+| RFX | 479 / 331 | -0.0031 | -0.10 | -16.94 | +0.0270 | -0.0467 | -0.0285 (-0.0770 / +0.0200) | 81.3% | 51.1% | no |
+| ROF | 431 / 320 | -0.0431 | -1.34 | -46.67 | +0.0067 | -0.1102 | -0.0289 (-0.0805 / +0.0222) | 32.9% | 1.2% | no |
+| LRS | 475 / 338 | -0.0463 | -1.56 | -46.26 | -0.0419 | -0.0525 | -0.0291 (-0.0743 / +0.0170) | 24.2% | 0.7% | no |
+
+Information (never decisive), pooled: x2 without rollover FSH -0.0150, MSS -0.0367, RFX +0.0015, ROF -0.0380, LRS -0.0415;
+x0 FSH +0.0063, MSS -0.0152, RFX +0.0230, ROF -0.0161, LRS -0.0202.
+
+**Predictions:** Q1 met (records above). Q2 bar in [+0.03, +0.07]: **met** (+0.0344). Q3 own-null medians in [-0.06, -0.01]:
+**met** (-0.0277 .. -0.0294). Q4 0 survivors most likely: **met**. Q5 every real pooled mean inside its own null's 5-95%:
+**met** (all five; own-null percentiles 24.2-81.3%).
+
+**Reading.**
+1. (b) No candidate meets any of the three P-a conditions except per-pair positivity on one pair each (RFX, ROF on AUD/USD).
+2. Per O-a: recorded as "**no verified-library C1 reading (6) beats random timing on the three D1 FX dev pairs**". The
+   D1-FX C1-only line closes; the next step (BTC/USD H4, a different slot, or a rethink of the template) is a separate decision.
+3. (c) With about twice one pair's signals the bar fell from +0.074 (C1S1) to +0.034; every reading sits inside its own
+   random-timing null, none reliably below it either (Q5). The detectable pooled edge for one reading is roughly +0.03 R per
+   signal above its null median at this cost level; a smaller true edge is not excluded.
+4. No parameter or reading is changed on these results.
+
+**Count:** C1-only readings: 6 on EUR/USD (C1S1), MAF on 2 more pairs (C1S2), these 5 on 2 more pairs (C1S3, K = 5): 0 pass on
+more than one pair. Project-wide full-strategy variants: 2 (unchanged).
