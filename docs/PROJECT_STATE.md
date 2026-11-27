@@ -1,8 +1,10 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-27 (**C1S3 read 1: 0 survivors** (five C1S1 readings pooled over AUD/USD + EUR/JPY, bar +0.034): the D1-FX
+**As of:** 2026-11-27 (**PREM1 read 1: no directional predictability at 2-60 days** on the 3 D1 FX dev pairs (variance ratios,
+random-sign null; bounds phi >= 0.05, kappa >= 0.30, trend side 0.20); write-up `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`;
+next: Decision N5 (BTC/USD H4 vs stopping D1-FX price-timing); before that: **C1S3 read 1: 0 survivors** (five C1S1 readings pooled over AUD/USD + EUR/JPY, bar +0.034): the D1-FX
 C1-only line closes; **DIAG1 read 1: Strategy 2's slot-set loss at zero cost is not distinguishable from path noise**
-(pooled -0.0105, z -0.87; NULL1's "x0" included rollover, NULL1 Amendment 2); next: Decision N4; before that: **FINDINGS1** (`docs/research/FINDINGS1_C1_Timing_D1FX.md`): no C1 timing edge found on the D1 FX dev pairs. **C1S2 read 1: MAF fails on AUD/USD and EUR/JPY = STOP** ("passes on EUR/USD only"); C1S1 read 1: 1 of 6 C1s (MAF) shortlisted on EUR/USD; NULL1 read 1: both PERF STOPs are ordinary random-timing draws; confirmation set untouched; next: Decision N3 (next research question); before that: 2026-11-25 **PERF2 read 1: Strategy 2 v0 on EUR/USD = STOP** (x2: mean -0.048 signal-R, t -1.18; project-wide strategy variants tested: 2); before that: **PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
+(pooled -0.0105, z -0.87; NULL1's "x0" included rollover, NULL1 Amendment 2); before that: **FINDINGS1** (`docs/research/FINDINGS1_C1_Timing_D1FX.md`): no C1 timing edge found on the D1 FX dev pairs. **C1S2 read 1: MAF fails on AUD/USD and EUR/JPY = STOP** ("passes on EUR/USD only"); C1S1 read 1: 1 of 6 C1s (MAF) shortlisted on EUR/USD; NULL1 read 1: both PERF STOPs are ordinary random-timing draws; confirmation set untouched; next: Decision N3 (next research question); before that: 2026-11-25 **PERF2 read 1: Strategy 2 v0 on EUR/USD = STOP** (x2: mean -0.048 signal-R, t -1.18; project-wide strategy variants tested: 2); before that: **PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -128,6 +130,11 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 - **DIAG1 (2026-11-27): Strategy 2 slot set, random C1, true zero cost, 5 arms x 3 pairs, calendar-year jackknife.** Pooled
   A0 -0.0105 (z -0.87), EUR/JPY positive; no component (baseline, bridge-too-far, C2) meets z <= -2; random C1 alone -0.0015
   (z -0.33). NULL1's EUR/USD -0.028 = about -0.008 rollover + -0.021 one-path noise. Not distinguishable from path noise (R1-R5 met).
+- **PREM1 (2026-11-27): directional predictability at q = 2-60 days, EUR/USD + AUD/USD + EUR/JPY D1.** Overlapping
+  variance ratios, pooled, two-sided max|z| over 6 horizons vs a random-sign null (keeps every |r| in order): M 1.33 vs bar
+  2.41 (stochvol 1.52 vs 2.46): **no horizon flagged**; pooled VR - 1 negative at every q (-0.009 .. -0.074, none significant).
+  Detection bounds (planted, 90%): AR(1) phi 0.05; 20-day momentum kappa 0.30 (trend side 0.20, VR(20) about 1.23). (c) No
+  strong trend memory for a trend C1 to time; a weaker premium is not excluded. Summary: `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`.
 - **Ehlers' 2015 "pink noise"** measurement is brown noise (f⁻²).
 
 ---
@@ -435,8 +442,11 @@ file's first rows exactly.
    `C1S3_FiveC1_Pooled_Criteria.md` (P-a, V-a, O-a, Q1-Q5), `DIAG1_S2Slots_ZeroCost_Criteria.md` (G-a, J-a, R1-R5, Amendments
    1-2)): `TPL_IND_PAIR.c` + `tools/check_ind_pair.py` (VW2 PASS both pairs), `tools/c1s3.py`, `tools/diag1.py`; tools tests
    193. NULL1 Amendment 2 (x0 rows include rollover). Reads in §3.
-   **Next:** Decision N4 (after C1S3: the D1-FX C1-only line is closed; open: BTC/USD H4, a different slot, or a rethink of the
-   template). **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
+   **Decision N4 (2026-11-27, user: as recommended): P + W.** **PREM1** (`PREM1_D1FX_Predictability_Criteria.md`: N-a, H-a,
+   S-a, PC-a, outcome mapping, U1-U6, Amendment 1 kappa ladder): `tools/prem1.py` + 12 tests (tools 205); read in §3.
+   **FINDINGS2** (W): `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`.
+   **Next:** Decision N5: BTC/USD H4 (a PREM1-style premise test on BTC H4 first would be the cheap step (c)) vs stopping D1-FX
+   price-timing. **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
    readings on AUD/USD + EUR/JPY with a pooled max-statistic null; another slot or market (exits / trailing, baseline as a
    filter, BTC/USD H4); why the Strategy 2 slot set loses R without spread (rollover in: NULL1 Amendment 2). Not to be done: tuning MAF or any stopped strategy, or
    choosing variants from subgroups.

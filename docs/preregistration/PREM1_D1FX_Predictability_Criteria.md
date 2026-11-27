@@ -172,3 +172,38 @@ Premise test: 6 horizons x 3 pairs in one max-statistic; no strategy, slot or C1
   (c) So PREM1 can see trend that raises 20-40-day variance by about 25-40% or more, and lag-1 memory of 5%; weaker memory stays
   invisible, as the U4 caveat said.
 - Next: the read (real VRs computed only there, K4).
+
+## PREM1 read 1 (2026-11-27) — no horizon flagged
+
+`python tools/prem1.py read <Data> <History> PREM1_null_signs.csv PREM1_null_stochvol.csv PREM1_pc.csv+PREM1_pc_ext.csv
+45a88f76e2f0f3cf,c79975a55eb86e4b,c6da21ff5ebfe355,8389c725343aaa3b analysis/prem1/PREM1_report.md` (inputs committed d6c93ed;
+all four sha prefixes verified). Report `analysis/prem1/PREM1_report.md`.
+
+**Random-sign null (decisive), (b):** bar 2.406; real **M = 1.327**; **flagged horizons: none**.
+
+| q | VR EUR/USD | VR AUD/USD | VR EUR/JPY | pooled D | null 5th / 50th / 95th | pct | z |
+|---|---|---|---|---|---|---|---|
+| 2 | 1.0075 | 0.9747 | 0.9920 | -0.0086 | -0.0201 / -0.0008 / +0.0199 | 25.5% | -0.66 |
+| 5 | 0.9869 | 0.9573 | 0.9451 | -0.0369 | -0.0432 / -0.0023 / +0.0432 | 8.7% | -1.33 |
+| 10 | 0.9802 | 0.9270 | 0.9278 | -0.0550 | -0.0636 / -0.0055 / +0.0696 | 7.9% | -1.30 |
+| 20 | 0.9829 | 0.9117 | 0.9031 | -0.0674 | -0.0924 / -0.0090 / +0.0933 | 13.8% | -1.07 |
+| 40 | 0.9980 | 0.9184 | 0.8625 | -0.0737 | -0.1289 / -0.0129 / +0.1457 | 21.2% | -0.79 |
+| 60 | 0.9949 | 0.9590 | 0.8657 | -0.0602 | -0.1554 / -0.0179 / +0.1723 | 32.2% | -0.51 |
+
+Stochvol (information): bar 2.459, real M 1.519, flagged none. Bounds as Amendment 1: phi_90 0.05; kappa_90 0.30 (rule), trend
+side 0.20.
+
+**Predictions:** U1 met; U2 bar met, sd not met (0.0122); U3 met; U4 not met (Amendment 1); **U5 met** (no flag; every pooled
+D(q) inside its null's 5-95%); **U6 met** (stochvol: no flag).
+
+**Reading.**
+1. Per the outcome mapping: recorded as "**no directional predictability at 2-60 days on the 3 D1 FX dev pairs, above bounds
+   phi >= 0.05 (lag-1 memory) and kappa >= 0.30 (20-day momentum; trend side kappa >= 0.20, about +25-40% variance at 20-40
+   days)**".
+2. (b) 17 of 18 pair VRs are <= 1.008 and every pooled D(q) is negative (-0.009 .. -0.074), mostly from AUD/USD and EUR/JPY;
+   none significant. (c) If any tilt is present it is toward reversal, the opposite of what a trend-following C1 needs.
+3. (c) Consistent with C1S1-C1S3 and DIAG1: on these pairs at these horizons there is no strong trend memory for a trend
+   indicator to capture. A weaker trend premium below the bounds is not excluded (U4 caveat).
+4. Next (separate decision, per the mapping): BTC/USD H4 vs stopping D1-FX price-timing. Nothing selected or tuned.
+
+**Count:** premise test, no strategy / slot / C1 variant. Project-wide full-strategy variants: 2 (unchanged).
