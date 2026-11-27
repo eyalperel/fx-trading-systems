@@ -79,3 +79,14 @@ pass). No parameter was tuned on any result.
 multiplier; NULL1 Amendment 2). Point 3 and the third open question are reworded accordingly. No verdict in this file depends
 on x0. C1S2's "negative even at zero cost" is correct as written (its x0 rows exclude rollover). The rollover share of the
 -0.028 is measured by DIAG1 (`docs/preregistration/DIAG1_S2Slots_ZeroCost_Criteria.md`, Amendment 1).
+
+## Follow-up (2026-11-27): open questions B and D answered
+
+- **B → C1S3** (`docs/preregistration/C1S3_FiveC1_Pooled_Criteria.md`): FSH, MSS, RFX, ROF, LRS C1-only, pooled AUD/USD + EUR/JPY,
+  best-of-5 bar +0.034: **0 survivors**, every reading inside its own null (b). Recorded "no verified-library C1 reading (6)
+  beats random timing on the three D1 FX dev pairs"; the D1-FX C1-only line closes.
+- **D → DIAG1** (`docs/preregistration/DIAG1_S2Slots_ZeroCost_Criteria.md`): Strategy 2's slot set with random C1 at true zero
+  cost, three pairs, calendar-year jackknife: pooled -0.0105 (z -0.87), EUR/JPY positive, no component significant: **not
+  distinguishable from path noise** (b). (c) NULL1's EUR/USD -0.028 is about -0.008 rollover plus -0.021 one-path noise;
+  point 3 above ("costs R independently of C1 timing") is not supported.
+- C1-only readings now: 6 on EUR/USD, MAF on 2 more pairs, the other 5 on 2 more pairs; 0 pass on more than one pair.

@@ -145,3 +145,40 @@ variants: 2 (unchanged).
 - sha256 **9eb5313ada48767a59cc6d86ff705ff453ecd58ba9f703c791f7f0fe94de2e91**.
 - Only structure (counts, offsets, NaN, minimum signals) and the G0 diagnosis rows above were looked at; no arm mean, pooled
   value, contrast or jackknife has been computed. The read runs only after this commit.
+
+## DIAG1 read 1 (2026-11-27) — not distinguishable from path noise; R1-R5 met
+
+`python tools/diag1.py read analysis/diag1/results/DIAG1_null_runs.csv 9eb5313ada48767a analysis/diag1/DIAG1_report.md`
+(rows committed 88ab3e2; sha prefix verified). Report `analysis/diag1/DIAG1_report.md`.
+
+**True x0 (decisive), mean signal-R over 1,000 shifts (b):**
+
+| Arm | EUR/USD | AUD/USD | EUR/JPY | Pooled | SE | z |
+|---|---|---|---|---|---|---|
+| A0 = F2 | -0.0206 | -0.0106 | +0.0040 | -0.0105 | 0.0120 | -0.87 |
+| A1 btf off | -0.0211 | -0.0105 | +0.0060 | -0.0100 | 0.0113 | -0.88 |
+| A2 C2 neutral | -0.0135 | -0.0137 | -0.0057 | -0.0116 | 0.0077 | -1.49 |
+| A3 both | -0.0126 | -0.0117 | -0.0051 | -0.0103 | 0.0073 | -1.41 |
+| A4 = O2 | +0.0018 | -0.0055 | -0.0004 | -0.0015 | 0.0046 | -0.33 |
+
+Contrasts (true x0, pooled, jackknife paired by year): A0-A4 -0.0089 (z -0.71); A3-A4 baseline -0.0088 (z -1.01, same sign
+3 / 3); A0-A1 bridge-too-far -0.0005 (z -0.22); A0-A2 C2 +0.0011 (z +0.13).
+x0r (information): A0 EUR/USD -0.0285, pooled -0.0151 (z -1.25); A4 EUR/USD -0.0098, pooled -0.0088 (z -1.80); A2 pooled
+-0.0155 (z -2.02, information only). Rollover contribution x0r - x0, pooled: A0 -0.0046, A1 -0.0045, A2 -0.0039, A3 -0.0038,
+A4 -0.0073; EUR/USD A0 -0.0079.
+
+**Predictions:** R1 **met** (EUR/USD A0 x0r -0.0285 vs -0.028; A4 x0r -0.0098 vs -0.010; G0 PASS under Amendment 2). R2 **met**
+(pooled A0 -0.0105). R3 **met** ("slot set costs R" not met: z -0.87, EUR/JPY positive). R4 **met** (A4 -0.0015, z -0.33). R5
+**met** (no contrast meets its rule).
+
+**Reading.**
+1. (b) Per J-a: "slot set costs R" **not met**; no component meets its rule; the A4 sanity row is near 0. Recorded as "**not
+   distinguishable from path noise**".
+2. (c) NULL1's -0.028 (EUR/USD, rollover in) decomposes into about -0.008 rollover and -0.021 EUR/USD path at true x0; on the
+   two other pairs the same slot set reads -0.011 and +0.004. Amendment 1's back-of-envelope (rollover about -0.02, "the order
+   of the whole effect") was too high by about 2.5x.
+3. (c) Engine sanity: random C1 alone at true zero cost scores -0.0015 (z -0.33): no sign of a bias in the engine or the R
+   measure.
+4. Diagnostic only: nothing is selected, removed or tuned on this result.
+
+**Count:** diagnostic arms 5 (outside the strategy and C1 counts). Project-wide full-strategy variants: 2 (unchanged).
