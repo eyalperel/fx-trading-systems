@@ -1,6 +1,8 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-27 (**PREM1 read 1: no directional predictability at 2-60 days** on the 3 D1 FX dev pairs (variance ratios,
+**As of:** 2026-11-27 (**Decision N5: PREM2, a PREM1-style premise test on BTC H4, first.** Data ready: Binance BTCUSDT 4h,
+2017-08-17 .. 2026-10-31, 20,160 bars, checksums verified (`docs/research/Data_BTCUSDT_H4_Binance.md`); branch `prem2-btc-h4`;
+next: PREM2 pre-registration decisions (fresh chat); before that: **PREM1 read 1: no directional predictability at 2-60 days** on the 3 D1 FX dev pairs (variance ratios,
 random-sign null; bounds phi >= 0.05, kappa >= 0.30, trend side 0.20); write-up `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`;
 next: Decision N5 (BTC/USD H4 vs stopping D1-FX price-timing); before that: **C1S3 read 1: 0 survivors** (five C1S1 readings pooled over AUD/USD + EUR/JPY, bar +0.034): the D1-FX
 C1-only line closes; **DIAG1 read 1: Strategy 2's slot-set loss at zero cost is not distinguishable from path noise**
@@ -67,7 +69,9 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 - Repo: `eyalperel/fx-trading-systems` (public), local
   `C:/Users/eyalp/Documents/fx-trading-systems/`
 - Zorro 3.11 (file version 3.1.1.2, (b) H1 session 2026-11-05), Git Bash, VS Code, Python/Jupyter (`python`, not `python3`)
-- Data: EUR/USD D1, BTC/USD H4 (Zorro native); EUR/JPY D1, AUD/USD D1 (Darwinex MT4)
+- Data: EUR/USD, AUD/USD, EUR/JPY M1 (Zorro free packages, `C:/Zorro/History`); **BTC/USD H4 = Binance spot BTCUSDT 4h**
+  2017-08 .. 2026-10 (`data/crypto/binance_btcusdt_4h/`, git-ignored; manifest + checks `docs/research/Data_BTCUSDT_H4_Binance.md`,
+  2026-11-27). The August Kaggle BTC file and the Darwinex D1 files are superseded
 - `docs/ZORRO_LIGHTC_GOTCHAS.md` — platform reference, keep
 - `analysis/null_tests/` — seeded surrogate harness (bootstrap, fGn, IAAFT, stoch-vol)
 - Sources: 102 Ehlers TASC articles; *Cybernetic Analysis* (2004); 24 PDFs in project
@@ -445,8 +449,13 @@ file's first rows exactly.
    **Decision N4 (2026-11-27, user: as recommended): P + W.** **PREM1** (`PREM1_D1FX_Predictability_Criteria.md`: N-a, H-a,
    S-a, PC-a, outcome mapping, U1-U6, Amendment 1 kappa ladder): `tools/prem1.py` + 12 tests (tools 205); read in §3.
    **FINDINGS2** (W): `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`.
-   **Next:** Decision N5: BTC/USD H4 (a PREM1-style premise test on BTC H4 first would be the cheap step (c)) vs stopping D1-FX
-   price-timing. **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
+   **Decision N5 (2026-11-27, user: as recommended):** PREM2 = PREM1's method on BTC H4 before any BTC template build; data
+   source B-a (Binance BTCUSDT 4h; quote USDT, not USD (c)). `tools/fetch_binance_klines.sh` (CHECKSUM per month; MISSING and
+   BADSUM / repair guards seen to fire); 111 months, 20,160 bars, 9 gaps before 2020-03 (17 bars, longest 32h 2018-02-08).
+   **Next (handoff for a fresh chat):** PREM2 pre-registration on branch `prem2-btc-h4`, one decision at a time, reusing
+   `tools/prem1.py` (VR estimator, random-sign null, planted controls). Open points to decide: bar alignment and the treatment
+   of returns across the 9 gaps; horizons in H4 bars (PREM1 used 2-60 days; H4 = 6 bars a day, 7 days a week); one series (no
+   pooling) so S-a becomes a single-series max|z|; seeds; predictions; what a result leads to (BTC template build vs stop). **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
    readings on AUD/USD + EUR/JPY with a pooled max-statistic null; another slot or market (exits / trailing, baseline as a
    filter, BTC/USD H4); why the Strategy 2 slot set loses R without spread (rollover in: NULL1 Amendment 2). Not to be done: tuning MAF or any stopped strategy, or
    choosing variants from subgroups.
@@ -455,8 +464,8 @@ file's first rows exactly.
    walk-forward, surrogates, second data feed) apply only to a system that passes a read. Small open items: stale comment
    `NNFX_Config.h:156` "(Strategy 2: 0)" (value 1 is right; **fixed 2026-11-27**, comment only); PERF1 header start date
    "2007-02-01" vs the 2007-04-01 its runs used (noted in PERF2).
-   **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds EUR/USD (2005-2026), AUD/USD (2002-2026), EUR/JPY (2010-2026-01-15) M1; BTC/USD to locate. `C:/Zorro/history_*.zip` and `_unpack/` can be deleted by the user. `.gitignore` `Results/` matching `results/`: fixed 2026-11-27 (anchored). NNFX Podcast
-   Ep 39 (one-candle rule) to fetch. Delete `C:/Zorro/History/_to_delete/` (old synthetic files; deletion is off from the session).
+   **Open:** `MarginTotal` mechanism (P6 run 1 observation).  dev-set history: `C:/Zorro/History` holds EUR/USD (2005-2026), AUD/USD (2002-2026), EUR/JPY (2010-2026-01-15) M1; BTC: Binance 4h zips (above). Old download leftovers and `History/_to_delete/` removed 2026-11-27. `.gitignore` `Results/` matching `results/`: fixed 2026-11-27 (anchored). NNFX Podcast
+   Ep 39 (one-candle rule) to fetch.
 5. Backtest engine checks on hand-calculated trades (stop, 1×ATR half exit, breakeven,
    trailing after 2×ATR) before any strategy result is trusted.
 
