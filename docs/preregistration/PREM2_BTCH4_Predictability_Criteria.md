@@ -132,3 +132,18 @@ Premise test: 9 horizons on one series in one max-statistic; no strategy, slot o
 variants: 2 (unchanged); C1-only readings unchanged.
 
 ## Amendments
+
+## Record: build (run order 2) — 2026-11-27, before any run
+
+- **Provenance:** `tools/prem2.py` and `tools/tests/test_prem2.py` were written outside the planning chat, after the criteria
+  commit 1fcbe7c (b: file times 22:10:58 / 22:11:33 UTC vs commit 22:09:38 UTC); no `analysis/prem2/` output existed. Reviewed
+  line by line against this file in the planning chat (2026-11-27) before any run: QS, seeds, N, the three ladders, G-a loader
+  (ms / us, grid and order guards), thirds split, standardisation from the full series, S-2 flag rule with episode rows, planted-
+  sign filter, K4 (real VRs in `read` only), exclusive-create outputs, sha prefixes, `pc-ext` refused without an amendment: all
+  as above.
+- One change from the review: K3 also requires the 9 gap lengths (8, 32, 12, 8, 8, 8, 12, 8, 8 h) and 17 missing bars
+  (`k3_check`; previously printed only); test `K3Check` (record passes; each of the 7 items, changed alone, fails).
+- Not changed (recorded): the report names no driving third for an episode row and gives median planted VRs for the + sign
+  only; the read write-up covers both from the printed thirds columns.
+- Estimator, surrogates and planting are `tools/prem1.py`'s, unchanged. Tests: PREM2 19 / 19; all tools tests 224 / 224 OK (VM
+  shell, python 3.10). Nothing run on real or surrogate BTC data before this commit.
