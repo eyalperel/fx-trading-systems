@@ -1,6 +1,8 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-26 (**FINDINGS1** (`docs/research/FINDINGS1_C1_Timing_D1FX.md`): no C1 timing edge found on the D1 FX dev pairs. **C1S2 read 1: MAF fails on AUD/USD and EUR/JPY = STOP** ("passes on EUR/USD only"); C1S1 read 1: 1 of 6 C1s (MAF) shortlisted on EUR/USD; NULL1 read 1: both PERF STOPs are ordinary random-timing draws; confirmation set untouched; next: Decision N3 (next research question); before that: 2026-11-25 **PERF2 read 1: Strategy 2 v0 on EUR/USD = STOP** (x2: mean -0.048 signal-R, t -1.18; project-wide strategy variants tested: 2); before that: **PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
+**As of:** 2026-11-27 (**C1S3 read 1: 0 survivors** (five C1S1 readings pooled over AUD/USD + EUR/JPY, bar +0.034): the D1-FX
+C1-only line closes; **DIAG1 read 1: Strategy 2's slot-set loss at zero cost is not distinguishable from path noise**
+(pooled -0.0105, z -0.87; NULL1's "x0" included rollover, NULL1 Amendment 2); next: Decision N4; before that: **FINDINGS1** (`docs/research/FINDINGS1_C1_Timing_D1FX.md`): no C1 timing edge found on the D1 FX dev pairs. **C1S2 read 1: MAF fails on AUD/USD and EUR/JPY = STOP** ("passes on EUR/USD only"); C1S1 read 1: 1 of 6 C1s (MAF) shortlisted on EUR/USD; NULL1 read 1: both PERF STOPs are ordinary random-timing draws; confirmation set untouched; next: Decision N3 (next research question); before that: 2026-11-25 **PERF2 read 1: Strategy 2 v0 on EUR/USD = STOP** (x2: mean -0.048 signal-R, t -1.18; project-wide strategy variants tested: 2); before that: **PERF1 read 1: Strategy 1 v0 on EUR/USD = STOP** (x2: mean -0.030 signal-R, t -0.87; 1 strategy variant tested); before that: Phase 1 step 4: Light-C NNFX template built; **S4 engine equivalence PASS** (60/60 + 4/4 controls) and **P5 costs PASS** (run 3) and **P6 sizing PASS**; merged `1e8c189`; **R1 EUR/USD real data PASS** (merged `d487fc7`); **Phase 1 step 5 PASS** (10 real trades + 1 refused signal, rules and prices checked); next: Strategy 2 variant 0 on EUR/USD)
 **Replaces:** `FX_Roadmap_v2026.08.10.md` (v4.4), `Week14_Review_Plan.md`,
 `Week5-14_Indicator_Plan.md`, all Week 14 handoffs, `ROADMAP_UPDATE_PROTOCOL.md`.
 Those stay in git history as the record; this file is the current state.
@@ -113,12 +115,19 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
 - **NULL1 (2026-11-25): random-timing null of the template.** C1 states circularly shifted (1,000 offsets), spread x2 +
   rollover: null medians -0.025 (Strategy 1 slots) / -0.046 (Strategy 2 slots) signal-R; PERF1 at the 42.7th, PERF2 at the
   47.5th percentile: both STOPs are ordinary draws from random C1 timing. Detection limit of one read: about +0.013 to
-  +0.032 R per signal. Strategy 2 slots lose about -0.028 R per signal even at zero cost (not investigated).
+  +0.032 R per signal. Strategy 2 slots lose about -0.028 R per signal without spread (not investigated). **Corrected 2026-11-26 (NULL1
+  Amendment 2): NULL1's x0 rows include rollover**; true zero cost is measured by DIAG1.
 - **C1S1 (2026-11-25): C1-only screen, 6 readings, EUR/USD.** Best-of-six null bar +0.074: 1 pass, MAF (MAMA vs FAMA; 205
   signals, mean +0.101, t +1.48, 98.6th percentile); FSH, MSS, RFX, ROF, LRS fail.
 - **C1S2 (2026-11-26): MAF unchanged on AUD/USD and EUR/JPY: STOP.** Means -0.064 / -0.064 (25th / 34th percentile of own
   nulls), negative even at zero cost. Recorded "passes on EUR/USD only". (c) The EUR/USD pass is best read as a best-of-six
   selection effect. Summary of all five studies: `docs/research/FINDINGS1_C1_Timing_D1FX.md`.
+- **C1S3 (2026-11-26/27): FSH, MSS, RFX, ROF, LRS C1-only, pooled AUD/USD + EUR/JPY: 0 survivors.** Pooled best-of-5 bar
+  +0.034; pooled means -0.046 .. -0.003, every one inside its own null's 5-95% (Q1-Q5 met). Recorded "no verified-library C1
+  reading (6) beats random timing on the three D1 FX dev pairs" (O-a): the D1-FX C1-only line closes.
+- **DIAG1 (2026-11-27): Strategy 2 slot set, random C1, true zero cost, 5 arms x 3 pairs, calendar-year jackknife.** Pooled
+  A0 -0.0105 (z -0.87), EUR/JPY positive; no component (baseline, bridge-too-far, C2) meets z <= -2; random C1 alone -0.0015
+  (z -0.33). NULL1's EUR/USD -0.028 = about -0.008 rollover + -0.021 one-path noise. Not distinguishable from path noise (R1-R5 met).
 - **Ehlers' 2015 "pink noise"** measurement is brown noise (f⁻²).
 
 ---
@@ -422,9 +431,14 @@ file's first rows exactly.
    **FINDINGS1, 2026-11-26** (decision N2: A): write-up of PERF1, PERF2, NULL1, C1S1, C1S2
    (`docs/research/FINDINGS1_C1_Timing_D1FX.md`). Counts: full-strategy variants 2; C1-only readings 6 on EUR/USD + MAF on 2
    more pairs.
-   **Next:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
+   **C1S3 + DIAG1, 2026-11-26/27** (decision N3: B + D; branch `c1s3-pooled-c1-screen`; criteria
+   `C1S3_FiveC1_Pooled_Criteria.md` (P-a, V-a, O-a, Q1-Q5), `DIAG1_S2Slots_ZeroCost_Criteria.md` (G-a, J-a, R1-R5, Amendments
+   1-2)): `TPL_IND_PAIR.c` + `tools/check_ind_pair.py` (VW2 PASS both pairs), `tools/c1s3.py`, `tools/diag1.py`; tools tests
+   193. NULL1 Amendment 2 (x0 rows include rollover). Reads in §3.
+   **Next:** Decision N4 (after C1S3: the D1-FX C1-only line is closed; open: BTC/USD H4, a different slot, or a rethink of the
+   template). **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
    readings on AUD/USD + EUR/JPY with a pooled max-statistic null; another slot or market (exits / trailing, baseline as a
-   filter, BTC/USD H4); why the Strategy 2 slot set loses R at zero cost. Not to be done: tuning MAF or any stopped strategy, or
+   filter, BTC/USD H4); why the Strategy 2 slot set loses R without spread (rollover in: NULL1 Amendment 2). Not to be done: tuning MAF or any stopped strategy, or
    choosing variants from subgroups.
    **Earlier next (before N1, done):** decide the next step after two STOPs, one decision at a time (planning chat). Not to be done: tuning either
    strategy on EUR/USD or choosing variants from the PERF1 / PERF2 subgroups. Phase 2 items (T11 sensitivity, other dev pairs,

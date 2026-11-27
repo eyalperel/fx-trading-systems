@@ -1,0 +1,24 @@
+check,item,result,expected,got,note
+VB0,no_assetfail,PASS,none,0,
+VB0,info,PASS,"settings, asset-list costs, indicator parameters",ok,
+VB0,lookback_bars,PASS,>= 520 bars before the first trade bar,520,
+VB1,bars,PASS,"RBAR = Python bars, rule (same, own) + holidays","fits ('same', 'own'); ('same', 'own'): 0; ('next', 'own'): 683; ('next', 'drop'): 465; ('next', 'monday'): 466",
+B1,bar_end_17NY,PASS,every RBAR ends 17:00 New York,0 off,
+VB1,first_bar,INFO,Zorro first bar used only if partial,"20050629, diff 3.323e-11, replaced False",
+VW2,fish,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.882e-16,
+VW2,trig,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 8.882e-16,
+VW2,mesa,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 1.199e-13,
+VW2,roof,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 2.133e-15,
+VW2,sma,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 9.520e-14,
+VW2,reflex,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.551e-16,
+VW2,lrsi,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.551e-16,
+VW2,frama,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 6.661e-16,
+VW2,atr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 4.996e-16,
+VW2,tr,PASS,|z - m| <= 1e-10 + 1e-9|m|,0 rows off; max err 5.000e-16,
+VW2,nmesa,PASS,MESA output count = row number,0 rows off,
+VW2,X1_sma,PASS,own SMA = Zorro SMA (1e-12 + 1e-12|m|),0 rows off; max 0.000e+00,
+VW2,state_FSH,PASS,states = model,0 differ,near-threshold 0 (counted)
+VW2,state_MSS,PASS,states = model,0 differ,near-threshold 0 (counted)
+VW2,state_RFX,PASS,states = model,0 differ,near-threshold 0 (counted)
+VW2,state_ROF,PASS,states = model,0 differ,near-threshold 0 (counted)
+VW2,state_LRS,PASS,states = model,0 differ,near-threshold 0 (counted)

@@ -40,7 +40,7 @@ detectable edge size is limited (below).
    two more pairs. (c) The EUR/USD MAF reading is best explained as a selection effect (best of six, 205 signals): its
    pre-registered chance of passing both new pairs was put at about 1 in 5 before the winner's-curse discount, and both
    new readings sit inside their nulls rather than just under the bar.
-3. (b) NULL1 found the Strategy 2 slot set losing about -0.028 R per signal **with no costs and random C1**. (c) Something in
+3. (b) NULL1 found the Strategy 2 slot set losing about -0.028 R per signal **without spread (rollover still in; corrected 2026-11-26, NULL1 Amendment 2) and with random C1**. (c) Something in
    that combination (FRAMA baseline, LRSI C2, bridge-too-far) costs R independently of C1 timing; not investigated.
 4. (b) Detection limit: one read of this size separates from its null only above roughly +0.013 to +0.032 R per signal
    (single-set 95th percentiles, NULL1); with a best-of-six correction the bar was +0.074 (C1S1). (c) A real C1 edge of a
@@ -71,4 +71,22 @@ pass). No parameter was tuned on any result.
 
 - B: the five untested C1 readings on AUD/USD + EUR/JPY with a pooled max-statistic null (clean data for those five).
 - C: a different slot or market (exits / trailing; baseline as a filter; BTC/USD H4).
-- Why the Strategy 2 slot set loses R at zero cost (NULL1 point 2).
+- Why the Strategy 2 slot set loses R without spread (NULL1 point 2; rollover was still in, NULL1 Amendment 2).
+
+## Correction (2026-11-26)
+
+(b) NULL1's x0 rows were computed with spread 0 but **with** asset-list rollover (`null1.half_r` adds rollover at every
+multiplier; NULL1 Amendment 2). Point 3 and the third open question are reworded accordingly. No verdict in this file depends
+on x0. C1S2's "negative even at zero cost" is correct as written (its x0 rows exclude rollover). The rollover share of the
+-0.028 is measured by DIAG1 (`docs/preregistration/DIAG1_S2Slots_ZeroCost_Criteria.md`, Amendment 1).
+
+## Follow-up (2026-11-27): open questions B and D answered
+
+- **B → C1S3** (`docs/preregistration/C1S3_FiveC1_Pooled_Criteria.md`): FSH, MSS, RFX, ROF, LRS C1-only, pooled AUD/USD + EUR/JPY,
+  best-of-5 bar +0.034: **0 survivors**, every reading inside its own null (b). Recorded "no verified-library C1 reading (6)
+  beats random timing on the three D1 FX dev pairs"; the D1-FX C1-only line closes.
+- **D → DIAG1** (`docs/preregistration/DIAG1_S2Slots_ZeroCost_Criteria.md`): Strategy 2's slot set with random C1 at true zero
+  cost, three pairs, calendar-year jackknife: pooled -0.0105 (z -0.87), EUR/JPY positive, no component significant: **not
+  distinguishable from path noise** (b). (c) NULL1's EUR/USD -0.028 is about -0.008 rollover plus -0.021 one-path noise;
+  point 3 above ("costs R independently of C1 timing") is not supported.
+- C1-only readings now: 6 on EUR/USD, MAF on 2 more pairs, the other 5 on 2 more pairs; 0 pass on more than one pair.

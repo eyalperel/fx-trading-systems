@@ -197,3 +197,16 @@ duplicates), sha256 `201a14f904d5e559fe0163bb73cd56ba71e6d1d3b2d68dba4a46686e8a7
    its own null (its mu = 0 value is not computed, by design), so the per-set bound carries that draw's luck; O2's carrier
    appears to sit low.
 4. For B: the max-statistic rule over K candidates will set the bar above these single-set 95th percentiles (C6).
+
+### Amendment 2 (2026-11-26, correction record, found during DIAG1's build): the x0 rows include rollover
+
+- (b) `tools/null1.py` `half_r(hf, day, mult)` computes `dir x (exit - entry) - mult x BASE_SPREAD + roll_price(dir, days)`:
+  rollover is added at every multiplier. The x0 rows of `NULL1_null_runs.csv` (sha256 `201a14f9...`) are therefore **spread 0
+  with asset-list rollover**, not "no costs" as "Mode, costs" (line 52) and the read describe. The x2 rows are as specified.
+- Affected wording: the x0 medians in "NULL1 read 1" (F1 -0.006, F2 -0.028, O1 -0.007, O2 -0.010), the missed prediction "x0
+  centres within +-0.02", and reading point 2 ("even with no costs"): read each as "**without spread, with rollover**".
+- Not affected: every x2 figure, both PERF placements (42.7th / 47.5th percentile), the detection bounds, every verdict;
+  C1S1 (x2 only); C1S2 (its x0 rows use `roll=False`).
+- (c) Rollover may account for much of the F2 x0 figure (back-of-envelope about -0.02 R per signal on EUR/USD); measured by
+  DIAG1 (Amendment 1 there: decisive true x0, information x0r = this file's x0 definition, contribution x0r - x0).
+- The file and the code are left as they are (records stay reproducible); this amendment is the correction.
