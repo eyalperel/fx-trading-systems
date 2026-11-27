@@ -183,3 +183,15 @@ full-strategy variants: 2 (unchanged).
   `numpy.random.default_rng(20261126).permutation(1000)` (1,000 unique, not sorted); draw 0 = (267, 1402).
   sha256 **d722f2849afc03c403fb4c67ed986f4149013fa31a824130a32070db77b0a5a7**.
 - Next: null runs (5 ids x 2 pairs x 1,000) into `analysis/c1screen/results/C1S3_null_runs.csv`.
+
+## Record: null runs (2026-11-26, before the real reading)
+
+- Pairing committed 5836658. `tools/c1s3.py null` per pair (VM shell, 2 workers), x2 + rollover, C1-only. A first background
+  run was stopped when its shell call ended (182 complete offsets, 0 partial; resumable by design); the rest ran in
+  foreground chunks of about 155 s.
+- File `analysis/c1screen/results/C1S3_null_runs.csv`: **10,000 rows** (5 ids x 2 pairs x 1,000), 0 duplicates, offsets equal
+  the committed offset files for every id and pair, 0 NaN means; signals per run: AUD/USD min 430, EUR/JPY min 318.
+- sha256 **e609197f389b280a1c459e469bac2c011c99990db27a2724a8e924d7a23f8567**.
+- Disclosure: while checking the stopped run, one `tail` printed the last 5 null rows (AUD/USD offset 1106, one row per id).
+  Null values only; no pooled null, bar or real C1S3 result had been computed. The real reading is computed only by
+  `c1s3.py read`, after this commit.
