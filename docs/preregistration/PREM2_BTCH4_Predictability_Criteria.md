@@ -182,3 +182,12 @@ variants: 2 (unchanged); C1-only readings unchanged.
   the control); L-c (report no bound).
 - Code: `LADDER_EXT` set; test `test_amendment1_extension` (base + extension levels read together). Tests: PREM2 20 / 20; all
   tools tests 225 / 225 OK.
+- Amendment 1 committed 2265174. Extension run `PREM2_pc_ext.csv` (6 signed levels x 200), sha256
+  **5e7f58ace12e75a5bc71b7dd8a4c3ad74b2d0918cc1a41cfe26af0470faa5434**.
+- (b) Extension rates (+ / -): mom L120 kappa 0.80 1.00 / .945, 1.00 1.00 / .980, 1.20 1.00 / 1.00. **Bounds (rule, both signs):
+  phi_90 = 0.08; kappa_90 L20 = 0.30; kappa_90 L120 = 0.80.** Information, trend side (+): 0.08 / 0.20 / 0.40.
+- (b) In variance-ratio terms (median VR - 1 of the planted draws): L20 kappa +0.20: +0.23 (q = 20), +0.37 (q = 40), +0.47
+  (q = 120); L120 kappa +0.40: +0.56 (q = 120), +0.98 (q = 240); L120 kappa -0.80: -0.44 / -0.59 / -0.64 (q = 120 / 240 / 360).
+  (c) So PREM2 sees trend that raises 3-7-day variance by about 25-40% (L20 trend side), trend that raises 20-40-day variance by
+  about 55-100% (L120 trend side), and long-horizon reversal only when it removes about 45-65% of the variance.
+- U5 after the extension: L120 bound 0.80, outside the predicted 0.40 / 0.60 (not met; recorded). Next: the read.
