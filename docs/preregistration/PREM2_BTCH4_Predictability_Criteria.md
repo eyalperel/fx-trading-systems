@@ -247,3 +247,18 @@ and the likeliest alternative named, a trend flag at q >= 120, did not occur eit
    no trend flag, so the mapping gives no BTC H4 or D1 trend template build. Nothing selected or tuned.
 
 **Count:** premise test, no strategy / slot / C1 variant. Project-wide full-strategy variants: 2 (unchanged).
+
+## Record: decision N6 and cost gate (2026-11-28, after read 1)
+
+- **Decision N6 (user: as recommended): A + cost gate.** A: close the trend-timing line on the dev set (FINDINGS3, PROJECT_STATE,
+  merge). B (a short-horizon mean-reversion study) only if a cost gate passes.
+- (a) Binance spot fee schedule (https://www.binance.com/en/fee/trading, read 2026-11-28): Regular User 0.1000% maker / 0.1000%
+  taker; 0.0750% / 0.0750% paying in BNB; top VIP tiers 0.0200% / 0.0400%. Round trip (two fills) 0.15-0.20% for a regular user.
+- (b) In-sample gross mean of -sign(r_{t-1}) r_t (trade one bar against the previous 4h move), full series / last third
+  (2023-10 .. 2026-10): every bar +0.0234% (t 2.30, n 20,155) / +0.0159% (t 1.33); after |r_{t-1}| > 1 sd +0.068% (t 1.83) /
+  -0.018%; > 2 sd +0.224% (t 2.59) / -0.090%; > 3 sd +0.674% (t 3.98, n 396) / +0.354% (t 1.24, n 31). sd = 1.446%.
+- **Gate: FAIL.** The flagged effect (every bar) earns about 0.02% gross against 0.15-0.20% round-trip costs. **B closed.**
+- (c) The > 3 sd row exceeds costs on the full series, but it is a subgroup chosen after the read (4 thresholds looked at, on
+  this series only), rests mostly on 2017-2023, and is not significant in 2023-26 (n 31). Recorded as an untested hypothesis:
+  "reversal after > 3 sd 4h moves", testable only on data it was not found on. Not a result; nothing selected.
+- Count: 4 post-read threshold looks (information), no strategy variant. Project-wide full-strategy variants: 2.

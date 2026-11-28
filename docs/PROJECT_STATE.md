@@ -1,6 +1,6 @@
 # Project State — fx-trading-systems
 
-**As of:** 2026-11-27 (**Decision N5: PREM2, a PREM1-style premise test on BTC H4, first.** Data ready: Binance BTCUSDT 4h,
+**As of:** 2026-11-28 (**PREM2 read 1: BTC H4 has no trend memory at 2-360 bars** (8 h .. 60 days; bounds kappa trend side 0.20 L20 / 0.40 L120); only flag a one-bar reversal (VR(2) 0.956, z -3.23, fading by third) that fails a cost gate (+0.02% gross vs 0.15-0.20% fees); **trend-timing closed on the dev set** (`docs/research/FINDINGS3_PREM2_BTCH4.md`); next: Decision N7 (next research question); before that: 2026-11-27 **Decision N5: PREM2, a PREM1-style premise test on BTC H4, first.** Data ready: Binance BTCUSDT 4h,
 2017-08-17 .. 2026-10-31, 20,160 bars, checksums verified (`docs/research/Data_BTCUSDT_H4_Binance.md`); branch `prem2-btc-h4`;
 next: PREM2 pre-registration decisions (fresh chat); before that: **PREM1 read 1: no directional predictability at 2-60 days** on the 3 D1 FX dev pairs (variance ratios,
 random-sign null; bounds phi >= 0.05, kappa >= 0.30, trend side 0.20); write-up `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`;
@@ -139,6 +139,12 @@ Both strategies' C1 indicators are now verified (Fisher 2026-11-20, MESA Stochas
   2.41 (stochvol 1.52 vs 2.46): **no horizon flagged**; pooled VR - 1 negative at every q (-0.009 .. -0.074, none significant).
   Detection bounds (planted, 90%): AR(1) phi 0.05; 20-day momentum kappa 0.30 (trend side 0.20, VR(20) about 1.23). (c) No
   strong trend memory for a trend C1 to time; a weaker premium is not excluded. Summary: `docs/research/FINDINGS2_C1S3_DIAG1_PREM1.md`.
+- **PREM2 (2026-11-27/28): directional predictability at q = 2-360 H4 bars, Binance BTCUSDT 4h 2017-08..2026-10.** Single-series
+  variance ratios, random-sign null, two-sided max|z| over 9 horizons, flag needs the sign in >= 2 of 3 thirds: M 3.23 vs bar
+  2.59: **one flag, q = 2, reversal** (VR 0.956, rho_1 -0.044; thirds z -2.58 / -1.93 / -0.56, fading); no trend horizon
+  (VR 1.17 / 1.28 at q = 240 / 360, 85th / 90th pct). Bounds: phi 0.08; kappa L20 0.30 (trend side 0.20); L120 0.80 (trend
+  side 0.40; Amendment 1). Cost gate (decision N6): +0.023% gross per bar vs Binance spot 0.10% per fill: fail; mean reversion
+  (B) closed. (c) No trend premise on any of the 4 dev markets above the bounds. Summary: `docs/research/FINDINGS3_PREM2_BTCH4.md`.
 - **Ehlers' 2015 "pink noise"** measurement is brown noise (f⁻²).
 
 ---
@@ -452,7 +458,16 @@ file's first rows exactly.
    **Decision N5 (2026-11-27, user: as recommended):** PREM2 = PREM1's method on BTC H4 before any BTC template build; data
    source B-a (Binance BTCUSDT 4h; quote USDT, not USD (c)). `tools/fetch_binance_klines.sh` (CHECKSUM per month; MISSING and
    BADSUM / repair guards seen to fire); 111 months, 20,160 bars, 9 gaps before 2020-03 (17 bars, longest 32h 2018-02-08).
-   **Next (handoff for a fresh chat):** PREM2 pre-registration on branch `prem2-btc-h4`, one decision at a time, reusing
+   **PREM2, 2026-11-27/28** (branch `prem2-btc-h4`; criteria `docs/preregistration/PREM2_BTCH4_Predictability_Criteria.md`
+   `1fcbe7c`: G-a gaps kept, H-c q = 2..360 bars, S-2 thirds rule, P-3 AR(1) + momentum L20 / L120, U1-U9, outcome mapping O;
+   Amendment 1 L120 ladder +-0.8 / 1.0 / 1.2): `tools/prem2.py` + 20 tests (written outside the planning chat after the criteria
+   commit, reviewed before any run; K3 gap lengths added; tools 225); K3 PASS; runs `2265174`, `9253b78`; **read 1** `c0cda8d`
+   (§3); decision N6 (A + cost gate; gate fail, B closed); **FINDINGS3** (`docs/research/FINDINGS3_PREM2_BTCH4.md`).
+   **Next: Decision N7, the next research question** (planning chat, one decision at a time). Options in FINDINGS3: volatility
+   (the one property that persists on every dev market) or stopping price-timing research on this dev set. Untested idea kept:
+   reversal after > 3 sd 4h BTC moves (post-read subgroup, new data only). Not to be done: building a BTC trend template
+   (mapping O), tuning anything on PREM2 numbers.
+   **Done (was the handoff, 2026-11-27):** PREM2 pre-registration on branch `prem2-btc-h4`, one decision at a time, reusing
    `tools/prem1.py` (VR estimator, random-sign null, planted controls). Open points to decide: bar alignment and the treatment
    of returns across the 9 gaps; horizons in H4 bars (PREM1 used 2-60 days; H4 = 6 bars a day, 7 days a week); one series (no
    pooling) so S-a becomes a single-series max|z|; seeds; predictions; what a result leads to (BTC template build vs stop). **Earlier:** Decision N3, the next research question, one decision at a time. Open options (FINDINGS1): the five other C1
