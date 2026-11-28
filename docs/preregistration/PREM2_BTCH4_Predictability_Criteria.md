@@ -191,3 +191,59 @@ variants: 2 (unchanged); C1-only readings unchanged.
   (c) So PREM2 sees trend that raises 3-7-day variance by about 25-40% (L20 trend side), trend that raises 20-40-day variance by
   about 55-100% (L120 trend side), and long-horizon reversal only when it removes about 45-65% of the variance.
 - U5 after the extension: L120 bound 0.80, outside the predicted 0.40 / 0.60 (not met; recorded). Next: the read.
+
+## PREM2 read 1 (2026-11-28) — one horizon flagged: reversal at q = 2
+
+`python tools/prem2.py read data/crypto/binance_btcusdt_4h <R>/PREM2_null_signs.csv <R>/PREM2_null_stochvol.csv
+<R>/PREM2_pc.csv+<R>/PREM2_pc_ext.csv 28048eb9b0123dce,0c8247cfcf3774ce,56c55d0f1b15c62e,5e7f58ace12e75a5
+analysis/prem2/PREM2_report.md` (<R> = analysis/prem2/results; inputs committed 9253b78; all four sha prefixes verified).
+Report `analysis/prem2/PREM2_report.md`.
+
+**Random-sign null (decisive), (b):** bar 2.592; real **M = 3.228**; **flagged: q = 2 (VR < 1, reversal)**; episode-driven: none.
+
+| q | VR | null 5th / 50th / 95th | pct | z | third 1 | third 2 | third 3 |
+|---|---|---|---|---|---|---|---|
+| 2 | 0.9563 | 0.9775 / 1.0004 / 1.0228 | 0.0% | -3.23 | 0.9407 | 0.9653 | 0.9916 |
+| 5 | 0.9737 | 0.9493 / 1.0003 / 1.0570 | 21.3% | -0.82 | 0.9542 | 0.9964 | 0.9966 |
+| 10 | 0.9505 | 0.9249 / 1.0004 / 1.0885 | 14.9% | -1.04 | 0.9399 | 0.9720 | 0.9516 |
+| 20 | 0.9542 | 0.8956 / 0.9985 / 1.1188 | 24.8% | -0.70 | 0.9400 | 0.9784 | 0.9739 |
+| 40 | 0.9872 | 0.8674 / 0.9928 / 1.1624 | 46.8% | -0.15 | 0.9754 | 1.0259 | 0.9909 |
+| 60 | 1.0068 | 0.8430 / 0.9898 / 1.1908 | 56.7% | +0.07 | 0.9950 | 1.0583 | 1.0101 |
+| 120 | 1.0750 | 0.7967 / 0.9881 / 1.2566 | 73.2% | +0.53 | 1.0574 | 1.1671 | 1.0868 |
+| 240 | 1.1744 | 0.7205 / 0.9759 / 1.3224 | 84.9% | +0.95 | 1.1413 | 1.3543 | 1.2096 |
+| 360 | 1.2775 | 0.6779 / 0.9711 / 1.3879 | 90.3% | +1.27 | 1.2263 | 1.6184 | 1.2289 |
+
+Stochvol (information): bar 2.610, real M 3.111, flagged q = 2, episode none. Bounds as Amendment 1: phi_90 0.08; kappa_90
+L20 0.30 (trend side 0.20); L120 0.80 (trend side 0.40).
+
+**Information (computed after the read from the committed null's third rows; not part of the decisive test), (b):** q = 2 per
+third against that third's own null: third 1 (2017-08 .. 2020-09) VR 0.9407, z -2.58 (0.4th pct); third 2 (2020-09 .. 2023-10)
+0.9653, z -1.93 (2.5th pct); third 3 (2023-10 .. 2026-10) 0.9916, z -0.56 (28.7th pct). Lag-1 autocorrelation of the de-meaned
+returns rho_1 = -0.0438.
+
+**Correction to Amendment 1 (found at the read), (b):** the stationarity note covered only negative kappa. For the planted
+momentum process the coefficients sum to kappa, so **kappa >= +1 is a unit root / explosive** (median planted VR(360) 127 at
++1.00, 137 at +1.20). The +1.00 / +1.20 rows are therefore not meaningful as stationary memory. The bounds are unaffected:
+L120 = 0.80 is set by the - side (stationary), and the + side was already >= 90% from 0.40.
+
+**Predictions:** U1-U4 met; U5 not met (L120 bound 0.80); **U6 not met** (a flag, at q = 2, reversal: the 60% call was wrong,
+and the likeliest alternative named, a trend flag at q >= 120, did not occur either); **U7 met** (VR - 1 -0.044 / -0.026 /
+-0.050 at q = 2 / 5 / 10, inside +-0.05; positive at q = 120 / 240 / 360: +0.075 / +0.174 / +0.278, unflagged); **U8 not met**
+(at q >= 120 the largest |VR_k - 1| is third 2, 2020-23, not third 1); **U9 met** (stochvol also flags q = 2 only).
+
+**Reading.**
+1. Per the outcome mapping: recorded as "**reversal-type predictability at q = 2 H4 bars (8 h) on BTCUSDT: VR(2) = 0.956
+   (rho_1 about -0.044), z -3.23 vs bar 2.59; same sign in all three thirds**". No trend horizon flagged, above bounds kappa
+   0.20 (L20, trend side) and 0.40 (L120, trend side).
+2. (b) The effect shrinks across the thirds: z -2.58 / -1.93 / -0.56; in the last three years it is inside its own null's
+   5-95%. (c) It passes the pre-registered thirds rule (sign), but its size is mostly from 2017-2023; whether it still exists
+   now is not shown by this test.
+3. (c) Size: one-bar reversal of about 4.4% of the previous 4h move. With sd of a 4h return 1.45%, the expected next-bar move
+   is of order 0.04 x 1.45% = about 0.06% per bar before costs, against round-trip spot trading costs of the same order or
+   larger (fee level not checked here: to be taken from a source if it matters). Not evidence of a tradable edge.
+4. (b) Long horizons: VR rises to 1.17 / 1.28 at q = 240 / 360 (85th / 90th pct), not flagged; (c) a trend premium of that
+   size, if real, is below the L120 trend-side bound (about +56-98% variance) and cannot be told from noise here.
+5. Next (separate decision, per the mapping): whether a short-horizon mean-reversion study is in scope (outside NNFX rules);
+   no trend flag, so the mapping gives no BTC H4 or D1 trend template build. Nothing selected or tuned.
+
+**Count:** premise test, no strategy / slot / C1 variant. Project-wide full-strategy variants: 2 (unchanged).
