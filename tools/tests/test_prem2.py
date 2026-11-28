@@ -174,6 +174,12 @@ class Bounds(unittest.TestCase):
         self.assertEqual(P.bound(rates, "ar1"), 0.05)
         self.assertIsNone(P.bound({("mom20", 0.4): 0.5, ("mom20", -0.4): 0.95}, "mom20"))
 
+    def test_amendment1_extension(self):
+        self.assertEqual(P.LADDER_EXT, {"mom120": (0.80, 1.00, 1.20)})
+        rates = {("mom120", 0.6): 1.0, ("mom120", -0.6): 0.65, ("mom120", 0.8): 1.0, ("mom120", -0.8): 0.88,
+                 ("mom120", 1.0): 1.0, ("mom120", -1.0): 0.93}
+        self.assertEqual(P.bound(rates, "mom120"), 1.0)                 # base + extension levels read together
+
 
 if __name__ == "__main__":
     unittest.main()

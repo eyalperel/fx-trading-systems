@@ -35,7 +35,7 @@ SEED_PC_EXT = 20261204
 LADDER = {"ar1": (0.02, 0.03, 0.05, 0.08),
           "mom20": (0.05, 0.10, 0.20, 0.30, 0.40),
           "mom120": (0.10, 0.20, 0.30, 0.40, 0.60)}
-LADDER_EXT = {}                                             # filled only by a dated amendment, before the read
+LADDER_EXT = {"mom120": (0.80, 1.00, 1.20)}                # Amendment 1 (2026-11-27): L = 120 missed 90% on the - side
 MOM_L = {"mom20": 20, "mom120": 120}
 BAR_S = 4 * 3600
 

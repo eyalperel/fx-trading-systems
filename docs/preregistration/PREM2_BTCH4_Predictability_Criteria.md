@@ -147,3 +147,38 @@ variants: 2 (unchanged); C1-only readings unchanged.
   only; the read write-up covers both from the printed thirds columns.
 - Estimator, surrogates and planting are `tools/prem1.py`'s, unchanged. Tests: PREM2 19 / 19; all tools tests 224 / 224 OK (VM
   shell, python 3.10). Nothing run on real or surrogate BTC data before this commit.
+
+## Record: K3, null, stochvol and positive-control runs (2026-11-27, before any real VR)
+
+- Build committed 7f918f7. VM shell, python 3.10, numpy only.
+- **K3 PASS:** 111 files, 20,160 bars, 2017-08-17 04:00 .. 2026-10-31 20:00 UTC, units (ms, us) 16,146 / 4,014; 9 gaps at the
+  recorded times and lengths, 17 missing bars; 20,159 returns; thirds 6,719 / 6,720 / 6,720 starting (bar open of the first
+  return's close bar) 2017-08-17 08:00, 2020-09-13 00:00, 2023-10-08 00:00.
+- Random-sign null `analysis/prem2/results/PREM2_null_signs.csv` (1,000 draws x 4 rows: full + thirds), sha256
+  **28048eb9b0123dcebf2e7202cf2466ea82445c206b9a65b8e8e5fca293079d02**.
+- Stochvol null `PREM2_null_stochvol.csv`, sha256 **0c8247cfcf3774ce67a639c44e5244bd9e92f451425d66dceae5884a07de5442**.
+  Calibration (information): H_vol 0.845, s 1.6 (the module's grid edge, as EUR/USD in PREM1: (c) clustering may be
+  under-matched).
+- Positive control `PREM2_pc.csv` (28 signed levels x 200), sha256
+  **56c55d0f1b15c62e89f148d778bcb06096fdf28b8f42db9d267b96e2cdcc9bc4**.
+- (b) Null statistics: bar **2.592** (stochvol 2.610); null sd of VR(q) - 1 at q = 2 .. 360: 0.0136, 0.0321, 0.0490, 0.0667,
+  0.0902, 0.1061, 0.1417, 0.1876, 0.2233 (1.94x iid at q = 2 falling to 1.45x at q = 360); null mean VR - 1 within +-0.007.
+  Stochvol sd equal at q = 2 (0.0139), 12-20% narrower from q = 5 (0.178 at q = 360).
+- (b) Detection rates (+ / -): AR(1) phi 0.02 .165 / .165, 0.03 .400 / .355, 0.05 .865 / .865, 0.08 1.00 / 1.00;
+  mom L20 kappa 0.05 .140 / .025, 0.10 .345 / .105, 0.20 .900 / .620, 0.30 1.00 / .935, 0.40 1.00 / 1.00;
+  mom L120 kappa 0.10 .115 / .015, 0.20 .410 / .035, 0.30 .705 / .105, 0.40 .940 / .255, 0.60 1.00 / .645.
+  Thirds rule: 1 of 5,600 planted draws had an episode-only row and no flag.
+- **Predictions so far:** U1 met (K1 tests). U2 met (sd 0.0136 in [0.010, 0.020]; bar 2.592 in [2.3, 2.8]). U3 met (phi_90
+  0.08). U4 met (kappa_90 L20 0.30; trend side 0.20). **U5 not met:** L120 ladder misses 90% on the - side (.645 at 0.60);
+  trend side 0.40. (c) As in PREM1: negative momentum lowers long-horizon variance, VR is bounded by 0 and the null is widest
+  there (kappa -0.60: median VR(240) - 1 = -0.34 vs null sd 0.19).
+
+### Amendment 1 (2026-11-27, after the positive control, before any real VR): L = 120 ladder extended
+
+- As the criteria require when a ladder misses the 90% crossing: **user decision L-a**: add kappa = +-0.80, +-1.00, +-1.20 for
+  momentum L = 120, 200 draws each, extension seed 20261204 (`prem2.py pc-ext`, `LADDER_EXT`), file `PREM2_pc_ext.csv`. The
+  bound rule (smallest |level| with both signs >= 90%) is unchanged. (c) The planted equal-weight process stays stationary
+  for |kappa| below about 4.6, so 1.20 is safe. Rejected: L-b (trend side as the rule for L = 120: a rule change after seeing
+  the control); L-c (report no bound).
+- Code: `LADDER_EXT` set; test `test_amendment1_extension` (base + extension levels read together). Tests: PREM2 20 / 20; all
+  tools tests 225 / 225 OK.
